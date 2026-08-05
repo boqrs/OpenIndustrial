@@ -13,5 +13,6 @@ type GatewayConfig struct {
 	ID   string
 	Name string
 
-	Drivers []driver.Config
+	Drivers    []driver.Config
+	Publishers []PublisherConfig
 }

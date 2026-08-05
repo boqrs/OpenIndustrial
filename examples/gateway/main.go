@@ -9,6 +9,7 @@ import (
 
 	"github.com/OpenGongChang/OpenIndustrial/drivers/simulator"
 	"github.com/OpenGongChang/OpenIndustrial/gateway"
+	_ "github.com/OpenGongChang/OpenIndustrial/gateway/publishers/mqtt" // Anonymous import to run init()
 	"github.com/OpenGongChang/OpenIndustrial/runtime/driver"
 )
 
@@ -60,14 +61,28 @@ func main() {
 				},
 			},
 		},
+		Publishers: []gateway.PublisherConfig{
+			{
+				ID:   "mqtt-publisher-1",
+				Type: "mqtt",
+				Settings: map[string]interface{}{
+					"broker":   "tcp://localhost:1883",
+					"clientId": "gateway-01", // Should be unique
+					"qos":      1,
+				},
+			},
+		},
 	}
 
 	// 2. Create a new gateway instance
-	gw := gateway.NewGateway(cfg)
+	gw, err := gateway.NewGateway(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create gateway: %v", err)
+	}
 
 	// 3. Register driver factories
 	// This is how the gateway knows how to create a driver of a specific type.
-	err := gw.Registry().Register(simulator.DriverType, func(c driver.Config) (driver.Driver, error) {
+	err = gw.Registry().Register(simulator.DriverType, func(c driver.Config) (driver.Driver, error) {
 		return simulator.NewDriver(c)
 	})
 	if err != nil {
@@ -75,25 +90,12 @@ func main() {
 	}
 
 	// 4. Start the gateway
-	// This will initialize and start all configured drivers.
+	// This will initialize and start all configured drivers and publishers.
 	if err := gw.Start(); err != nil {
 		log.Fatalf("Failed to start gateway: %v", err)
 	}
 
-	// 5. Set up a listener for data from the collector
-	// This simulates a component (like a publisher) that consumes the data.
-	go func() {
-		subscriber := gw.Collector().Subscribe()
-		log.Println("Data subscriber started. Waiting for events from the collector...")
-		for event := range subscriber {
-			log.Printf("[SUBSCRIBER] Received Event: DriverID=%s, DeviceID=%s, PointID=%s, Value=%.2f",
-				event.DriverID, event.DeviceID, event.PointID, event.Value)
-		}
-		log.Println("Data subscriber stopped.")
-	}()
-
-
-	// 6. Wait for shutdown signal
+	// 5. Wait for shutdown signal
 	// This keeps the main function alive and allows for graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -101,7 +103,7 @@ func main() {
 
 	log.Println("Shutting down gateway...")
 
-	// 7. Stop the gateway
+	// 6. Stop the gateway
 	if err := gw.Stop(); err != nil {
 		log.Printf("Error during gateway shutdown: %v", err)
 	}
