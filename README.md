@@ -24,6 +24,17 @@ The Cloud is built on a modern, domain-driven design (DDD) architecture, making 
 3. Message Bus: The Communication Backbone
    Underpinning the entire platform is a message broker (like Mosquitto MQTT), which acts as the communication backbone. This component decouples the gateway from the cloud:
 
+4. Dashboard: The Management & Configuration UI
+   The Dashboard is a modern, user-friendly web application that serves as the command center for the entire OpenIndustrial platform. It provides a rich, visual interface for administrators and operators to manage, configure, and monitor all aspects of their industrial operations.
+
+Communicating exclusively with the Cloud's secure APIs, the Dashboard empowers users to:
+
+Manage Identity: Onboard new organizations, invite team members, and configure granular access control with roles and permissions.
+Model the Physical World: Define product blueprints, register gateways and devices, and track the entire lifecycle of assets.
+Design & Control Production: Visually configure factory layouts, design multi-step production workflows, and manage manufacturing work orders.
+Monitor in Real-Time: View the live status of gateways and devices, track key performance indicators (KPIs), and respond to alarms.
+Built on a modern frontend stack (e.g., React, Vue, or Svelte), the Dashboard turns the powerful backend capabilities of the platform into an intuitive and actionable experience.
+
 Decoupling: The Gateway and Cloud do not communicate directly. They only publish and subscribe to topics on the message bus. This allows them to be developed, deployed, and scaled independently.
 Reliability: Ensures that data from the edge is not lost, even with intermittent network connectivity.
 Bidirectional: Enables both data telemetry from the edge to the cloud and command-and-control messages from the cloud to the edge.
