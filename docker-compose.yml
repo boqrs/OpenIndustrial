@@ -1,18 +1,151 @@
-version: "3.7"
+version: "3.8"
+
+# This Docker Compose file sets up the complete backend infrastructure for OpenIndustrial.
+# It includes messaging, databases, caching, and necessary bridge services.
+# To run everything, simply execute: docker-compose up -d
+# To stop everything, execute: docker-compose down
+
+networks:
+  openindustrial-net:
+    driver: bridge
+
+volumes:
+  mosquitto-conf:
+  mosquitto-data:
+  mosquitto-log:
+  zookeeper-data:
+  kafka-data:
+  postgres-data:
+  influxdb-data:
+  redis-data:
 
 services:
+  # 1. MQTT Broker (Mosquitto) - The data ingestion entrypoint
   mqtt-broker:
     image: eclipse-mosquitto:2.0
     container_name: openindustrial-mqtt-broker
     ports:
-      - "1883:1883" # MQTT
-      - "9001:9001" # WebSocket
+      - "1883:1883" # MQTT port
+      - "9001:9001" # MQTT over WebSockets port
     volumes:
       - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    networks:
+      - openindustrial-net
     restart: unless-stopped
 
-volumes:
-  mosquitto_data:
-  mosquitto_log:
+  # 2. Zookeeper - Required for Kafka coordination
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: openindustrial-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    networks:
+      - openindustrial-net
+    restart: unless-stopped
+
+  # 3. Kafka - The central message bus
+  kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: openindustrial-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092" # For internal traffic from other containers
+      - "29092:29092" # For external traffic from the host machine (e.g., your Go app)
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CREATE_TOPICS: "iot-data-raw:1:1" # Automatically create our main topic
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - openindustrial-net
+    restart: unless-stopped
+
+  # 4. MQTT to Kafka Bridge - Moves data from MQTT to Kafka
+  mqtt-kafka-bridge:
+    image: km4ack/mqtt-kafka-bridge:latest
+    container_name: openindustrial-mqtt-kafka-bridge
+    depends_on:
+      - mqtt-broker
+      - kafka
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_TOPIC: openindustrial/data/upload/#
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: iot-data-raw
+      BRIDGE_CLIENT_ID: mqtt-kafka-bridge-01
+    networks:
+      - openindustrial-net
+    restart: unless-stopped
+
+  # 5. PostgreSQL - Relational database for metadata
+  postgres:
+    image: postgres:15
+    container_name: openindustrial-postgres
+    environment:
+      POSTGRES_USER: openindustrial
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: openindustrial_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - openindustrial-net
+    restart: unless-stopped
+
+  # 6. InfluxDB - Time-series database for measurement data
+  influxdb:
+    image: influxdb:2.7
+    container_name: openindustrial-influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=openindustrial
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password
+      - DOCKER_INFLUXDB_INIT_ORG=openindustrial_org
+      - DOCKER_INFLUXDB_INIT_BUCKET=openindustrial_bucket
+    networks:
+      - openindustrial-net
+    restart: unless-stopped
+
+  # 7. Redis - In-memory cache
+  redis:
+    image: redis:7-alpine
+    container_name: openindustrial-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - openindustrial-net
+    restart: unless-stopped
+
+  # 8. Kafka UI - Web interface for Kafka management
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: openindustrial-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - openindustrial-net
+    restart: unless-stopped

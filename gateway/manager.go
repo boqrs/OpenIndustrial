@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/OpenGongChang/OpenIndustrial/runtime/driver"
+	"github.com/OpenGongChang/OpenIndustrial/gateway/runtime/driver"
 )
 
 type DriverManager struct {

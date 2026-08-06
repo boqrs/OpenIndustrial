@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	"github.com/OpenGongChang/OpenIndustrial/runtime/driver"
+	"github.com/OpenGongChang/OpenIndustrial/gateway/runtime/driver"
 )
 
 /*

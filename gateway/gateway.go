@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/OpenGongChang/OpenIndustrial/runtime/driver"
+	"github.com/OpenGongChang/OpenIndustrial/gateway/runtime/driver"
 )
 
 // Gateway is the core of the industrial edge gateway.

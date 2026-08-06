@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenGongChang/OpenIndustrial/runtime/driver"
+	"github.com/OpenGongChang/OpenIndustrial/gateway/runtime/driver"
 )
 
 // Collector receives events from drivers

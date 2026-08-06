@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	runtimeDriver "github.com/OpenGongChang/OpenIndustrial/runtime/driver"
+	runtimeDriver "github.com/OpenGongChang/OpenIndustrial/gateway/runtime/driver"
 )
 
 // Factory creates driver instance.
