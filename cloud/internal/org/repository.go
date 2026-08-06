@@ -2,18 +2,21 @@ package org
 
 import "context"
 
-// Repository defines the interface for data access operations for an Org.
-// This interface is implemented by the persistence layer (e.g., a PostgreSQL implementation).
+// Repository defines the interface for interacting with organization persistence.
+// This abstraction allows the service layer to be independent of the database implementation.
 type Repository interface {
-	// Create saves a new organization to the data store.
-	Create(ctx context.Context, org *Org) error
+	// Create saves a new organization to the persistence layer.
+	Create(ctx context.Context, org *Organization) error
 
 	// FindByID retrieves an organization by its unique ID.
-	FindByID(ctx context.Context, id string) (*Org, error)
+	FindByID(ctx context.Context, id string) (*Organization, error)
 
-	// Update modifies an existing organization in the data store.
-	Update(ctx context.Context, org *Org) error
+	// Update modifies an existing organization.
+	Update(ctx context.Context, org *Organization) error
 
-	// Delete removes an organization from the data store.
+	// Delete removes an organization by its ID.
 	Delete(ctx context.Context, id string) error
+
+	// FindByParentID retrieves all organizations with a given parent ID.
+	FindByParentID(ctx context.Context, parentID string) ([]*Organization, error)
 }

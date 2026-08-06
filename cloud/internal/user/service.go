@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service encapsulates the business logic for the user domain.
+// Service provides business logic for user management.
 type Service struct {
 	repo Repository
 }
@@ -18,10 +18,20 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-// CreateUser handles the business logic of creating a new user.
-func (s *Service) CreateUser(ctx context.Context, orgID uuid.UUID, name, email, password string) (*User, error) {
-	// In a real app, you might check if the email is already taken.
-	user, err := NewUser(orgID, name, email, password)
+// RegisterNewUser handles the business logic of creating a new user.
+func (s *Service) RegisterNewUser(ctx context.Context, orgIDStr, username, password, email, phone string) (*User, error) {
+	orgID, err := uuid.Parse(orgIDStr)
+	if err != nil {
+		return nil, ErrUserOrgIDRequired // Or a more specific "invalid org id format" error
+	}
+
+	// Here you might want to check if a user with the same email or username already exists.
+	// existingUser, err := s.repo.FindByEmail(ctx, email)
+	// if err == nil && existingUser != nil {
+	// 	 return nil, ErrUserAlreadyExists
+	// }
+
+	user, err := NewUser(orgID, username, password, email, phone)
 	if err != nil {
 		return nil, err
 	}
@@ -33,19 +43,13 @@ func (s *Service) CreateUser(ctx context.Context, orgID uuid.UUID, name, email, 
 	return user, nil
 }
 
-// GetUserByID retrieves a user by their ID.
-func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	return s.repo.FindByID(ctx, id)
-}
-
-// AuthenticateUser verifies a user's credentials and returns the user if successful.
-func (s *Service) AuthenticateUser(ctx context.Context, email, password string) (*User, error) {
+// Authenticate verifies a user's credentials and returns the user if successful.
+func (s *Service) Authenticate(ctx context.Context, email, password string) (*User, error) {
 	user, err := s.repo.FindByEmail(ctx, email)
 	if err != nil {
-		if err == ErrUserNotFound {
-			return nil, ErrInvalidCredentials
-		}
-		return nil, err
+		// If the error is 'not found', return a generic invalid credentials error.
+		// This prevents attackers from enumerating existing user emails.
+		return nil, ErrInvalidCredentials
 	}
 
 	if !user.CheckPassword(password) {

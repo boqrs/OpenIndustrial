@@ -1,32 +1,34 @@
 package org
 
-import "time"
+import "github.com/google/uuid"
 
-// CreateOrgRequest defines the structure for a request to create a new organization.
-type CreateOrgRequest struct {
-	Name string `json:"name" binding:"required"`
+// CreateOrganizationRequest defines the structure for a request to create a new organization.
+type CreateOrganizationRequest struct {
+	Name     string  `json:"name" binding:"required"`
+	Type     OrgType `json:"type" binding:"required"`
+	ParentID string  `json:"parent_id,omitempty"`
 }
 
-// UpdateOrgRequest defines the structure for a request to update an organization.
-type UpdateOrgRequest struct {
-	Name string `json:"name" binding:"required"`
-}
-
-// OrgResponse defines the structure for a response containing organization details.
-// It might be a subset of the Org entity or include additional computed fields.
-type OrgResponse struct {
-	ID        string    `json:"id"`
+// OrganizationResponse defines the structure for a standard organization API response.
+type OrganizationResponse struct {
+	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Type      OrgType   `json:"type"`
+	ParentID  string    `json:"parent_id,omitempty"`
+	Status    OrgStatus `json:"status"`
+	CreatedAt string    `json:"created_at"`
+	UpdatedAt string    `json:"updated_at"`
 }
 
-// ToOrgResponse converts an Org entity to an OrgResponse DTO.
-func ToOrgResponse(org *Org) *OrgResponse {
-	return &OrgResponse{
-		ID:        org.ID.String(),
+// ToOrganizationResponse converts an Organization entity to an OrganizationResponse DTO.
+func ToOrganizationResponse(org *Organization) *OrganizationResponse {
+	return &OrganizationResponse{
+		ID:        org.ID,
 		Name:      org.Name,
-		CreatedAt: org.CreatedAt,
-		UpdatedAt: org.UpdatedAt,
+		Type:      org.Type,
+		ParentID:  org.ParentID,
+		Status:    org.Status,
+		CreatedAt: org.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: org.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }

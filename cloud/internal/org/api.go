@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// API provides the HTTP handlers for the organization domain.
+// API encapsulates all the handlers for the organization resource.
 type API struct {
 	service *Service
 }
@@ -18,92 +18,44 @@ func NewAPI(service *Service) *API {
 	}
 }
 
-// RegisterRoutes registers the organization API routes with a Gin router.
+// RegisterRoutes registers the organization API routes to the gin router.
 func (a *API) RegisterRoutes(router *gin.RouterGroup) {
 	orgRoutes := router.Group("/orgs")
 	{
-		orgRoutes.POST("", a.createOrg)
-		orgRoutes.GET("/:id", a.getOrg)
-		orgRoutes.PUT("/:id", a.updateOrg)
-		orgRoutes.DELETE("/:id", a.deleteOrg)
+		orgRoutes.POST("", a.CreateOrganization)
+		orgRoutes.GET("/:id", a.GetOrganization)
 	}
 }
 
-func (a *API) createOrg(c *gin.Context) {
-	var req CreateOrgRequest
+// CreateOrganization handles the HTTP request to create a new organization.
+func (a *API) CreateOrganization(c *gin.Context) {
+	var req CreateOrganizationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	org, err := a.service.CreateOrg(c.Request.Context(), req.Name)
+	org, err := a.service.CreateOrganization(c.Request.Context(), req.Name, req.Type, req.ParentID)
 	if err != nil {
-		// In a real app, you'd have a proper error handling middleware
-		// to map domain errors to HTTP status codes.
-		if err == ErrOrgNameRequired {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create organization"})
+		// In a real app, you'd map domain errors to HTTP status codes.
+		// For example, ErrNotFound -> 404, ErrInvalidArgument -> 400.
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, ToOrgResponse(org))
+	c.JSON(http.StatusCreated, ToOrganizationResponse(org))
 }
 
-func (a *API) getOrg(c *gin.Context) {
+// GetOrganization handles the HTTP request to retrieve an organization by its ID.
+func (a *API) GetOrganization(c *gin.Context) {
 	id := c.Param("id")
 
-	org, err := a.service.GetOrgByID(c.Request.Context(), id)
+	org, err := a.service.GetOrganization(c.Request.Context(), id)
 	if err != nil {
-		if err == ErrOrgNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get organization"})
+		// Map domain errors to HTTP status codes
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, ToOrgResponse(org))
-}
-
-func (a *API) updateOrg(c *gin.Context) {
-	id := c.Param("id")
-	var req UpdateOrgRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	org, err := a.service.UpdateOrg(c.Request.Context(), id, req.Name)
-	if err != nil {
-		if err == ErrOrgNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == ErrOrgNameRequired {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update organization"})
-		return
-	}
-
-	c.JSON(http.StatusOK, ToOrgResponse(org))
-}
-
-func (a *API) deleteOrg(c *gin.Context) {
-	id := c.Param("id")
-
-	err := a.service.DeleteOrg(c.Request.Context(), id)
-	if err != nil {
-		if err == ErrOrgNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete organization"})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, ToOrganizationResponse(org))
 }

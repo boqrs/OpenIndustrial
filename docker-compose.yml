@@ -90,12 +90,12 @@ services:
 
   # 5. PostgreSQL - Relational database for metadata
   postgres:
-    image: postgres:15
+    image: postgres:16
     container_name: openindustrial-postgres
     environment:
-      POSTGRES_USER: openindustrial
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: openindustrial_db
+      POSTGRES_USER: cloud
+      POSTGRES_PASSWORD: cloud
+      POSTGRES_DB: industrial
     ports:
       - "5432:5432"
     volumes:

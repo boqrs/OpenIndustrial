@@ -1,11 +1,9 @@
 package org
 
-import (
-	"context"
-	"time"
-)
+import "context"
 
-// Service encapsulates the business logic for the organization domain.
+// Service provides business logic for organization management.
+// It orchestrates the application's business rules and relies on the repository for data access.
 type Service struct {
 	repo Repository
 }
@@ -17,56 +15,28 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-// CreateOrg handles the business logic of creating a new organization.
-func (s *Service) CreateOrg(ctx context.Context, name string) (*Org, error) {
-	org, err := NewOrg(name)
+// CreateOrganization handles the business logic of creating a new organization.
+func (s *Service) CreateOrganization(ctx context.Context, name string, orgType OrgType, parentID string) (*Organization, error) {
+	// 1. Use the factory to create a new Organization entity
+	org, err := NewOrganization(name, orgType, parentID)
 	if err != nil {
 		return nil, err
 	}
 
+	// 2. (Optional) Perform additional business rule validations here.
+	// For example, check if an organization with the same name already exists.
+
+	// 3. Persist the new organization using the repository
 	if err := s.repo.Create(ctx, org); err != nil {
 		return nil, err
 	}
 
+	// 4. (Optional) Dispatch a domain event, e.g., "OrganizationCreated".
+
 	return org, nil
 }
 
-// GetOrgByID retrieves an organization by its ID.
-func (s *Service) GetOrgByID(ctx context.Context, id string) (*Org, error) {
-	// In a real application, you might add more logic here,
-	// like checking permissions, caching, etc.
+// GetOrganization retrieves an organization by its ID.
+func (s *Service) GetOrganization(ctx context.Context, id string) (*Organization, error) {
 	return s.repo.FindByID(ctx, id)
-}
-
-// UpdateOrg updates an organization's information.
-func (s *Service) UpdateOrg(ctx context.Context, id string, name string) (*Org, error) {
-	org, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	if name == "" {
-		return nil, ErrOrgNameRequired
-	}
-
-	org.Name = name
-	org.UpdatedAt = time.Now().UTC()
-
-	if err := s.repo.Update(ctx, org); err != nil {
-		return nil, err
-	}
-
-	return org, nil
-}
-
-// DeleteOrg removes an organization.
-func (s *Service) DeleteOrg(ctx context.Context, id string) error {
-	// You might want to check for existing users or resources in the org
-	// before allowing deletion. This is where that business logic would go.
-	_, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	return s.repo.Delete(ctx, id)
 }

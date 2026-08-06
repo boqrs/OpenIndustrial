@@ -15,7 +15,7 @@ type OrgCreatedEvent struct {
 }
 
 // NewOrgCreatedEvent creates a new OrgCreatedEvent.
-func NewOrgCreatedEvent(org *Org) *OrgCreatedEvent {
+func NewOrgCreatedEvent(org *Organization) *OrgCreatedEvent {
 	return &OrgCreatedEvent{
 		EventID:   uuid.New(),
 		OrgID:     org.ID,
