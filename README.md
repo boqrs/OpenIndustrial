@@ -1,45 +1,30 @@
-OpenIndustrial is an industrial platform that can be clearly divided into three core parts, which together form a cohesive whole:
+### OpenIndustrial
 
-1. The Edge: OpenIndustrial Gateway
+OpenIndustrial is an open-source industrial IoT platform engineered for scalability, flexibility, and resilience. It provides a comprehensive solution for collecting data from industrial devices, processing it in the cloud, and enabling powerful business applications.
 
-Role: Data collector, translator, and frontline sentry.
+The platform's architecture is cleanly divided into three core, decoupled components that work in concert:
 
-What we've completed:
+1. Gateway: The Edge Runtime
+   The gateway is a lightweight, high-performance application designed to run on edge hardware, close to the physical devices (PLCs, sensors, CNCs, etc.). Its sole responsibilities are:
 
-Core Framework: Gateway, Driver, Registry, Collector.
+Data Acquisition: Connects to a wide range of industrial devices using various protocols (Modbus, OPC-UA, EtherNet/IP, etc.) via a pluggable driver system.
+Protocol Translation: Normalizes disparate industrial protocols into a unified data model.
+Secure Communication: Publishes data reliably to the cloud message bus and receives commands from it.
+The Gateway is designed for high reliability and low resource consumption, ensuring robust operation in demanding industrial environments.
 
-Data Unification: Defined a standard Event format.
+2. Cloud: The Business Platform
+   The cloud is the central nervous system of the platform. It is a multi-tenant, service-oriented application responsible for all business logic and data processing. Key modules include:
 
-Driver Integration: Successfully integrated BACnet (real protocol) and Simulator (testing tool).
+Identity & Access Management: Manages organizations, users, roles, and permissions (org, user, role, auth).
+Digital Twin Core: Models the physical world with entities like product (blueprints), asset (unique instances/SNs), gateway (edge points), and device (equipment).
+MES & Operations: Orchestrates factory operations with modules like workorder.
+Data Processing & Analytics: Ingests data from the message bus, stores it, and prepares it for analytics and visualization.
+The Cloud is built on a modern, domain-driven design (DDD) architecture, making it highly extensible and easy to maintain.
 
-Status: The foundation is solid and ready to stream data to the cloud.
+3. Message Bus: The Communication Backbone
+   Underpinning the entire platform is a message broker (like Mosquitto MQTT), which acts as the communication backbone. This component decouples the gateway from the cloud:
 
-2. The Cloud: OpenIndustrial Cloud Platform
-
-Role: Data aggregation center, processing brain, and storage warehouse.
-
-Core components (to be built):
-
-Data Ingestion Service: A high-availability MQTT Broker as the entry point for all gateway data reports.
-
-Data Processing Service: Subscribes to MQTT data for real-time computation, rule engine evaluation, and alert generation.
-
-Data Storage Service: Stores processed data in a Time-Series Database (e.g., InfluxDB or TimescaleDB) for historical traceability and analysis.
-
-Device Management Service: Maintains the status (online/offline), configuration versions, and health of all gateways, enabling Digital Twin capabilities.
-
-API Service: Provides RESTful or GraphQL APIs for the management console to query data, control devices, and push configurations.
-
-3. The Application: OpenIndustrial Management Console
-
-Role: The unified management interface and data visualization window for the platform.
-
-Core features (to be built):
-
-Data Visualization: Real-time dashboards and charts displaying device data queried from the cloud.
-
-Gateway Management: View the list and status of all registered gateways and perform operations on them.
-
-Remote Configuration (Core Feature): Modify gateway configurations via the web interface (e.g., adding/removing a driver, modifying a data point). Upon saving, the cloud platform pushes the new configuration to the corresponding edge gateway through a command channel, and the gateway automatically applies the updates.
-
-Alert Center: View and manage system-generated alerts.
+Decoupling: The Gateway and Cloud do not communicate directly. They only publish and subscribe to topics on the message bus. This allows them to be developed, deployed, and scaled independently.
+Reliability: Ensures that data from the edge is not lost, even with intermittent network connectivity.
+Bidirectional: Enables both data telemetry from the edge to the cloud and command-and-control messages from the cloud to the edge.
+This robust, three-part architecture makes OpenIndustrial a powerful foundation for building sophisticated industrial applications, from real-time monitoring and asset tracking to predictive maintenance and full-scale Manufacturing Execution Systems (MES).
