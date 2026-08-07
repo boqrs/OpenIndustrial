@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -15,10 +17,9 @@ var (
 // Repository defines the persistence interface for device related entities.
 type Repository interface {
 	Create(ctx context.Context, device *Device) error
-	FindByID(ctx context.Context, orgID, deviceID string) (*Device, error)
-	ListByOrg(ctx context.Context, orgID string) ([]*Device, error)
-	ListByGateway(ctx context.Context, orgID, gatewayID string) ([]*Device, error)
-	SaveTelemetry(ctx context.Context, deviceID string, ts time.Time, points map[string]interface{}) error
+	FindByID(ctx context.Context, orgID, deviceID uuid.UUID) (*Device, error)
+	ListByOrg(ctx context.Context, orgID uuid.UUID) ([]*Device, error)
+	SaveTelemetry(ctx context.Context, deviceID uuid.UUID, ts time.Time, points map[string]interface{}) error
 }
 
 // memoryRepository is an in-memory implementation of the Repository interface.
@@ -40,22 +41,22 @@ func NewMemoryRepository() Repository {
 func (r *memoryRepository) Create(ctx context.Context, device *Device) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.devices[device.ID] = device
+	r.devices[device.ID.String()] = device
 	return nil
 }
 
 // FindByID retrieves a device by its ID.
-func (r *memoryRepository) FindByID(ctx context.Context, orgID, deviceID string) (*Device, error) {
+func (r *memoryRepository) FindByID(ctx context.Context, orgID, deviceID uuid.UUID) (*Device, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if dev, ok := r.devices[deviceID]; ok && dev.OrgID == orgID {
+	if dev, ok := r.devices[deviceID.String()]; ok && dev.OrgID == orgID {
 		return dev, nil
 	}
 	return nil, ErrDeviceNotFound
 }
 
 // ListByOrg lists all devices for a given organization.
-func (r *memoryRepository) ListByOrg(ctx context.Context, orgID string) ([]*Device, error) {
+func (r *memoryRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]*Device, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var results []*Device
@@ -67,21 +68,8 @@ func (r *memoryRepository) ListByOrg(ctx context.Context, orgID string) ([]*Devi
 	return results, nil
 }
 
-// ListByGateway lists all devices for a given gateway.
-func (r *memoryRepository) ListByGateway(ctx context.Context, orgID, gatewayID string) ([]*Device, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var results []*Device
-	for _, dev := range r.devices {
-		if dev.OrgID == orgID && dev.GatewayID == gatewayID {
-			results = append(results, dev)
-		}
-	}
-	return results, nil
-}
-
 // SaveTelemetry saves telemetry data for a device.
-func (r *memoryRepository) SaveTelemetry(ctx context.Context, deviceID string, ts time.Time, points map[string]interface{}) error {
+func (r *memoryRepository) SaveTelemetry(ctx context.Context, deviceID uuid.UUID, ts time.Time, points map[string]interface{}) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	dataPoint := map[string]interface{}{
@@ -90,6 +78,6 @@ func (r *memoryRepository) SaveTelemetry(ctx context.Context, deviceID string, t
 	for k, v := range points {
 		dataPoint[k] = v
 	}
-	r.telemetry[deviceID] = append(r.telemetry[deviceID], dataPoint)
+	r.telemetry[deviceID.String()] = append(r.telemetry[deviceID.String()], dataPoint)
 	return nil
 }

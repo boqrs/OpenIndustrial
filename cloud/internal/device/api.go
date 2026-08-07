@@ -4,96 +4,42 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
-// API provides the HTTP handlers for the device domain.
+// API provides device-related endpoints.
 type API struct {
-	service Service
+	service *Service
 }
 
 // NewAPI creates a new device API handler.
-func NewAPI(service Service) *API {
-	return &API{
-		service: service,
-	}
+func NewAPI(service *Service) *API {
+	return &API{service: service}
 }
 
-// RegisterRoutes registers the device API routes.
+// RegisterRoutes registers device routes.
 func (a *API) RegisterRoutes(router *gin.RouterGroup) {
 	deviceRoutes := router.Group("/devices")
 	{
-		deviceRoutes.POST("", a.createDevice)
-		deviceRoutes.GET("", a.listDevices)
-		deviceRoutes.GET("/:device_id", a.getDevice)
-	}
-
-	gatewayRoutes := router.Group("/gateways/:gateway_id")
-	{
-		gatewayRoutes.GET("/devices", a.listGatewayDevices)
+		deviceRoutes.POST("", a.registerDevice)
+		// Other routes can be added here later.
 	}
 }
 
-func (a *API) createDevice(c *gin.Context) {
-	orgID := c.Param("org_id")
-
+// registerDevice handles the creation of a new device.
+func (a *API) registerDevice(c *gin.Context) {
 	var req CreateDeviceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	orgID := uuid.New() // Placeholder
 
-	if req.GatewayID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "gateway_id is required"})
-		return
-	}
-
-	dev, err := a.service.CreateDevice(c.Request.Context(), orgID, req.GatewayID, req.Name, req.Model)
+	device, err := a.service.RegisterDevice(c.Request.Context(), orgID, req.Name)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create device"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register device"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, ToDeviceResponse(dev))
-}
-
-// listDevices lists all devices for an organization.
-func (a *API) listDevices(c *gin.Context) {
-	orgID := c.Param("org_id")
-
-	devices, err := a.service.ListDevicesByOrg(c.Request.Context(), orgID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list devices"})
-		return
-	}
-	c.JSON(http.StatusOK, ToDeviceListResponse(devices))
-}
-
-// listGatewayDevices lists all devices for a specific gateway.
-func (a *API) listGatewayDevices(c *gin.Context) {
-	orgID := c.Param("org_id")
-	gatewayID := c.Param("gateway_id")
-
-	devices, err := a.service.ListDevicesForGateway(c.Request.Context(), orgID, gatewayID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list devices for gateway"})
-		return
-	}
-	c.JSON(http.StatusOK, ToDeviceListResponse(devices))
-}
-
-func (a *API) getDevice(c *gin.Context) {
-	orgID := c.Param("org_id")
-	deviceID := c.Param("device_id")
-
-	dev, err := a.service.GetDeviceByID(c.Request.Context(), orgID, deviceID)
-	if err != nil {
-		if err == ErrDeviceNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get device"})
-		return
-	}
-
-	c.JSON(http.StatusOK, ToDeviceResponse(dev))
+	c.JSON(http.StatusCreated, ToDeviceResponse(device))
 }

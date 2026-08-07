@@ -27,7 +27,7 @@ func (a *API) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (a *API) listPermissions(c *gin.Context) {
-	permissions, err := a.service.ListAllPermissions(c.Request.Context())
+	permissions, err := a.service.ListAll(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list permissions"})
 		return

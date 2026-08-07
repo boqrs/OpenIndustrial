@@ -2,84 +2,53 @@ package product
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"log"
 	"time"
 
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/google/uuid"
 )
 
-const (
-	ProductionFinishedEventName = "production.finished"
-)
-
-// ProductionFinishedEvent is the event payload for when a product instance is finished.
-type ProductionFinishedEvent struct {
-	WorkOrderID       string
-	ProductInstanceID string
-	SN                string
-	StationID         string
-	Result            string
-	FinishedAt        time.Time
-}
-
-// ToDomainEvent converts the specific event to a generic event.Event for the bus.
-func (pfe ProductionFinishedEvent) ToDomainEvent() event.Event {
-	return event.Event{
-		Name: ProductionFinishedEventName,
-		Data: pfe,
-	}
-}
-
-// EventHandler handles events related to the product domain.
+// EventHandler handles incoming events related to products.
 type EventHandler struct {
-	service Service
+	service *Service
 }
 
-// NewEventHandler creates a new event handler for the product domain.
-func NewEventHandler(service Service) *EventHandler {
-	return &EventHandler{
-		service: service,
-	}
+// NewEventHandler creates a new event handler.
+func NewEventHandler(service *Service) *EventHandler {
+	return &EventHandler{service: service}
 }
 
-// Register handles the subscription of relevant events.
-func (h *EventHandler) Register(bus event.Bus) {
-	bus.Subscribe(ProductionFinishedEventName, h)
+// ProductEventMessage defines the structure of an incoming product event.
+type ProductEventMessage struct {
+	ProductInstanceID string                 `json:"product_instance_id"`
+	EventType         string                 `json:"event_type"`
+	Timestamp         int64                  `json:"timestamp"` // Unix nano
+	Location          string                 `json:"location"`
+	Properties        map[string]interface{} `json:"properties"`
 }
 
-// Handle is the method that satisfies the event.Handler interface.
-func (h *EventHandler) Handle(e event.Event) error {
-	switch e.Name {
-	case ProductionFinishedEventName:
-		return h.handleProductionFinished(e)
-	}
-	return nil
-}
-
-// handleProductionFinished processes the production finished event.
-func (h *EventHandler) handleProductionFinished(e event.Event) error {
-	payload, ok := e.Data.(ProductionFinishedEvent)
-	if !ok {
-		err := fmt.Errorf("invalid payload type for event %s", ProductionFinishedEventName)
-		fmt.Println(err)
+// HandleProductEvent processes a raw event message.
+func (h *EventHandler) HandleProductEvent(ctx context.Context, rawMessage []byte) error {
+	var msg ProductEventMessage
+	if err := json.Unmarshal(rawMessage, &msg); err != nil {
+		log.Printf("Failed to unmarshal product event: %v", err)
 		return err
 	}
 
-	lifecycle := LifecycleEvent{
-		ProductInstanceID: payload.ProductInstanceID,
-		Type:              "MANUFACTURED",
-		Timestamp:         payload.FinishedAt,
-		Metadata: map[string]interface{}{
-			"work_order_id": payload.WorkOrderID,
-			"station_id":    payload.StationID,
-			"sn":            payload.SN,
-			"result":        payload.Result,
-		},
-	}
-
-	if err := h.service.AppendLifecycle(context.Background(), lifecycle); err != nil {
-		fmt.Printf("Error appending lifecycle event: %v\n", err)
+	instanceID, err := uuid.Parse(msg.ProductInstanceID)
+	if err != nil {
+		log.Printf("Invalid ProductInstanceID in event message: %v", err)
 		return err
 	}
-	return nil
+
+	event := &LifecycleEvent{
+		ProductInstanceID: instanceID,
+		Type:              msg.EventType,
+		Timestamp:         time.Unix(0, msg.Timestamp),
+		Location:          msg.Location,
+		Properties:        msg.Properties,
+	}
+
+	return h.service.AddLifecycleEvent(ctx, event)
 }

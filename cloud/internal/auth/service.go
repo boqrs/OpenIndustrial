@@ -1,67 +1,61 @@
 package auth
 
 import (
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/identity"
 	"context"
-	"time"
+	"errors"
 
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/user"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// Claims represents the JWT claims.
-type Claims struct {
-	UserID uuid.UUID `json:"user_id"`
-	OrgID  uuid.UUID `json:"org_id"`
-	jwt.RegisteredClaims
-}
-
-// Service provides authentication functionalities.
+// Service provides authentication logic for different identity types.
 type Service struct {
-	userRepo   user.Repository
-	jwtSecret  []byte
-	tokenExpiry time.Duration
+	authRepo     Repository
+	identityRepo identity.Repository // Dependency on identity repository
+	tokenService TokenService
 }
 
-// NewService creates a new auth service.
-func NewService(userRepo user.Repository, jwtSecret string) *Service {
+// NewService creates a new authentication Service.
+func NewService(authRepo Repository, identityRepo identity.Repository, tokenService TokenService) *Service {
 	return &Service{
-		userRepo:   userRepo,
-		jwtSecret:  []byte(jwtSecret),
-		tokenExpiry: 24 * time.Hour, // Default to 24 hours
+		authRepo:     authRepo,
+		identityRepo: identityRepo,
+		tokenService: tokenService,
 	}
 }
 
-// Authenticate a user by email and password and return a JWT.
-func (s *Service) Authenticate(ctx context.Context, email, password string) (string, error) {
-	u, err := s.userRepo.FindByEmail(ctx, email)
+// LoginRequest represents a user's login request.
+type LoginRequest struct {
+	Username string
+	Password string
+	Client   string
+}
+
+// LoginResponse represents the response to a successful login.
+type LoginResponse struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresIn    int64
+}
+
+// Login authenticates a human user and returns access and refresh tokens.
+func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
+	// Note: This assumes GetUserByUsername exists in identity.Repository.
+	// We may need to add it later.
+	user, err := s.identityRepo.GetUser(ctx, "") // Placeholder for GetUserByUsername
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	if !u.CheckPassword(password) {
-		return "", ErrInvalidCredentials
-	}
-
-	// Create JWT claims
-	expirationTime := time.Now().Add(s.tokenExpiry)
-	claims := &Claims{
-		UserID: u.ID,
-		OrgID:  u.OrgID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	// Create token with claims
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Generate encoded token and return it
-	tokenString, err := token.SignedString(s.jwtSecret)
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
-		return "", err
+		return nil, errors.New("invalid credentials")
 	}
 
-	return tokenString, nil
+	// 1. Create a session.
+	// 2. Generate tokens.
+	// 3. Return tokens.
+
+	// Placeholder implementation
+	return nil, errors.New("not implemented")
 }

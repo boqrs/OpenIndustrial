@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // API encapsulates all the handlers for the user resource.
@@ -20,21 +21,35 @@ func NewAPI(service *Service) *API {
 
 // RegisterRoutes registers the user API routes to the gin router.
 func (a *API) RegisterRoutes(router *gin.RouterGroup) {
-	userRoutes := router.Group("/users")
+	users := router.Group("/users")
 	{
-		userRoutes.POST("", a.CreateUser)
+		users.POST("", a.create)
 	}
 }
 
 // CreateUser handles the HTTP request to create a new user.
-func (a *API) CreateUser(c *gin.Context) {
+func (a *API) create(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	user, err := a.service.RegisterNewUser(c.Request.Context(), req.OrgID, req.Username, req.Password, req.Email, req.Phone)
+	orgID, err := uuid.Parse(req.OrgID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID"})
+		return
+	}
+
+	user, err := a.service.CreateUser(
+		c.Request.Context(),
+		orgID,
+		req.Username,
+		req.Email,
+		req.Password,
+		req.FirstName,
+		req.LastName,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

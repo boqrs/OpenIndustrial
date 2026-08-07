@@ -1,39 +1,41 @@
 package user
 
-import "github.com/google/uuid"
+import (
+	"time"
+)
 
-// CreateUserRequest defines the structure for a request to create a new user.
+// CreateUserRequest defines the request for creating a user.
 type CreateUserRequest struct {
-	OrgID    string `json:"org_id" binding:"required"`
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	Email    string `json:"email" binding:"required"`
-	Phone    string `json:"phone,omitempty"`
+	OrgID     string `json:"org_id" binding:"required"`
+	Username  string `json:"username" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=8"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
-// UserResponse defines the structure for a standard user API response.
-// It safely exposes user data without the password hash.
+// UserResponse is the DTO for a user.
 type UserResponse struct {
-	ID        uuid.UUID  `json:"id"`
-	OrgID     uuid.UUID  `json:"org_id"`
-	Username  string     `json:"username"`
-	Email     string     `json:"email"`
-	Phone     string     `json:"phone,omitempty"`
-	Status    UserStatus `json:"status"`
-	CreatedAt string     `json:"created_at"`
-	UpdatedAt string     `json:"updated_at"`
+	ID        string    `json:"id"`
+	OrgID     string    `json:"org_id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-// ToUserResponse converts a User entity to a UserResponse DTO.
+// ToUserResponse converts a User entity to a DTO.
 func ToUserResponse(user *User) *UserResponse {
 	return &UserResponse{
-		ID:        user.ID,
-		OrgID:     user.OrgID,
+		ID:        user.ID.String(),
+		OrgID:     user.OrgID.String(),
 		Username:  user.Username,
 		Email:     user.Email,
-		Phone:     user.Phone,
-		Status:    user.Status,
-		CreatedAt: user.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: user.UpdatedAt.Format("2006-01-02 15:04:05"),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		IsActive:  user.IsActive,
+		CreatedAt: user.CreatedAt,
 	}
 }

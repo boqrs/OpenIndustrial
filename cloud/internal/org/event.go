@@ -1,25 +1,17 @@
 package org
 
-import (
-	"time"
+import "github.com/google/uuid"
 
-	"github.com/google/uuid"
-)
-
-// OrgCreatedEvent is published when a new organization is successfully created.
+// OrgCreatedEvent is published when a new organization is created.
 type OrgCreatedEvent struct {
-	EventID   uuid.UUID `json:"event_id"`
-	OrgID     uuid.UUID `json:"org_id"`
-	OrgName   string    `json:"org_name"`
-	Timestamp time.Time `json:"timestamp"`
+	ID   uuid.UUID
+	Name string
+	Type OrgType
 }
 
-// NewOrgCreatedEvent creates a new OrgCreatedEvent.
-func NewOrgCreatedEvent(org *Organization) *OrgCreatedEvent {
-	return &OrgCreatedEvent{
-		EventID:   uuid.New(),
-		OrgID:     org.ID,
-		OrgName:   org.Name,
-		Timestamp: time.Now().UTC(),
-	}
+// OrgStatusChangedEvent is published when an organization's status changes.
+type OrgStatusChangedEvent struct {
+	ID        uuid.UUID
+	OldStatus OrgStatus
+	NewStatus OrgStatus
 }

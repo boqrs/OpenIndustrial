@@ -3,54 +3,30 @@ package org
 import (
 	"time"
 
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/shared"
 	"github.com/google/uuid"
 )
 
-// OrgType defines the type of an organization.
-type OrgType string
-
-const (
-	OrgTypeFactory  OrgType = "factory"
-	OrgTypeCustomer OrgType = "customer"
-	OrgTypePartner  OrgType = "partner"
-	OrgTypePlatform OrgType = "platform"
-)
-
-// OrgStatus defines the status of an organization.
-type OrgStatus string
-
-const (
-	OrgStatusActive   OrgStatus = "active"
-	OrgStatusInactive OrgStatus = "inactive"
-)
-
-// Organization represents a single organization or tenant in the system.
-// It is the top-level container for all resources and can be structured hierarchically.
+// Organization represents a tenant or a partner in the system.
 type Organization struct {
-	shared.BaseEntity
-	Name     string    `json:"name"`
-	Type     OrgType   `json:"type"`
-	ParentID string    `json:"parent_id,omitempty"`
-	Status   OrgStatus `json:"status"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description,omitempty"`
+	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
+	Type        OrgType    `json:"type"`
+	Status      OrgStatus  `json:"status"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
-// NewOrganization creates a new Organization entity.
-func NewOrganization(name string, orgType OrgType, parentID string) (*Organization, error) {
-	if name == "" {
-		return nil, ErrOrgNameRequired
-	}
-
-	now := time.Now().UTC()
+// NewOrganization creates a new Organization.
+func NewOrganization(name, description string, orgType OrgType) *Organization {
 	return &Organization{
-		BaseEntity: shared.BaseEntity{
-			ID:        uuid.New(),
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
-		Name:     name,
-		Type:     orgType,
-		ParentID: parentID,
-		Status:   OrgStatusActive,
-	}, nil
+		ID:          uuid.New(),
+		Name:        name,
+		Description: description,
+		Type:        orgType,
+		Status:      OrgStatusActive, // Default status
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
 }

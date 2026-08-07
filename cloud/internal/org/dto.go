@@ -1,34 +1,38 @@
 package org
 
-import "github.com/google/uuid"
+import (
+	"time"
 
-// CreateOrganizationRequest defines the structure for a request to create a new organization.
-type CreateOrganizationRequest struct {
-	Name     string  `json:"name" binding:"required"`
-	Type     OrgType `json:"type" binding:"required"`
-	ParentID string  `json:"parent_id,omitempty"`
+	"github.com/google/uuid"
+)
+
+// CreateOrgRequest defines the request for creating an organization.
+type CreateOrgRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	Description string  `json:"description"`
+	Type        OrgType `json:"type" binding:"required"`
 }
 
-// OrganizationResponse defines the structure for a standard organization API response.
-type OrganizationResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Type      OrgType   `json:"type"`
-	ParentID  string    `json:"parent_id,omitempty"`
-	Status    OrgStatus `json:"status"`
-	CreatedAt string    `json:"created_at"`
-	UpdatedAt string    `json:"updated_at"`
+// OrgResponse is the DTO for an organization.
+type OrgResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Type        OrgType   `json:"type"`
+	Status      OrgStatus `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// ToOrganizationResponse converts an Organization entity to an OrganizationResponse DTO.
-func ToOrganizationResponse(org *Organization) *OrganizationResponse {
-	return &OrganizationResponse{
-		ID:        org.ID,
-		Name:      org.Name,
-		Type:      org.Type,
-		ParentID:  org.ParentID,
-		Status:    org.Status,
-		CreatedAt: org.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: org.UpdatedAt.Format("2006-01-02 15:04:05"),
+// ToOrgResponse converts an Organization entity to a DTO.
+func ToOrgResponse(org *Organization) *OrgResponse {
+	return &OrgResponse{
+		ID:          org.ID,
+		Name:        org.Name,
+		Description: org.Description,
+		Type:        org.Type,
+		Status:      org.Status,
+		CreatedAt:   org.CreatedAt,
+		UpdatedAt:   org.UpdatedAt,
 	}
 }

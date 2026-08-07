@@ -1,11 +1,15 @@
 package workorder
 
-import "time"
+import (
+	"time"
 
-// CreateWorkOrderRequest defines the request body for creating a new work order.
+	"github.com/google/uuid"
+)
+
+// CreateWorkOrderRequest defines the request body for creating a work order.
 type CreateWorkOrderRequest struct {
-	ProductID   string    `json:"product_id" binding:"required"`
-	Quantity    int       `json:"quantity" binding:"required,gt=0"`
+	ProductID   uuid.UUID `json:"product_id" binding:"required"`
+	Quantity    int       `json:"quantity" binding:"required"`
 	ScheduledAt time.Time `json:"scheduled_at" binding:"required"`
 }
 
@@ -23,12 +27,12 @@ type WorkOrderResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// ToWorkOrderResponse converts a WorkOrder entity to a WorkOrderResponse.
+// ToWorkOrderResponse converts a WorkOrder entity to a WorkOrderResponse DTO.
 func ToWorkOrderResponse(wo *WorkOrder) *WorkOrderResponse {
 	return &WorkOrderResponse{
-		ID:          wo.ID,
-		OrgID:       wo.OrgID,
-		ProductID:   wo.ProductID,
+		ID:          wo.ID.String(),
+		OrgID:       wo.OrgID.String(),
+		ProductID:   wo.ProductID.String(),
 		Quantity:    wo.Quantity,
 		Status:      wo.Status,
 		ScheduledAt: wo.ScheduledAt,
@@ -39,7 +43,7 @@ func ToWorkOrderResponse(wo *WorkOrder) *WorkOrderResponse {
 	}
 }
 
-// ToWorkOrderListResponse converts a slice of WorkOrder entities to a slice of WorkOrderResponse.
+// ToWorkOrderListResponse converts a slice of WorkOrder entities to a slice of WorkOrderResponse DTOs.
 func ToWorkOrderListResponse(wos []*WorkOrder) []*WorkOrderResponse {
 	res := make([]*WorkOrderResponse, len(wos))
 	for i, wo := range wos {

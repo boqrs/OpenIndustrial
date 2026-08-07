@@ -3,53 +3,38 @@ package device
 import (
 	"context"
 	"fmt"
+	"reflect"
 
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/pkg/event"
 )
 
-const (
-	DeviceTelemetryReceivedEventName = "device.telemetry.received"
-)
-
-// EventHandler handles device-related events.
+// EventHandler handles events related to the device domain.
 type EventHandler struct {
-	service Service
+	// Dependencies like a repository or service can be added here.
 }
 
-// NewEventHandler creates a new device event handler.
-func NewEventHandler(service Service) *EventHandler {
-	return &EventHandler{
-		service: service,
-	}
+// NewEventHandler creates a new event handler for the device domain.
+func NewEventHandler() *EventHandler {
+	return &EventHandler{}
 }
 
-// Register subscribes to relevant device events.
-func (h *EventHandler) Register(bus event.Bus) {
-	bus.Subscribe(DeviceTelemetryReceivedEventName, h)
+// RegisterSubscriptions registers all event handlers for this domain on the event bus.
+func (h *EventHandler) RegisterSubscriptions(bus event.Bus) {
+	// The event type string is derived from the event struct type.
+	bus.Subscribe(reflect.TypeOf(&DeviceRegisteredEvent{}).String(), h.handleDeviceRegistered)
+	bus.Subscribe(reflect.TypeOf(&DeviceTelemetryReceivedEvent{}).String(), h.handleDeviceTelemetry)
 }
 
-// Handle processes incoming events.
-func (h *EventHandler) Handle(e event.Event) error {
-	switch e.Name {
-	case DeviceTelemetryReceivedEventName:
-		return h.handleDeviceTelemetry(e)
-	}
+// handleDeviceRegistered is the specific handler for when a device is registered.
+func (h *EventHandler) handleDeviceRegistered(ctx context.Context, evt *DeviceRegisteredEvent) error {
+	fmt.Printf("Handling DeviceRegisteredEvent: DeviceID=%s, Name=%s\n", evt.DeviceID, evt.Name)
+	// Here you could, for example, provision the device in a cloud IoT service.
 	return nil
 }
 
-func (h *EventHandler) handleDeviceTelemetry(e event.Event) error {
-	payload, ok := e.Data.(DeviceTelemetryReceivedEvent)
-	if !ok {
-		err := fmt.Errorf("invalid payload type for event %s", DeviceTelemetryReceivedEventName)
-		fmt.Println(err)
-		return err
-	}
-
-	err := h.service.RecordTelemetry(context.Background(), payload.DeviceID, payload.Timestamp, payload.Points)
-	if err != nil {
-		fmt.Printf("Error recording telemetry: %v\n", err)
-		return err
-	}
-
+// handleDeviceTelemetry is the specific handler for when telemetry is received.
+func (h *EventHandler) handleDeviceTelemetry(ctx context.Context, evt *DeviceTelemetryReceivedEvent) error {
+	fmt.Printf("Handling DeviceTelemetryReceivedEvent: DeviceID=%s, Payload=%v\n", evt.DeviceID, evt.Payload)
+	// Here you could, for example, save the telemetry data to a time-series database.
 	return nil
 }

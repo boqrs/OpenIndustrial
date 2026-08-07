@@ -6,11 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Repository defines the interface for data access operations for a Gateway.
+// Repository defines the interface for gateway storage.
 type Repository interface {
-	Create(ctx context.Context, gw *Gateway) error
-	FindByID(ctx context.Context, orgID, gatewayID uuid.UUID) (*Gateway, error)
-	ListByOrg(ctx context.Context, orgID uuid.UUID) ([]*Gateway, error)
+	Create(ctx context.Context, gw *Gateway) (*Gateway, error)
+	Get(ctx context.Context, id uuid.UUID) (*Gateway, error)
+	List(ctx context.Context) ([]*Gateway, error)
 	Update(ctx context.Context, gw *Gateway) error
-	Delete(ctx context.Context, orgID, gatewayID uuid.UUID) error
 }

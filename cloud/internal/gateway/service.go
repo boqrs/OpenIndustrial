@@ -7,61 +7,48 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service encapsulates the business logic for the gateway domain.
+// Service provides business logic for managing gateways.
 type Service struct {
 	repo Repository
 }
 
 // NewService creates a new gateway service.
 func NewService(repo Repository) *Service {
-	return &Service{
-		repo: repo,
-	}
+	return &Service{repo: repo}
 }
 
-// RegisterGateway handles the logic for a gateway registering itself with the cloud.
-// It can be an idempotent operation.
-func (s *Service) RegisterGateway(ctx context.Context, orgID uuid.UUID, gatewayID uuid.UUID, name string) (*Gateway, error) {
-	gw, err := s.repo.FindByID(ctx, orgID, gatewayID)
-	if err != nil {
-		if err == ErrGatewayNotFound {
-			// Gateway not found, create a new one
-			newGw, createErr := NewGateway(orgID, name)
-			if createErr != nil {
-				return nil, createErr
-			}
-			newGw.ID = gatewayID // Use the ID provided by the gateway
-			newGw.Status = "Online"
-			
-			if createErr := s.repo.Create(ctx, newGw); createErr != nil {
-				return nil, createErr
-			}
-			return newGw, nil
-		}
-		return nil, err
-	}
-
-	// Gateway found, update its status and name if changed
-	gw.Status = "Online"
-	gw.LastSeenAt = time.Now().UTC()
-	if name != "" && gw.Name != name {
-		gw.Name = name
-	}
-	
-	if err := s.repo.Update(ctx, gw); err != nil {
-		return nil, err
-	}
-	return gw, nil
+// RegisterGateway creates a new gateway from a registration request.
+// It assigns a name and saves the new gateway.
+func (s *Service) RegisterGateway(ctx context.Context, model string) (*Gateway, error) {
+	// For example, generate a default name or use a different logic
+	name := "Gateway " + uuid.New().String()[:8]
+	gw := NewGateway(name, "", model, "") // resourceID can be assigned later
+	return s.repo.Create(ctx, gw)
 }
 
-// HandleHeartbeat updates the gateway's last seen time to mark it as online.
-func (s *Service) HandleHeartbeat(ctx context.Context, orgID, gatewayID uuid.UUID) error {
-	gw, err := s.repo.FindByID(ctx, orgID, gatewayID)
+// ListGateways retrieves all gateways.
+func (s *Service) ListGateways(ctx context.Context) ([]*Gateway, error) {
+	return s.repo.List(ctx)
+}
+
+// GetGateway retrieves a gateway by its ID.
+func (s *Service) GetGateway(ctx context.Context, id uuid.UUID) (*Gateway, error) {
+	return s.repo.Get(ctx, id)
+}
+
+// Heartbeat updates the gateway's last seen timestamp.
+func (s *Service) Heartbeat(ctx context.Context, id uuid.UUID) error {
+	gw, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return err
 	}
 
 	gw.Status = "Online"
-	gw.LastSeenAt = time.Now().UTC()
+	gw.LastHeartbeat = time.Now().UTC()
+	return s.repo.Update(ctx, gw)
+}
+
+// UpdateGateway updates an existing gateway.
+func (s *Service) UpdateGateway(ctx context.Context, gw *Gateway) error {
 	return s.repo.Update(ctx, gw)
 }

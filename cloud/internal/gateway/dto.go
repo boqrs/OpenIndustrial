@@ -2,41 +2,59 @@ package gateway
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
-// RegisterRequest defines the structure for a gateway registration request.
-type RegisterRequest struct {
-	ID   string `json:"id" binding:"required"`
-	Name string `json:"name" binding:"required"`
+// CreateGatewayRequest defines the request body for creating a new gateway.
+type CreateGatewayRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Model       string `json:"model"`
+	// The ID of the resource this gateway is associated with, e.g., a factory or a building.
+	ResourceID string `json:"resource_id"`
 }
 
-// GatewayResponse defines the structure for a response containing gateway details.
+// RegisterRequest is used for the initial registration of a gateway.
+// It might contain authentication details like a pre-shared key.
+type RegisterRequest struct {
+	Model string `json:"model"`
+	// ... other registration fields
+}
+
+// GatewayResponse defines the standard gateway representation for API responses.
 type GatewayResponse struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	OrgID      string    `json:"org_id"`
-	Status     string    `json:"status"`
-	LastSeenAt time.Time `json:"last_seen_at"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description,omitempty"`
+	Model         string    `json:"model"`
+	Status        string    `json:"status"`
+	ResourceID    string    `json:"resource_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	LastHeartbeat time.Time `json:"last_heartbeat,omitempty"`
 }
 
 // ToGatewayResponse converts a Gateway entity to a GatewayResponse DTO.
 func ToGatewayResponse(gw *Gateway) *GatewayResponse {
 	return &GatewayResponse{
-		ID:         gw.ID.String(),
-		Name:       gw.Name,
-		OrgID:      gw.OrgID.String(),
-		Status:     gw.Status,
-		LastSeenAt: gw.LastSeenAt,
-		CreatedAt:  gw.CreatedAt,
+		ID:            gw.ID,
+		Name:          gw.Name,
+		Description:   gw.Description,
+		Model:         gw.Model,
+		Status:        gw.Status,
+		ResourceID:    gw.ResourceID,
+		CreatedAt:     gw.CreatedAt,
+		UpdatedAt:     gw.UpdatedAt,
+		LastHeartbeat: gw.LastHeartbeat,
 	}
 }
 
 // ToGatewayListResponse converts a slice of Gateway entities to a slice of GatewayResponse DTOs.
 func ToGatewayListResponse(gws []*Gateway) []*GatewayResponse {
-	res := make([]*GatewayResponse, len(gws))
+	responses := make([]*GatewayResponse, len(gws))
 	for i, gw := range gws {
-		res[i] = ToGatewayResponse(gw)
+		responses[i] = ToGatewayResponse(gw)
 	}
-	return res
+	return responses
 }

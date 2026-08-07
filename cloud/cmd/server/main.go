@@ -11,7 +11,7 @@ import (
 
 	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/bootstrap"
 	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/device"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/pkg/event"
 	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/product"
 	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/workorder"
 	"github.com/gin-gonic/gin"

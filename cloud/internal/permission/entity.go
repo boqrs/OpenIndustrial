@@ -6,25 +6,20 @@ import (
 	"github.com/google/uuid"
 )
 
-// Permission represents a single, granular action that can be permitted or denied.
-// e.g., "users.create", "devices.read", "workorders.start"
+// Permission represents a single, named permission.
+// e.g., "products:read", "users:write"
 type Permission struct {
 	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"` // The permission string itself
-	Description string    `json:"description"`
+	Name        string    `json:"name"` // The unique name of the permission
+	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// NewPermission creates a new Permission entity.
-// In a real system, these might be seeded from a static list rather than created via API.
-func NewPermission(name, description string) (*Permission, error) {
-	if name == "" {
-		return nil, ErrPermissionNameRequired
-	}
-	return &Permission{
-		ID:          uuid.New(),
-		Name:        name,
-		Description: description,
-		CreatedAt:   time.Now().UTC(),
-	}, nil
+// Policy represents a rule for the authorization engine (e.g., Casbin).
+// It's a tuple of (Subject, Object, Action).
+// Example: (role:admin, /api/v1/products, POST)
+type Policy struct {
+	Subject string // e.g., a role ID or user ID
+	Object  string // e.g., a resource path or object ID
+	Action  string // e.g., "read", "write", "POST"
 }

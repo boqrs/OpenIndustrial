@@ -1,42 +1,42 @@
 package org
 
-import "context"
+import (
+	"context"
+	"errors"
 
-// Service provides business logic for organization management.
-// It orchestrates the application's business rules and relies on the repository for data access.
+	"github.com/google/uuid"
+)
+
+var (
+	ErrInvalidOrgType = errors.New("invalid organization type")
+)
+
+// Service provides organization-related business logic.
 type Service struct {
 	repo Repository
+	// eventBus publisher
 }
 
 // NewService creates a new organization service.
 func NewService(repo Repository) *Service {
-	return &Service{
-		repo: repo,
-	}
+	return &Service{repo: repo}
 }
 
-// CreateOrganization handles the business logic of creating a new organization.
-func (s *Service) CreateOrganization(ctx context.Context, name string, orgType OrgType, parentID string) (*Organization, error) {
-	// 1. Use the factory to create a new Organization entity
-	org, err := NewOrganization(name, orgType, parentID)
-	if err != nil {
-		return nil, err
+// CreateOrganization creates a new organization.
+func (s *Service) CreateOrganization(ctx context.Context, name, description string, orgType OrgType) (*Organization, error) {
+	if !orgType.Valid() {
+		return nil, ErrInvalidOrgType
 	}
+	org := NewOrganization(name, description, orgType)
 
-	// 2. (Optional) Perform additional business rule validations here.
-	// For example, check if an organization with the same name already exists.
-
-	// 3. Persist the new organization using the repository
 	if err := s.repo.Create(ctx, org); err != nil {
 		return nil, err
 	}
-
-	// 4. (Optional) Dispatch a domain event, e.g., "OrganizationCreated".
-
+	// TODO: publish event
 	return org, nil
 }
 
 // GetOrganization retrieves an organization by its ID.
-func (s *Service) GetOrganization(ctx context.Context, id string) (*Organization, error) {
-	return s.repo.FindByID(ctx, id)
+func (s *Service) GetOrganization(ctx context.Context, id uuid.UUID) (*Organization, error) {
+	return s.repo.Get(ctx, id)
 }

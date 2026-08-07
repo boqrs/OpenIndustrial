@@ -2,12 +2,12 @@ package product
 
 import "time"
 
-// ProductDeviceBinding creates a link between a specific product instance (by SN)
-// and a device that is part of it or monitors it.
-type ProductDeviceBinding struct {
-	ID                string     `json:"id"`
-	ProductInstanceID string     `json:"productInstanceId"`
-	DeviceID          string     `json:"deviceId"`
-	StartTime         time.Time  `json:"startTime"`
-	EndTime           *time.Time `json:"endTime,omitempty"`
+// DeviceBinding links a physical device to a product instance (SN).
+// This is crucial for customer-facing IoT features.
+type DeviceBinding struct {
+	ID                string
+	DeviceID          string    // The ID of the physical device (e.g., a mainboard)
+	ProductInstanceID string    // The product SN this device is part of
+	StartAt           time.Time
+	EndAt             *time.Time
 }

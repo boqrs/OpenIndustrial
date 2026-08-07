@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/device"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/pkg/event"
+	"github.com/google/uuid"
 )
 
 // Service defines the business logic for handling IoT messages.
@@ -26,40 +28,28 @@ func NewService(bus event.Bus) Service {
 
 // HandleMessage converts an IoT message into a domain event and publishes it.
 func (s *service) HandleMessage(ctx context.Context, msg Message) error {
-	eventName, err := mapMessageTypeToEventName(msg.Type)
+	// For now, we only handle telemetry data.
+	// In the future, we can handle other message types here.
+	if msg.Type != MessagePointChanged {
+		return fmt.Errorf("unhandled message type: %s", msg.Type)
+	}
+
+	deviceID, err := uuid.Parse(msg.DeviceID)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid device id: %w", err)
 	}
 
-	e := event.Event{
-		Name:        eventName,
-		Aggregate:   "Device", // All IoT events are aggregated by Device for now
-		AggregateID: msg.DeviceID,
-		Source:      "gateway",
-		Data:        msg,
-		CreatedAt:   time.Now().UTC(),
+	payload := map[string]interface{}{
+		"pointId": msg.PointID,
+		"value":   msg.Value,
+		"quality": msg.Quality,
 	}
 
-	// For gateway-level events, the AggregateID should be the GatewayID.
-	if msg.Type == MessageGatewayOnline || msg.Type == MessageGatewayOffline {
-		e.Aggregate = "Gateway"
-		e.AggregateID = msg.GatewayID
+	evt := &device.DeviceTelemetryReceivedEvent{
+		DeviceID:  deviceID,
+		Payload:   payload,
+		Timestamp: time.Now().UTC(),
 	}
 
-	return s.eventBus.Publish(e)
-}
-
-func mapMessageTypeToEventName(msgType string) (string, error) {
-	switch msgType {
-	case MessageGatewayOnline:
-		return "iot.gateway.online", nil
-	case MessageGatewayOffline:
-		return "iot.gateway.offline", nil
-	case MessagePointChanged:
-		return "iot.device.point.changed", nil
-	case MessageDeviceAlarm:
-		return "iot.device.alarm", nil
-	default:
-		return "", fmt.Errorf("unknown message type: %s", msgType)
-	}
+	return s.eventBus.Publish(ctx, evt)
 }

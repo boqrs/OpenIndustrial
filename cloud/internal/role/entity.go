@@ -3,37 +3,32 @@ package role
 import (
 	"time"
 
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/permission"
 	"github.com/google/uuid"
 )
 
-// Permission is a string that represents a specific action a user can perform.
-// e.g., "users:create", "devices:read", "billing:manage"
-type Permission string
-
-// Role represents a collection of permissions that can be assigned to users.
-// Roles are defined at the organization level.
+// Role represents a collection of permissions.
 type Role struct {
-	ID          uuid.UUID    `json:"id"`
-	OrgID       uuid.UUID    `json:"org_id"`
-	Name        string       `json:"name"`
-	Permissions []Permission `json:"permissions"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	ID          uuid.UUID `json:"id"`
+	OrgID       uuid.UUID `json:"org_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	// A role is a collection of permissions.
+	Permissions []*permission.Permission `json:"permissions"`
+	CreatedAt   time.Time                `json:"created_at"`
+	UpdatedAt   time.Time                `json:"updated_at"`
 }
 
-// NewRole creates a new Role entity.
-func NewRole(orgID uuid.UUID, name string, permissions []Permission) (*Role, error) {
-	if name == "" {
-		return nil, ErrRoleNameRequired
-	}
-
+// NewRole creates a new Role.
+func NewRole(orgID uuid.UUID, name, description string) *Role {
 	now := time.Now().UTC()
 	return &Role{
 		ID:          uuid.New(),
 		OrgID:       orgID,
 		Name:        name,
-		Permissions: permissions,
+		Description: description,
+		Permissions: make([]*permission.Permission, 0),
 		CreatedAt:   now,
 		UpdatedAt:   now,
-	}, nil
+	}
 }

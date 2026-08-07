@@ -7,34 +7,31 @@ import (
 	"github.com/google/uuid"
 )
 
-// API provides the HTTP handlers for the role domain.
+// API provides role-related handlers.
 type API struct {
 	service *Service
 }
 
-// NewAPI creates a new role API handler.
+// NewAPI creates a new role API.
 func NewAPI(service *Service) *API {
-	return &API{
-		service: service,
-	}
+	return &API{service: service}
 }
 
-// RegisterRoutes registers the role API routes with a Gin router.
-// Note: These routes are typically nested under an organization route, e.g., /orgs/:org_id/roles
+// RegisterRoutes registers the API routes for roles.
 func (a *API) RegisterRoutes(router *gin.RouterGroup) {
-	roleRoutes := router.Group("/roles")
+	// Assuming roles are nested under organizations
+	orgRoutes := router.Group("/orgs/:org_id")
 	{
-		roleRoutes.POST("", a.createRole)
-		roleRoutes.GET("", a.listRoles)
-		roleRoutes.GET("/:role_id", a.getRole)
+		orgRoutes.POST("/roles", a.create)
+		orgRoutes.GET("/roles", a.listForOrg)
 	}
+	router.GET("/roles/:id", a.getByID)
 }
 
-func (a *API) createRole(c *gin.Context) {
-	orgIDStr := c.Param("org_id") // Assuming org_id is a URL parameter from a parent router
-	orgID, err := uuid.Parse(orgIDStr)
+func (a *API) create(c *gin.Context) {
+	orgID, err := uuid.Parse(c.Param("org_id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID"})
 		return
 	}
 
@@ -44,54 +41,40 @@ func (a *API) createRole(c *gin.Context) {
 		return
 	}
 
-	role, err := a.service.CreateRole(c.Request.Context(), orgID, req.Name, req.Permissions)
+	role, err := a.service.CreateRole(c.Request.Context(), orgID, &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create role"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, ToRoleResponse(role))
 }
 
-func (a *API) listRoles(c *gin.Context) {
-	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
+func (a *API) listForOrg(c *gin.Context) {
+	orgID, err := uuid.Parse(c.Param("org_id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization ID"})
 		return
 	}
 
 	roles, err := a.service.ListRolesForOrg(c.Request.Context(), orgID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list roles"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, ToRoleListResponse(roles))
 }
 
-func (a *API) getRole(c *gin.Context) {
-	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
+func (a *API) getByID(c *gin.Context) {
+	roleID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role ID"})
 		return
 	}
 
-	roleIDStr := c.Param("role_id")
-	roleID, err := uuid.Parse(roleIDStr)
+	role, err := a.service.GetRoleByID(c.Request.Context(), roleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role id"})
-		return
-	}
-
-	role, err := a.service.GetRoleByID(c.Request.Context(), orgID, roleID)
-	if err != nil {
-		if err == ErrRoleNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get role"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Role not found"})
 		return
 	}
 

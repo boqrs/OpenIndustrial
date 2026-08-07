@@ -6,35 +6,57 @@ import (
 	"github.com/google/uuid"
 )
 
-// Product defines the core entity for a product model.
+// Product represents a type of product that the company manufactures.
 type Product struct {
-	ID          string            `json:"id"`
-	OrgID       string            `json:"org_id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Spec        map[string]string `json:"spec"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID          uuid.UUID `json:"id"`
+	OrgID       uuid.UUID `json:"org_id"`
+	Name        string    `json:"name"`
+	Code        string    `json:"code"` // A unique code for the product type
+	Spec        string    `json:"spec"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// NewProduct creates a new Product entity.
+func NewProduct(orgID uuid.UUID, name, code, spec, description string) *Product {
+	now := time.Now().UTC()
+	return &Product{
+		ID:          uuid.New(),
+		OrgID:       orgID,
+		Name:        name,
+		Code:        code,
+		Spec:        spec,
+		Description: description,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+}
+
+// ProductInstance represents a single, unique manufactured item of a Product type.
+type ProductInstance struct {
+	ID              uuid.UUID `json:"id"`
+	ProductID       uuid.UUID `json:"product_id"`
+	OrgID           uuid.UUID `json:"org_id"`
+	SerialNumber    string    `json:"serial_number"` // The unique serial number for this instance
+	ManufacturedAt  time.Time `json:"manufactured_at"`
+	LifecycleEvents []*LifecycleEvent `json:"lifecycle_events"`
 }
 
 // LifecycleEvent represents a significant event in a product instance's life.
 type LifecycleEvent struct {
-	ProductInstanceID string
-	Type              string // e.g., "MANUFACTURED", "SOLD", "ACTIVATED", "DECOMMISSIONED"
-	Timestamp         time.Time
-	Metadata          map[string]interface{}
+	ProductInstanceID uuid.UUID              `json:"product_instance_id"`
+	Type              string                 `json:"type"` // e.g., "manufactured", "shipped", "installed"
+	Timestamp         time.Time              `json:"timestamp"`
+	Location          string                 `json:"location,omitempty"`
+	Properties        map[string]interface{} `json:"properties,omitempty"`
 }
 
-// NewProduct creates a new Product entity.
-func NewProduct(orgID, name, description string, spec map[string]string) (*Product, error) {
-	now := time.Now().UTC()
-	return &Product{
-		ID:          uuid.NewString(),
-		OrgID:       orgID,
-		Name:        name,
-		Description: description,
-		Spec:        spec,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}, nil
+// ProductionFinishedEvent is published when a work order for a product is completed.
+type ProductionFinishedEvent struct {
+	ProductInstanceID uuid.UUID `json:"product_instance_id"`
+	SerialNumber      string    `json:"serial_number"`
+	ProductID         uuid.UUID `json:"product_id"`
+	OrgID             uuid.UUID `json:"org_id"`
+	FinishedAt        time.Time `json:"finished_at"`
 }

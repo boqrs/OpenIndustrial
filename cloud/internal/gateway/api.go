@@ -7,102 +7,117 @@ import (
 	"github.com/google/uuid"
 )
 
-// API provides the HTTP handlers for the gateway domain.
+// API provides gateway-related handlers.
 type API struct {
 	service *Service
 }
 
-// NewAPI creates a new gateway API handler.
+// NewAPI creates a new gateway API.
 func NewAPI(service *Service) *API {
-	return &API{
-		service: service,
-	}
+	return &API{service: service}
 }
 
-// RegisterRoutes registers the gateway API routes with a Gin router.
+// RegisterRoutes registers the API routes for gateways.
 func (a *API) RegisterRoutes(router *gin.RouterGroup) {
-	gatewayRoutes := router.Group("/gateways")
+	gwRoutes := router.Group("/gateways")
 	{
-		// This endpoint is for gateways to register themselves
-		gatewayRoutes.POST("/register", a.registerGateway)
-		// This is for gateways to send heartbeats
-		gatewayRoutes.POST("/:gateway_id/heartbeat", a.handleHeartbeat)
-
-		// These are for users to manage gateways
-		gatewayRoutes.GET("", a.listGateways)
+		gwRoutes.POST("/register", a.register)
+		gwRoutes.GET("", a.list)
+		gwRoutes.GET("/:id", a.getByID)
+		gwRoutes.POST("/:id/heartbeat", a.heartbeat)
 	}
 }
 
-func (a *API) registerGateway(c *gin.Context) {
-	orgIDStr := c.GetHeader("X-Org-ID") // Gateway auth might use headers
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id in header"})
-		return
-	}
-
+// @Summary Register a new gateway
+// @Description Creates a new gateway record and returns its details, including the generated ID.
+// @Tags gateways
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Gateway Registration Info"
+// @Success 201 {object} GatewayResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /gateways/register [post]
+func (a *API) register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
-	gatewayID, err := uuid.Parse(req.ID)
+
+	gw, err := a.service.RegisterGateway(c.Request.Context(), req.Model)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid gateway id"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	gw, err := a.service.RegisterGateway(c.Request.Context(), orgID, gatewayID, req.Name)
+	c.JSON(http.StatusCreated, ToGatewayResponse(gw))
+}
+
+// @Summary List all gateways
+// @Description Retrieves a list of all registered gateways.
+// @Tags gateways
+// @Produce json
+// @Success 200 {array} GatewayResponse
+// @Failure 500 {object} map[string]string
+// @Router /gateways [get]
+func (a *API) list(c *gin.Context) {
+	gws, err := a.service.ListGateways(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register gateway"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, ToGatewayListResponse(gws))
+}
+
+// @Summary Get a gateway by ID
+// @Description Retrieves details of a specific gateway by its UUID.
+// @Tags gateways
+// @Produce json
+// @Param id path string true "Gateway ID"
+// @Success 200 {object} GatewayResponse
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /gateways/{id} [get]
+func (a *API) getByID(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gateway ID"})
+		return
+	}
+
+	gw, err := a.service.GetGateway(c.Request.Context(), id)
+	if err != nil {
+		// In a real app, you'd check for a "not found" error specifically
+		c.JSON(http.StatusNotFound, gin.H{"error": "Gateway not found"})
 		return
 	}
 
 	c.JSON(http.StatusOK, ToGatewayResponse(gw))
 }
 
-func (a *API) handleHeartbeat(c *gin.Context) {
-	orgIDStr := c.GetHeader("X-Org-ID")
-	orgID, err := uuid.Parse(orgIDStr)
+// @Summary Gateway heartbeat
+// @Description A gateway calls this endpoint periodically to signal it's online.
+// @Tags gateways
+// @Produce json
+// @Param id path string true "Gateway ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /gateways/{id}/heartbeat [post]
+func (a *API) heartbeat(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id in header"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gateway ID"})
 		return
 	}
 
-	gatewayIDStr := c.Param("gateway_id")
-	gatewayID, err := uuid.Parse(gatewayIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid gateway id"})
-		return
-	}
-
-	if err := a.service.HandleHeartbeat(c.Request.Context(), orgID, gatewayID); err != nil {
-		if err == ErrGatewayNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to handle heartbeat"})
+	if err := a.service.Heartbeat(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-
-func (a *API) listGateways(c *gin.Context) {
-	// This would be a user-facing endpoint, so it uses user's org from context
-	orgIDStr := c.Param("org_id") // Or from JWT context: c.GetString("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
-
-	gws, err := a.service.repo.ListByOrg(c.Request.Context(), orgID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list gateways"})
-		return
-	}
-
-	c.JSON(http.StatusOK, ToGatewayListResponse(gws))
 }

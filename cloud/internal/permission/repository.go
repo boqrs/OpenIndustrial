@@ -6,10 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Repository defines the interface for data access operations for a Permission.
+// Repository defines the interface for storing permissions and policies.
 type Repository interface {
-	Create(ctx context.Context, p *Permission) error
-	FindByID(ctx context.Context, permissionID uuid.UUID) (*Permission, error)
-	FindByName(ctx context.Context, name string) (*Permission, error)
-	ListAll(ctx context.Context) ([]*Permission, error)
+	// Permission methods
+	GetPermission(ctx context.Context, id uuid.UUID) (*Permission, error)
+	ListAllPermissions(ctx context.Context) ([]*Permission, error)
+
+	// Policy methods
+	AddPolicy(ctx context.Context, policy *Policy) error
+	RemovePolicy(ctx context.Context, policy *Policy) error
+	GetPoliciesForSubject(ctx context.Context, subject string) ([]*Policy, error)
 }

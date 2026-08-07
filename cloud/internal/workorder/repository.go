@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -17,9 +19,9 @@ var (
 type Repository interface {
 	Create(ctx context.Context, wo *WorkOrder) error
 	Update(ctx context.Context, wo *WorkOrder) error
-	FindByID(ctx context.Context, orgID, workOrderID string) (*WorkOrder, error)
-	ListByOrg(ctx context.Context, orgID string) ([]*WorkOrder, error)
-	GetTask(ctx context.Context, taskID string) (*StationTask, error)
+	FindByID(ctx context.Context, orgID, workOrderID uuid.UUID) (*WorkOrder, error)
+	ListByOrg(ctx context.Context, orgID uuid.UUID) ([]*WorkOrder, error)
+	GetTaskByID(ctx context.Context, taskID uuid.UUID) (*StationTask, error)
 	UpdateTask(ctx context.Context, task *StationTask) error
 }
 
@@ -42,7 +44,7 @@ func NewMemoryRepository() Repository {
 func (r *memoryRepository) Create(ctx context.Context, wo *WorkOrder) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.workorders[wo.ID] = wo
+	r.workorders[wo.ID.String()] = wo
 	return nil
 }
 
@@ -50,25 +52,25 @@ func (r *memoryRepository) Create(ctx context.Context, wo *WorkOrder) error {
 func (r *memoryRepository) Update(ctx context.Context, wo *WorkOrder) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.workorders[wo.ID]; !ok {
+	if _, ok := r.workorders[wo.ID.String()]; !ok {
 		return ErrWorkOrderNotFound
 	}
-	r.workorders[wo.ID] = wo
+	r.workorders[wo.ID.String()] = wo
 	return nil
 }
 
 // FindByID retrieves a work order by its ID.
-func (r *memoryRepository) FindByID(ctx context.Context, orgID, workOrderID string) (*WorkOrder, error) {
+func (r *memoryRepository) FindByID(ctx context.Context, orgID, workOrderID uuid.UUID) (*WorkOrder, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if wo, ok := r.workorders[workOrderID]; ok && wo.OrgID == orgID {
+	if wo, ok := r.workorders[workOrderID.String()]; ok && wo.OrgID == orgID {
 		return wo, nil
 	}
 	return nil, ErrWorkOrderNotFound
 }
 
 // ListByOrg lists all work orders for an organization.
-func (r *memoryRepository) ListByOrg(ctx context.Context, orgID string) ([]*WorkOrder, error) {
+func (r *memoryRepository) ListByOrg(ctx context.Context, orgID uuid.UUID) ([]*WorkOrder, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var results []*WorkOrder
@@ -80,11 +82,11 @@ func (r *memoryRepository) ListByOrg(ctx context.Context, orgID string) ([]*Work
 	return results, nil
 }
 
-// GetTask retrieves a task by its ID.
-func (r *memoryRepository) GetTask(ctx context.Context, taskID string) (*StationTask, error) {
+// GetTaskByID retrieves a task by its ID.
+func (r *memoryRepository) GetTaskByID(ctx context.Context, taskID uuid.UUID) (*StationTask, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if task, ok := r.tasks[taskID]; ok {
+	if task, ok := r.tasks[taskID.String()]; ok {
 		return task, nil
 	}
 	return nil, ErrTaskNotFound
@@ -94,9 +96,9 @@ func (r *memoryRepository) GetTask(ctx context.Context, taskID string) (*Station
 func (r *memoryRepository) UpdateTask(ctx context.Context, task *StationTask) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.tasks[task.ID]; !ok {
+	if _, ok := r.tasks[task.ID.String()]; !ok {
 		return ErrTaskNotFound
 	}
-	r.tasks[task.ID] = task
+	r.tasks[task.ID.String()] = task
 	return nil
 }

@@ -18,21 +18,20 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-// RegisterNewUser handles the business logic of creating a new user.
-func (s *Service) RegisterNewUser(ctx context.Context, orgIDStr, username, password, email, phone string) (*User, error) {
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		return nil, ErrUserOrgIDRequired // Or a more specific "invalid org id format" error
-	}
-
+// CreateUser handles the business logic of creating a new user.
+func (s *Service) CreateUser(ctx context.Context, orgID uuid.UUID, username, email, password, firstName, lastName string) (*User, error) {
 	// Here you might want to check if a user with the same email or username already exists.
 	// existingUser, err := s.repo.FindByEmail(ctx, email)
 	// if err == nil && existingUser != nil {
 	// 	 return nil, ErrUserAlreadyExists
 	// }
 
-	user, err := NewUser(orgID, username, password, email, phone)
+	user, err := NewUser(orgID, username, email, firstName, lastName)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := user.SetPassword(password); err != nil {
 		return nil, err
 	}
 
