@@ -4,16 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // API provides the HTTP handlers for the work order domain.
 type API struct {
-	service *Service
+	service Service
 }
 
 // NewAPI creates a new work order API handler.
-func NewAPI(service *Service) *API {
+func NewAPI(service Service) *API {
 	return &API{
 		service: service,
 	}
@@ -32,11 +31,6 @@ func (a *API) RegisterRoutes(router *gin.RouterGroup) {
 
 func (a *API) createWorkOrder(c *gin.Context) {
 	orgIDStr := c.Param("org_id") // Assuming org_id is a URL parameter
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
 
 	var req CreateWorkOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,13 +38,7 @@ func (a *API) createWorkOrder(c *gin.Context) {
 		return
 	}
 
-	productID, err := uuid.Parse(req.ProductID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id"})
-		return
-	}
-
-	wo, err := a.service.CreateWorkOrder(c.Request.Context(), orgID, productID, req.Quantity, req.ScheduledAt)
+	wo, err := a.service.CreateWorkOrder(c.Request.Context(), orgIDStr, req.ProductID, req.Quantity, req.ScheduledAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create work order"})
 		return
@@ -61,13 +49,8 @@ func (a *API) createWorkOrder(c *gin.Context) {
 
 func (a *API) listWorkOrders(c *gin.Context) {
 	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
 
-	wos, err := a.service.repo.ListByOrg(c.Request.Context(), orgID)
+	wos, err := a.service.ListByOrg(c.Request.Context(), orgIDStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list work orders"})
 		return
@@ -78,20 +61,9 @@ func (a *API) listWorkOrders(c *gin.Context) {
 
 func (a *API) getWorkOrder(c *gin.Context) {
 	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
-
 	workOrderIDStr := c.Param("workorder_id")
-	workOrderID, err := uuid.Parse(workOrderIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid work order id"})
-		return
-	}
 
-	wo, err := a.service.repo.FindByID(c.Request.Context(), orgID, workOrderID)
+	wo, err := a.service.FindByID(c.Request.Context(), orgIDStr, workOrderIDStr)
 	if err != nil {
 		if err == ErrWorkOrderNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -106,25 +78,16 @@ func (a *API) getWorkOrder(c *gin.Context) {
 
 func (a *API) startWorkOrder(c *gin.Context) {
 	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
-
 	workOrderIDStr := c.Param("workorder_id")
-	workOrderID, err := uuid.Parse(workOrderIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid work order id"})
-		return
-	}
 
-	wo, err := a.service.StartWorkOrder(c.Request.Context(), orgID, workOrderID)
-	if err != nil {
-		// Handle specific errors like "already started" in the future
+	if err := a.service.StartWorkOrder(c.Request.Context(), orgIDStr, workOrderIDStr); err != nil {
+		if err == ErrWorkOrderNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start work order"})
 		return
 	}
 
-	c.JSON(http.StatusOK, ToWorkOrderResponse(wo))
+	c.JSON(http.StatusOK, gin.H{"status": "Work order started"})
 }

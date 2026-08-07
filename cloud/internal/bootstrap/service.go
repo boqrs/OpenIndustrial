@@ -1,32 +1,53 @@
 package bootstrap
 
 import (
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/infrastructure/repository"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/lifecycle"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/productinstance"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/trace"
-	"gorm.io/gorm"
+	"context"
+
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/device"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/iot"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/product"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/workorder"
 )
 
+// Container holds all the services for the application.
 type Container struct {
-	ProductInstance *productinstance.Service
-	Lifecycle       *lifecycle.Service
-	Trace           *trace.Service
+	ProductSvc   product.Service
+	DeviceSvc    device.Service
+	WorkorderSvc workorder.Service
 }
 
-func NewContainer(db *gorm.DB) *Container {
-	productRepo := repository.NewProductInstanceRepository(db)
-	lifecycleRepo := repository.NewLifecycleRepository(db)
+// NewContainer creates and wires up all the application services.
+func NewContainer(ctx context.Context, bus event.Bus) *Container {
+	// Product Domain
+	productRepo := product.NewMemoryRepository()
+	productSvc := product.NewService(productRepo, bus)
+	productEvtHandler := product.NewEventHandler(productSvc)
+	productEvtHandler.Register(bus)
+
+	// Device Domain
+	deviceRepo := device.NewMemoryRepository()
+	deviceSvc := device.NewService(deviceRepo, bus)
+	deviceEvtHandler := device.NewEventHandler(deviceSvc)
+	deviceEvtHandler.Register(bus)
+
+	// IoT Domain (internal service)
+	iotSvc := iot.NewService(bus)
+	iotHandler := iot.NewMQTTHandler(iotSvc)
+	iotConsumer := iot.NewConsumer(iotHandler)
+
+	// WorkOrder Domain
+	workorderRepo := workorder.NewMemoryRepository()
+	workorderSvc := workorder.NewService(workorderRepo, bus)
+	workorderEvtHandler := workorder.NewEventHandler(workorderSvc)
+	workorderEvtHandler.Register(bus)
+
+	// Start background services
+	go iotConsumer.Run(ctx)
 
 	return &Container{
-		ProductInstance: productinstance.NewService(
-			productRepo,
-		),
-		Lifecycle: lifecycle.NewService(
-			lifecycleRepo,
-		),
-		Trace: trace.NewService(
-			lifecycleRepo,
-		),
+		ProductSvc:   productSvc,
+		DeviceSvc:    deviceSvc,
+		WorkorderSvc: workorderSvc,
 	}
 }

@@ -1,79 +1,82 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/bootstrap"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/infrastructure/database"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/lifecycle"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/productinstance"
-	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/trace"
-	transport "github.com/OpenGongChang/OpenIndustrial/cloud/internal/transport/http"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/device"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/product"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/workorder"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	db, err := database.NewPostgres(database.Config{
-		Host:     "localhost",
-		Port:     5432,
-		User:     "cloud",
-		Password: "cloud",
-		DBName:   "industrial",
+	// 1. Setup context for graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// 2. Initialize event bus and services container
+	bus := event.NewMemoryBus()
+	container := bootstrap.NewContainer(ctx, bus)
+	log.Println("Application container initialized.")
+
+	// 3. Setup HTTP server
+	router := gin.Default()
+
+	// Health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "OK")
 	})
-	if err != nil {
-		panic(err)
+
+	// All primary routes are grouped by organization
+	orgRoutes := router.Group("/orgs/:org_id")
+
+	// 4. Register API routes for each domain
+	productAPI := product.NewAPI(container.ProductSvc)
+	productAPI.RegisterRoutes(orgRoutes)
+
+	deviceAPI := device.NewAPI(container.DeviceSvc)
+	deviceAPI.RegisterRoutes(orgRoutes)
+
+	workorderAPI := workorder.NewAPI(container.WorkorderSvc)
+	workorderAPI.RegisterRoutes(orgRoutes)
+
+	log.Println("API routes registered.")
+
+	// 5. Start the server with graceful shutdown
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
 	}
 
-	container := bootstrap.NewContainer(db)
+	go func() {
+		log.Printf("Listening on %s\n", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
 
-	productAPI := productinstance.NewAPI(
-		container.ProductInstance,
-	)
+	// Wait for interrupt signal
+	<-ctx.Done()
 
+	// Restore default behavior on the interrupt signal and notify user of shutdown.
+	stop()
+	log.Println("Shutting down gracefully, press Ctrl+C again to force")
 
-
-	lifecycleAPI:=
-	lifecycle.NewAPI(
-		container.Lifecycle,
-	)
-
-
-
-	traceAPI:=
-	trace.NewAPI(
-		container.Trace,
-	)
-
-
-
-	router:=
-	transport.NewRouter(
-		productAPI,
-		lifecycleAPI,
-		traceAPI,
-	)
-
-
-
-	server:=
-	transport.NewServer(
-		router,
-	)
-
-
-
-	log.Println(
-		"cloud server start :8080",
-	)
-
-
-
-	err = server.Start()
-
-
-	if err!=nil{
-
-		panic(err)
-
+	// The context is used to inform the server it has 5 seconds to finish
+	// the requests it is currently handling
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
 	}
 
+	fmt.Println("Server exiting")
 }

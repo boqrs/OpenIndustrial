@@ -3,25 +3,33 @@ package workorder
 import (
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
 )
 
-// WorkOrderCreatedEvent is published when a new work order is created.
-type WorkOrderCreatedEvent struct {
-	EventID     uuid.UUID `json:"event_id"`
-	WorkOrderID uuid.UUID `json:"work_order_id"`
-	OrgID       uuid.UUID `json:"org_id"`
-	ProductID   uuid.UUID `json:"product_id"`
-	Quantity    int       `json:"quantity"`
-	Timestamp   time.Time `json:"timestamp"`
+const (
+	EventProductionFinished = "production.finished"
+)
+
+// ProductionFinishedEvent is emitted when one product instance
+// has finished its production process within a work order.
+type ProductionFinishedEvent struct {
+	WorkOrderID       string
+	ProductInstanceID string
+	SN                string
+	StationID         string
+	Result            string // e.g., "pass", "fail"
+	FinishedAt        time.Time
 }
 
-// WorkOrderStatusChangedEvent is published when a work order's status changes.
-type WorkOrderStatusChangedEvent struct {
-	EventID     uuid.UUID `json:"event_id"`
-	WorkOrderID uuid.UUID `json:"work_order_id"`
-	OrgID       uuid.UUID `json:"org_id"`
-	OldStatus   string    `json:"old_status"`
-	NewStatus   string    `json:"new_status"`
-	Timestamp   time.Time `json:"timestamp"`
+// ToDomainEvent converts the business-specific event into a generic domain event.
+func (e ProductionFinishedEvent) ToDomainEvent() event.Event {
+	return event.Event{
+		// ID should be set by the event bus or publisher if needed
+		Name:        EventProductionFinished,
+		Aggregate:   "WorkOrder",
+		AggregateID: e.WorkOrderID,
+		Source:      "mes",
+		Data:        e, // The entire struct is the payload
+		CreatedAt:   time.Now().UTC(),
+	}
 }

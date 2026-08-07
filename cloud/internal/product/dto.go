@@ -1,43 +1,43 @@
 package product
 
-import (
-	"time"
-)
+import "time"
 
-// CreateProductRequest defines the structure for a request to create a new product.
+// CreateProductRequest defines the request body for creating a new product.
 type CreateProductRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	Model       string `json:"model" binding:"required"`
+	Name        string            `json:"name" binding:"required"`
+	Description string            `json:"description"`
+	Spec        map[string]string `json:"spec"`
 }
 
-// ProductResponse defines the structure for a response containing product details.
+// ProductResponse defines the standard response for a product.
 type ProductResponse struct {
-	ID          string    `json:"id"`
-	OrgID       string    `json:"org_id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Model       string    `json:"model"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string            `json:"id"`
+	OrgID       string            `json:"org_id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Spec        map[string]string `json:"spec"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
-// ToProductResponse converts a Product entity to a ProductResponse DTO.
+// ToProductResponse converts a Product entity to a ProductResponse.
 func ToProductResponse(product *Product) *ProductResponse {
 	return &ProductResponse{
-		ID:          product.ID.String(),
-		OrgID:       product.OrgID.String(),
+		ID:          product.ID,
+		OrgID:       product.OrgID,
 		Name:        product.Name,
 		Description: product.Description,
-		Model:       product.Model,
+		Spec:        product.Spec,
 		CreatedAt:   product.CreatedAt,
+		UpdatedAt:   product.UpdatedAt,
 	}
 }
 
-// ToProductListResponse converts a slice of Product entities to a slice of ProductResponse DTOs.
+// ToProductListResponse converts a slice of Product entities to a slice of ProductResponse.
 func ToProductListResponse(products []*Product) []*ProductResponse {
 	res := make([]*ProductResponse, len(products))
-	for i, product := range products {
-		res[i] = ToProductResponse(product)
+	for i, p := range products {
+		res[i] = ToProductResponse(p)
 	}
 	return res
 }

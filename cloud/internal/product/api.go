@@ -4,16 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // API provides the HTTP handlers for the product domain.
 type API struct {
-	service *Service
+	service Service
 }
 
 // NewAPI creates a new product API handler.
-func NewAPI(service *Service) *API {
+func NewAPI(service Service) *API {
 	return &API{
 		service: service,
 	}
@@ -30,12 +29,7 @@ func (a *API) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (a *API) createProduct(c *gin.Context) {
-	orgIDStr := c.Param("org_id") // Assuming org_id is a URL parameter from a parent router
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
+	orgIDStr := c.Param("org_id") // Assuming org_id is a URL parameter
 
 	var req CreateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -43,24 +37,19 @@ func (a *API) createProduct(c *gin.Context) {
 		return
 	}
 
-	product, err := a.service.CreateProduct(c.Request.Context(), orgID, req.Name, req.Description, req.Model)
+	p, err := a.service.CreateProduct(c.Request.Context(), orgIDStr, req.Name, req.Description, req.Spec)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create product"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, ToProductResponse(product))
+	c.JSON(http.StatusCreated, ToProductResponse(p))
 }
 
 func (a *API) listProducts(c *gin.Context) {
 	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
 
-	products, err := a.service.ListProductsForOrg(c.Request.Context(), orgID)
+	products, err := a.service.ListProductsForOrg(c.Request.Context(), orgIDStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list products"})
 		return
@@ -71,28 +60,14 @@ func (a *API) listProducts(c *gin.Context) {
 
 func (a *API) getProduct(c *gin.Context) {
 	orgIDStr := c.Param("org_id")
-	orgID, err := uuid.Parse(orgIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization id"})
-		return
-	}
-
 	productIDStr := c.Param("product_id")
-	productID, err := uuid.Parse(productIDStr)
+
+	p, err := a.service.GetProductByID(c.Request.Context(), orgIDStr, productIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id"})
+		// Consider adding a specific ErrProductNotFound
+		c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
 		return
 	}
 
-	product, err := a.service.GetProductByID(c.Request.Context(), orgID, productID)
-	if err != nil {
-		if err == ErrProductNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get product"})
-		return
-	}
-
-	c.JSON(http.StatusOK, ToProductResponse(product))
+	c.JSON(http.StatusOK, ToProductResponse(p))
 }

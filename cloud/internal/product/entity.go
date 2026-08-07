@@ -6,34 +6,34 @@ import (
 	"github.com/google/uuid"
 )
 
-// Product represents a product definition or blueprint (SKU).
-// It is a template for creating physical assets (Product Instances or SNs).
+// Product defines the core entity for a product model.
 type Product struct {
-	ID          uuid.UUID `json:"id"`
-	OrgID       uuid.UUID `json:"org_id"`      // Belongs to which organization
-	Name        string    `json:"name"`       // e.g., "Ender-3 S1 Pro"
-	Description string    `json:"description"`
-	Model       string    `json:"model"`       // e.g., "CR-10 SE"
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string            `json:"id"`
+	OrgID       string            `json:"org_id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Spec        map[string]string `json:"spec"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+}
+
+// LifecycleEvent represents a significant event in a product instance's life.
+type LifecycleEvent struct {
+	ProductInstanceID string
+	Type              string // e.g., "MANUFACTURED", "SOLD", "ACTIVATED", "DECOMMISSIONED"
+	Timestamp         time.Time
+	Metadata          map[string]interface{}
 }
 
 // NewProduct creates a new Product entity.
-func NewProduct(orgID uuid.UUID, name, description, model string) (*Product, error) {
-	if name == "" {
-		return nil, ErrProductNameRequired
-	}
-	if model == "" {
-		return nil, ErrProductModelRequired
-	}
-
+func NewProduct(orgID, name, description string, spec map[string]string) (*Product, error) {
 	now := time.Now().UTC()
 	return &Product{
-		ID:          uuid.New(),
+		ID:          uuid.NewString(),
 		OrgID:       orgID,
 		Name:        name,
 		Description: description,
-		Model:       model,
+		Spec:        spec,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}, nil

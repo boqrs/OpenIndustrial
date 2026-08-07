@@ -6,33 +6,28 @@ import (
 	"github.com/google/uuid"
 )
 
-// Device represents a physical or logical device that collects data.
-// It is connected to the platform via a Gateway.
+// Device represents a physical device connected to a gateway.
 type Device struct {
-	ID        uuid.UUID `json:"id"`
+	ID        string    `json:"id"`
+	OrgID     string    `json:"org_id"`
+	GatewayID string    `json:"gateway_id"` // The gateway this device is connected through
 	Name      string    `json:"name"`
-	OrgID     uuid.UUID `json:"org_id"`
-	GatewayID uuid.UUID `json:"gateway_id"` // Which gateway this device is connected through
-	Model     string    `json:"model"`      // e.g., "S7-1200", "UR5e"
-	Status    string    `json:"status"`    // e.g., "Online", "Offline", "Error"
+	Model     string    `json:"model"`
+	Status    string    `json:"status"` // e.g., "online", "offline", "error"
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // NewDevice creates a new Device entity.
-func NewDevice(orgID, gatewayID uuid.UUID, name, model string) (*Device, error) {
-	if name == "" {
-		return nil, ErrDeviceNameRequired
-	}
-
+func NewDevice(orgID, gatewayID, name, model string) (*Device, error) {
 	now := time.Now().UTC()
 	return &Device{
-		ID:        uuid.New(),
-		Name:      name,
+		ID:        uuid.NewString(),
 		OrgID:     orgID,
 		GatewayID: gatewayID,
+		Name:      name,
 		Model:     model,
-		Status:    "Offline",
+		Status:    "offline", // Initial status
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil

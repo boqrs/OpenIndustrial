@@ -4,49 +4,86 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/event"
+	"github.com/OpenGongChang/OpenIndustrial/cloud/internal/product" // Import product package
 )
 
-// Service encapsulates the business logic for the work order domain.
-type Service struct {
-	repo Repository
+const TaskFinished = "finished"
+
+// Service defines the business logic for the workorder domain.
+type Service interface {
+	FinishTask(ctx context.Context, taskID string, result string) error
+	FindByID(ctx context.Context, orgID, workOrderID string) (*WorkOrder, error)
+	ListByOrg(ctx context.Context, orgID string) ([]*WorkOrder, error)
+	CreateWorkOrder(ctx context.Context, orgID, productID string, quantity int, scheduledAt time.Time) (*WorkOrder, error)
+	StartWorkOrder(ctx context.Context, orgID, workOrderID string) error
 }
 
-// NewService creates a new work order service.
-func NewService(repo Repository) *Service {
-	return &Service{
-		repo: repo,
+type service struct {
+	repo     Repository
+	eventBus event.Bus
+}
+
+// NewService creates a new workorder service.
+func NewService(repo Repository, bus event.Bus) Service {
+	return &service{
+		repo:     repo,
+		eventBus: bus,
 	}
 }
 
-// CreateWorkOrder handles the business logic of creating a new work order.
-func (s *Service) CreateWorkOrder(ctx context.Context, orgID, productID uuid.UUID, quantity int, scheduledAt time.Time) (*WorkOrder, error) {
+// CreateWorkOrder creates a new work order.
+func (s *service) CreateWorkOrder(ctx context.Context, orgID, productID string, quantity int, scheduledAt time.Time) (*WorkOrder, error) {
 	wo, err := NewWorkOrder(orgID, productID, quantity, scheduledAt)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := s.repo.Create(ctx, wo); err != nil {
-		return nil, err
-	}
-
-	return wo, nil
+	return wo, s.repo.Create(ctx, wo)
 }
 
-// StartWorkOrder marks a work order as "In_Progress".
-func (s *Service) StartWorkOrder(ctx context.Context, orgID, workOrderID uuid.UUID) (*WorkOrder, error) {
+// StartWorkOrder starts a work order.
+func (s *service) StartWorkOrder(ctx context.Context, orgID, workOrderID string) error {
 	wo, err := s.repo.FindByID(ctx, orgID, workOrderID)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	wo.Status = "IN_PROGRESS"
+	wo.StartedAt = time.Now()
+	return s.repo.Update(ctx, wo)
+}
+
+// FindByID retrieves a work order by its ID.
+func (s *service) FindByID(ctx context.Context, orgID, workOrderID string) (*WorkOrder, error) {
+	return s.repo.FindByID(ctx, orgID, workOrderID)
+}
+
+// ListByOrg lists all work orders for an organization.
+func (s *service) ListByOrg(ctx context.Context, orgID string) ([]*WorkOrder, error) {
+	return s.repo.ListByOrg(ctx, orgID)
+}
+
+// FinishTask marks a task as finished and publishes a production finished event.
+func (s *service) FinishTask(ctx context.Context, taskID string, result string) error {
+	task, err := s.repo.GetTask(ctx, taskID)
+	if err != nil {
+		return err
 	}
 
-	// Add business logic here, e.g., check if status is "Pending"
-	wo.Status = "In_Progress"
-	wo.StartedAt = time.Now().UTC()
-	wo.UpdatedAt = wo.StartedAt
+	task.Status = TaskFinished
 
-	if err := s.repo.Update(ctx, wo); err != nil {
-		return nil, err
+	if err := s.repo.UpdateTask(ctx, task); err != nil {
+		return err
 	}
-	return wo, nil
+
+	// Publish the domain event using the concrete type from the product package
+	e := product.ProductionFinishedEvent{
+		WorkOrderID:       task.WorkOrderID,
+		ProductInstanceID: task.ProductInstanceID,
+		SN:                task.SN,
+		StationID:         task.StationID,
+		Result:            result,
+		FinishedAt:        time.Now(),
+	}
+
+	return s.eventBus.Publish(e.ToDomainEvent())
 }
