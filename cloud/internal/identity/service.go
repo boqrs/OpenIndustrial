@@ -257,12 +257,32 @@ func (s *Service) CreateUser(ctx context.Context, tenantID uuid.UUID, params Cre
 	}, nil
 }
 
-// ListUsersParams defines the parameters for listing users.
-type ListUsersParams struct{}
+// ListUsersParams defines the parameters for listing users from the API layer.
+type ListUsersParams struct {
+	Limit  int `form:"limit"`
+	Offset int `form:"offset"`
+}
 
 // ListUsers retrieves a list of users for a tenant.
 func (s *Service) ListUsers(ctx context.Context, tenantID uuid.UUID, params ListUsersParams) ([]*User, error) {
-	return nil, errors.New("not implemented")
+	// Set default pagination values to ensure stability.
+	if params.Limit <= 0 {
+		params.Limit = 20 // Default page size
+	}
+	if params.Offset < 0 {
+		params.Offset = 0 // Offset cannot be negative
+	}
+
+	// Prepare parameters for the repository layer.
+	repoParams := ListUsersRepoParams{
+		Limit:  params.Limit,
+		Offset: params.Offset,
+	}
+
+	// Call the repository to fetch users.
+	// The service layer is a good place for future logic,
+	// e.g., checking if the current user has permission to list users.
+	return s.userRepo.ListUsers(ctx, tenantID, repoParams)
 }
 
 // UpdateUserParams defines the parameters for updating a user.
