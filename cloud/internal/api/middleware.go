@@ -3,98 +3,73 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strings"
 
-	"github.com/OpenIndustrial/cloud/internal/identity"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 )
 
-const (
-	AuthorizationHeaderKey  = "Authorization"
-	AuthorizationPayloadKey = "authorization_payload"
-)
-
-// jwtSecretKey is the secret key for signing JWTs.
-// 在真实的应用中，这应该从安全配置中加载！
-var jwtSecretKey = []byte("my-super-secret-key")
-
-// AuthMiddleware 创建一个用于 JWT 认证的 gin 中间件。
-func AuthMiddleware() gin.HandlerFunc {
+// NewAuthMiddleware creates a middleware for JWT authentication.
+func NewAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader(AuthorizationHeaderKey)
+		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization header is not provided"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
 			return
 		}
 
-		fields := strings.Fields(authHeader)
-		if len(fields) < 2 || strings.ToLower(fields[0]) != "bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format"})
+		tokenString := ""
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		} else {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
 			return
 		}
 
-		accessToken := fields[1]
-		claims := &identity.Claims{}
-
-		token, err := jwt.ParseWithClaims(accessToken, claims, func(token *jwt.Token) (interface{}, error) {
-			// 确保 token 的签名算法是我们期望的
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("unexpected signing method")
 			}
-			return jwtSecretKey, nil
+			return []byte(jwtSecret), nil
 		})
 
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		// 将 claims 存入 context，供后续 handler 使用
-		c.Set(AuthorizationPayloadKey, claims)
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			return
+		}
+
+		// Set user and tenant info in the context for downstream handlers
+		c.Set("user_id", claims["sub"])
+		c.Set("tenant_id", claims["tid"])
+
 		c.Next()
 	}
 }
 
-// GetAuthPayload 从 context 中获取认证用户的 payload。
-func GetAuthPayload(c *gin.Context) (*identity.Claims, error) {
-	payload, exists := c.Get(AuthorizationPayloadKey)
+// --- Context Helper Functions ---
+
+func getTenantIDFromContext(c *gin.Context) (uuid.UUID, error) {
+	tenantIDStr, exists := c.Get("tenant_id")
 	if !exists {
-		return nil, errors.New("authorization payload not found in context")
+		return uuid.Nil, errors.New("tenant_id not found in context")
 	}
-
-	claims, ok := payload.(*identity.Claims)
-	if !ok {
-		return nil, errors.New("invalid payload type in context")
+	tenantID, err := uuid.Parse(tenantIDStr.(string))
+	if err != nil {
+		return uuid.Nil, errors.New("invalid tenant_id format in context")
 	}
-
-	return claims, nil
+	return tenantID, nil
 }
 
-// PermissionMiddleware 创建一个用于检查用户权限的 gin 中间件。
-// 它依赖于 AuthMiddleware 已经运行并成功将 user payload 存入 context。
-func (h *IdentityHandler) PermissionMiddleware(requiredPermission string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 1. 从 context 获取用户信息
-		payload, err := GetAuthPayload(c)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "permission denied: user not authenticated"})
-			return
-		}
-
-		// 2. 检查权限
-		hasPermission, err := h.permRepo.CheckPermissionForUser(c.Request.Context(), payload.UserID, requiredPermission)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to check permissions"})
-			return
-		}
-
-		if !hasPermission {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "permission denied"})
-			return
-		}
-
-		// 3. 权限检查通过，继续处理请求
-		c.Next()
+func getUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		return uuid.Nil, errors.New("user_id not found in context")
 	}
+	return uuid.Parse(userIDStr.(string))
 }

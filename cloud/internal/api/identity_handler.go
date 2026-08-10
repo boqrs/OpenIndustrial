@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/OpenIndustrial/cloud/internal/identity"
@@ -8,16 +9,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// PermissionRepository is an interface for checking permissions.
+type PermissionRepository interface {
+	CheckPermissionForUser(ctx context.Context, userID uuid.UUID, permissionName string) (bool, error)
+}
+
 // IdentityHandler handles HTTP requests for the identity service.
 type IdentityHandler struct {
-	service *identity.Service
-	permRepo identity.PermissionRepository // 新增
+	service        *identity.Service
+	permRepo       PermissionRepository
+	authMiddleware gin.HandlerFunc
 }
 
 // NewIdentityHandler creates a new IdentityHandler.
-func NewIdentityHandler(service *identity.Service, permRepo identity.PermissionRepository) *IdentityHandler {
-	return &IdentityHandler{service: service,
-							permRepo: permRepo,
+func NewIdentityHandler(service *identity.Service, permRepo PermissionRepository, authMiddleware gin.HandlerFunc) *IdentityHandler {
+	return &IdentityHandler{
+		service:        service,
+		permRepo:       permRepo,
+		authMiddleware: authMiddleware,
 	}
 }
 
@@ -27,33 +36,50 @@ func (h *IdentityHandler) RegisterRoutes(router *gin.RouterGroup) {
 	{
 		identityRoutes.POST("/tenants", h.handleRegisterNewTenant)
 		identityRoutes.POST("/login", h.handleLogin)
+
+		authRoutes := identityRoutes.Group("/")
+		authRoutes.Use(h.authMiddleware)
+		{
+			authRoutes.GET("/users/me", h.handleGetCurrentUser)
+			authRoutes.POST("/users", h.PermissionMiddleware("identity.users:create"), h.handleCreateUser)
+			authRoutes.GET("/users", h.PermissionMiddleware("identity.users:read"), h.handleListUsers)
+			authRoutes.PUT("/users/:userId", h.PermissionMiddleware("identity.users:update"), h.handleUpdateUser)
+			authRoutes.DELETE("/users/:userId", h.PermissionMiddleware("identity.users:delete"), h.handleDeleteUser)
+			authRoutes.GET("/roles", h.PermissionMiddleware("identity.roles:read"), h.handleListRoles)
+			authRoutes.POST("/users/:userId/roles", h.PermissionMiddleware("identity.users:assign"), h.handleAssignRoleToUser)
+		}
+	}
+}
+
+// handleRegisterNewTenant is the handler function for creating a new tenant.
+func (h *IdentityHandler) handleRegisterNewTenant(c *gin.Context) {
+	// CORRECTED: Using RegisterNewTenantParams as per your original code.
+	var params identity.RegisterNewTenantParams
+	if err := c.ShouldBindJSON(&params); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
 	}
 
-			// 受保护的路由
-	authRoutes := identityRoutes.Group("/")
-	authRoutes.Use(AuthMiddleware())
-	{
-		authRoutes.GET("/users/me", h.handleGetCurrentUser)
-
-		authRoutes.POST("/users", h.PermissionMiddleware("identity.users:create"),h.handleCreateUser) // 新增路由
-		authRoutes.GET("/users", h.PermissionMiddleware("identity.users:read"),h.handleListUsers) // 新增路由
-		
-		authRoutes.PUT("/users/:userId", h.PermissionMiddleware("identity.users:update"), h.handleUpdateUser) // 新增路由
-		authRoutes.DELETE("/users/:userId", h.PermissionMiddleware("identity.users:delete"), h.handleDeleteUser) // 新增路由
-		
-		authRoutes.GET("/roles", h.PermissionMiddleware("identity.roles:read"), h.handleListRoles) // 新增路由
-		authRoutes.POST("/users/:userId/roles", h.PermissionMiddleware("identity.users:assign"), h.handleAssignRoleToUser) // 新增路由
+	// CORRECTED: Matching the 2 return values (result, error).
+	result, err := h.service.RegisterNewTenant(c.Request.Context(), params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
+
+	c.JSON(http.StatusCreated, result)
 }
 
 // handleLogin is the handler for user login.
 func (h *IdentityHandler) handleLogin(c *gin.Context) {
+	// CORRECTED: Using LoginParams struct as required by the service.
 	var params identity.LoginParams
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
+	// CORRECTED: Passing the params struct, not individual fields.
 	result, err := h.service.Login(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -63,38 +89,22 @@ func (h *IdentityHandler) handleLogin(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-
-// handleRegisterNewTenant is the handler function for creating a new tenant.
-func (h *IdentityHandler) handleRegisterNewTenant(c *gin.Context) {
-	var params identity.RegisterNewTenantParams
-	if err := c.ShouldBindJSON(&params); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	// Call the service method
-	result, err := h.service.RegisterNewTenant(c.Request.Context(), params)
-	if err != nil {
-		// In a real app, you'd have more sophisticated error handling
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, result)
-}
-
 // handleGetCurrentUser is the handler for getting the current user's info.
 func (h *IdentityHandler) handleGetCurrentUser(c *gin.Context) {
-	// 从中间件设置的 context 中获取 payload
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	user, err := h.service.GetCurrentUser(c.Request.Context(), authPayload.TenantID, authPayload.UserID)
+	// CORRECTED: Using GetCurrentUser instead of the non-existent GetUserByID.
+	user, err := h.service.GetCurrentUser(c.Request.Context(), tenantID, userID)
 	if err != nil {
-		// 这里可以更细致地处理错误，比如检查是否是 sql.ErrNoRows
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
@@ -104,19 +114,11 @@ func (h *IdentityHandler) handleGetCurrentUser(c *gin.Context) {
 
 // handleCreateUser is the handler for creating a new user.
 func (h *IdentityHandler) handleCreateUser(c *gin.Context) {
-	// 从认证中间件获取租户信息
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get auth payload"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-
-	// TODO: 在这里添加权限检查！
-	// 例如: 检查 authPayload 中的用户角色是否有权限创建新用户
-	// if !userHasPermission(authPayload.UserID, "create_user") {
-	// 	c.JSON(http.StatusForbidden, gin.H{"error": "permission denied"})
-	// 	return
-	// }
 
 	var params identity.CreateUserParams
 	if err := c.ShouldBindJSON(&params); err != nil {
@@ -124,9 +126,8 @@ func (h *IdentityHandler) handleCreateUser(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.CreateUser(c.Request.Context(), authPayload.TenantID, params)
+	result, err := h.service.CreateUser(c.Request.Context(), tenantID, params)
 	if err != nil {
-		// 更好的错误处理
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -136,13 +137,11 @@ func (h *IdentityHandler) handleCreateUser(c *gin.Context) {
 
 // handleListUsers is the handler for listing users.
 func (h *IdentityHandler) handleListUsers(c *gin.Context) {
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get auth payload"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-
-	// TODO: Add permission check here
 
 	var params identity.ListUsersParams
 	if err := c.ShouldBindQuery(&params); err != nil {
@@ -150,7 +149,7 @@ func (h *IdentityHandler) handleListUsers(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ListUsers(c.Request.Context(), authPayload.TenantID, params)
+	result, err := h.service.ListUsers(c.Request.Context(), tenantID, params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -161,15 +160,13 @@ func (h *IdentityHandler) handleListUsers(c *gin.Context) {
 
 // handleListRoles is the handler for listing roles.
 func (h *IdentityHandler) handleListRoles(c *gin.Context) {
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get auth payload"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	// TODO: Add permission check here (e.g., only users who can create/edit other users need to see this)
-
-	result, err := h.service.ListRoles(c.Request.Context(), authPayload.TenantID)
+	result, err := h.service.ListRoles(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -180,13 +177,12 @@ func (h *IdentityHandler) handleListRoles(c *gin.Context) {
 
 // handleAssignRoleToUser is the handler for assigning a role to a user.
 func (h *IdentityHandler) handleAssignRoleToUser(c *gin.Context) {
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get auth payload"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 从 URL 中解析 userID
 	userID, err := uuid.Parse(c.Param("userId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID format"})
@@ -206,23 +202,20 @@ func (h *IdentityHandler) handleAssignRoleToUser(c *gin.Context) {
 		RoleID: reqBody.RoleID,
 	}
 
-	// TODO: Add permission check here. Does the current user (authPayload.UserID)
-	// have permission to modify roles for the target user (params.UserID)?
-
-	err = h.service.AssignRoleToUser(c.Request.Context(), authPayload.TenantID, params)
+	err = h.service.AssignRoleToUser(c.Request.Context(), tenantID, params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Status(http.StatusNoContent) // 204 No Content is a good response for successful CUD operations without returning data.
+	c.Status(http.StatusNoContent)
 }
 
 // handleUpdateUser is the handler for updating a user.
 func (h *IdentityHandler) handleUpdateUser(c *gin.Context) {
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get auth payload"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -239,10 +232,7 @@ func (h *IdentityHandler) handleUpdateUser(c *gin.Context) {
 	}
 	reqBody.UserID = userID
 
-	// TODO: Add permission check. Can the current user update the target user?
-	// (e.g., can only update self or is an admin)
-
-	err = h.service.UpdateUser(c.Request.Context(), authPayload.TenantID, reqBody)
+	err = h.service.UpdateUser(c.Request.Context(), tenantID, reqBody)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -253,9 +243,9 @@ func (h *IdentityHandler) handleUpdateUser(c *gin.Context) {
 
 // handleDeleteUser is the handler for deleting a user.
 func (h *IdentityHandler) handleDeleteUser(c *gin.Context) {
-	authPayload, err := GetAuthPayload(c)
+	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get auth payload"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -265,13 +255,33 @@ func (h *IdentityHandler) handleDeleteUser(c *gin.Context) {
 		return
 	}
 
-	// TODO: Add permission check. Can the current user delete the target user?
-
-	err = h.service.DeleteUser(c.Request.Context(), authPayload.TenantID, userID)
+	err = h.service.DeleteUser(c.Request.Context(), tenantID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// PermissionMiddleware creates a middleware for checking a specific permission.
+func (h *IdentityHandler) PermissionMiddleware(permissionName string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, err := getUserIDFromContext(c)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+
+		hasPerm, err := h.permRepo.CheckPermissionForUser(c.Request.Context(), userID, permissionName)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Permission check failed"})
+			return
+		}
+		if !hasPerm {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "You do not have the required permission"})
+			return
+		}
+		c.Next()
+	}
 }
