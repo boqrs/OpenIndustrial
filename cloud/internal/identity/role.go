@@ -7,27 +7,21 @@ import (
 	"github.com/google/uuid"
 )
 
-// Role defines a set of permissions that can be assigned to users.
+// Role represents a role in the system.
 type Role struct {
-	ID           uuid.UUID
-	TenantID     uuid.UUID // Can be nil for system-wide roles
-	Name         string
-	Description  string
-	IsSystemRole bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-
-	// Relations
-	Permissions []*Permission
+	ID          uuid.UUID `db:"id"`
+	TenantID    uuid.UUID `db:"tenant_id"`
+	Name        string    `db:"name"`
+	Description string    `db:"description"`
+	IsSystem    bool      `db:"is_system"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 }
 
-// RoleRepository defines the interface for database operations on roles.
+// RoleRepository defines the interface for role persistence.
 type RoleRepository interface {
 	CreateRole(ctx context.Context, role *Role) error
-	GetRoleByID(ctx context.Context, tenantID, roleID uuid.UUID) (*Role, error)
+	GetRoleByID(ctx context.Context, tenantID, id uuid.UUID) (*Role, error)
 	GetRoleByName(ctx context.Context, tenantID uuid.UUID, name string) (*Role, error)
 	AddUserToRole(ctx context.Context, userID, roleID, tenantID uuid.UUID) error
-	RemoveUserFromRole(ctx context.Context, userID, roleID, tenantID uuid.UUID) error
-	AddPermissionToRole(ctx context.Context, roleID, permissionID uuid.UUID) error
-	ListRoles(ctx context.Context, tenantID uuid.UUID) ([]Role, error)
 }

@@ -7,24 +7,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// Tenant represents a customer organization in the system.
-// It is the highest level of data isolation.
+// Tenant represents a tenant in the system.
 type Tenant struct {
-	ID        uuid.UUID
-	Name      string
-	Status    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        uuid.UUID `db:"id"`
+	Name      string    `db:"name"`
+	Status    string    `db:"status"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// TenantRepository defines the interface for database operations on tenants.
+// TenantRepository defines the interface for tenant persistence.
 type TenantRepository interface {
-	// CreateTenant creates a new tenant in the database.
 	CreateTenant(ctx context.Context, tenant *Tenant) error
-
-	// GetTenantByID retrieves a tenant by its unique ID.
 	GetTenantByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
-
-	// UpdateTenant updates an existing tenant's information.
-	UpdateTenant(ctx context.Context, tenant *Tenant) error
 }

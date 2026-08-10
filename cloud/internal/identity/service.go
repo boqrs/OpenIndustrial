@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/OpenIndustrial/cloud/internal/resource"
@@ -200,7 +201,60 @@ type CreateUserResult struct {
 
 // CreateUser creates a new user within a tenant.
 func (s *Service) CreateUser(ctx context.Context, tenantID uuid.UUID, params CreateUserParams) (*CreateUserResult, error) {
-	return nil, errors.New("not implemented")
+	// Note: In a real application, this entire function should run within a single database transaction.
+
+	// 1. Create the user record
+	profile := params.Profile
+	if profile == nil {
+		profile = json.RawMessage("{}") // Ensure profile is not null in DB
+	}
+
+	newUser := &User{
+		TenantID: tenantID,
+		UserType: params.UserType,
+		Profile:  profile,
+	}
+	if err := s.userRepo.CreateUser(ctx, newUser); err != nil {
+		return nil, fmt.Errorf("failed to create user record: %w", err)
+	}
+
+	// 2. Create the principal for authentication
+	hashedPassword, err := HashPassword(params.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	newPrincipal := &Principal{
+		UserID:     newUser.ID,
+		TenantID:   tenantID,
+		Provider:   "password",
+		Identifier: params.Email,
+		Credential: hashedPassword,
+	}
+	if err := s.userRepo.CreatePrincipal(ctx, newPrincipal); err != nil {
+		// Ideally, we would roll back the user creation here.
+		return nil, fmt.Errorf("failed to create user principal: %w", err)
+	}
+
+	// 3. Find the role to assign
+	// We search by tenantID to ensure the role belongs to the correct tenant.
+	roleToAssign, err := s.roleRepo.GetRoleByName(ctx, tenantID, params.RoleName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("role '%s' not found for this tenant", params.RoleName)
+		}
+		return nil, fmt.Errorf("failed to find role '%s': %w", params.RoleName, err)
+	}
+
+	// 4. Assign the role to the new user
+	if err := s.roleRepo.AddUserToRole(ctx, newUser.ID, roleToAssign.ID, tenantID); err != nil {
+		return nil, fmt.Errorf("failed to assign role to user: %w", err)
+	}
+
+	// 5. Return the result
+	return &CreateUserResult{
+		ID: newUser.ID,
+	}, nil
 }
 
 // ListUsersParams defines the parameters for listing users.
