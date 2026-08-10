@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service encapsulates the business logic for the Resource Kernel.
+// Service provides use cases for the resource domain.
 type Service struct {
 	resourceRepo ResourceRepository
 	groupRepo    GroupRepository
@@ -21,42 +21,55 @@ func NewService(resourceRepo ResourceRepository, groupRepo GroupRepository) *Ser
 	}
 }
 
-// CreateProductParams defines the parameters for creating a new product.
+// CreateProductParams defines the parameters for creating a new product (Resource).
+// These fields now directly match the Resource struct.
 type CreateProductParams struct {
-	TenantID     uuid.UUID
 	Name         string
-	Properties   Properties
-	OwnerGroupID uuid.UUID // The ID of the group that will own this new product.
+	Description  string
+	Type         string
+	SerialNumber string
+	OwnerGroupID uuid.UUID
 }
 
-// CreateProduct is our first "template" business method.
-// It handles the creation of a new product and associates it with an owner group.
-func (s *Service) CreateProduct(ctx context.Context, params CreateProductParams) (*Resource, error) {
-	// 1. Prepare the new resource object
-	newProduct := &Resource{
-		ID:         uuid.New(),
-		TenantID:   params.TenantID,
-		Type:       "product", // Hardcoded type for this specific business logic
-		Name:       params.Name,
-		Properties: params.Properties,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+// CreateProduct handles the business logic for creating a new product.
+// It creates the resource and associates it with an owner group.
+func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params CreateProductParams) (*Resource, error) {
+	// In a real app, this should be a single transaction.
+
+	// 1. Create the resource using the corrected fields.
+	resource := &Resource{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		Name:         params.Name,
+		Description:  params.Description,  // CORRECTED
+		Type:         params.Type,
+		SerialNumber: params.SerialNumber, // CORRECTED
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
-	// TODO: Wrap the following two operations in a single database transaction.
-	// This ensures that if adding the resource to a group fails, the resource creation is rolled back.
-
-	// 2. Save the new resource to the database
-	if err := s.resourceRepo.CreateResource(ctx, newProduct); err != nil {
+	if err := s.resourceRepo.CreateResource(ctx, resource); err != nil {
 		return nil, err
 	}
 
-	// 3. Associate the new resource with its owner group (core of ABAC)
-	if err := s.groupRepo.AddResourceToGroup(ctx, params.TenantID, newProduct.ID, params.OwnerGroupID); err != nil {
-		// In a real transactional implementation, the resource creation would be rolled back here.
+	// 2. Associate the new resource with its owner group.
+	if err := s.groupRepo.AddResourceToGroup(ctx, tenantID, resource.ID, params.OwnerGroupID); err != nil {
+		// If this fails, we should ideally roll back the resource creation.
 		return nil, err
 	}
 
-	// 4. Return the newly created product
-	return newProduct, nil
+	return resource, nil
+}
+
+// ListUserGroups retrieves all groups that the given user is a member of.
+func (s *Service) ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID) ([]*Group, error) {
+	groups, err := s.groupRepo.ListGroupsByUserID(ctx, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	// Ensure we always return a non-nil slice for JSON marshalling, which is good practice.
+	if groups == nil {
+		return []*Group{}, nil
+	}
+	return groups, nil
 }

@@ -6,8 +6,8 @@ import (
 
 	"github.com/OpenIndustrial/cloud/internal/api"
 	"github.com/OpenIndustrial/cloud/internal/identity"
-	"github.com/OpenIndustrial/cloud/internal/resource"
 	"github.com/OpenIndustrial/cloud/internal/persistence/postgres"
+	"github.com/OpenIndustrial/cloud/internal/resource"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -45,7 +45,8 @@ func main() {
 	authzRepo := groupRepo // PgGroupRepository implements both interfaces
 
 	// 2. Create the services
-	identityService := identity.NewService(tenantRepo, userRepo, roleRepo)
+	// UPDATED: Pass groupRepo to the identity service
+	identityService := identity.NewService(tenantRepo, userRepo, roleRepo, groupRepo)
 	resourceService := resource.NewService(resourceRepo, groupRepo)
 
 	// 3. Create the shared middleware and HTTP handlers

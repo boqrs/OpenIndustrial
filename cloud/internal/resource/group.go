@@ -25,6 +25,8 @@ type GroupRepository interface {
 	RemoveUserFromGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error
 	AddResourceToGroup(ctx context.Context, tenantID, resourceID, groupID uuid.UUID) error
 	RemoveResourceFromGroup(ctx context.Context, tenantID, resourceID, groupID uuid.UUID) error
+	// ADDED: ListGroupsByUserID retrieves all groups a specific user belongs to.
+	ListGroupsByUserID(ctx context.Context, tenantID, userID uuid.UUID) ([]*Group, error)
 }
 
 // AuthorizationRepository defines the interface for complex authorization checks.

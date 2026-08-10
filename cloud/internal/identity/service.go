@@ -2,11 +2,12 @@ package identity
 
 import (
 	"context"
-	"errors"
-
-
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/OpenIndustrial/cloud/internal/resource"
 	"github.com/google/uuid"
 )
 
@@ -15,27 +16,29 @@ type Service struct {
 	tenantRepo TenantRepository
 	userRepo   UserRepository
 	roleRepo   RoleRepository
+	groupRepo  resource.GroupRepository // ADDED: For creating a default group
 }
 
 // NewService creates a new identity service.
-func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository) *Service {
+func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo resource.GroupRepository) *Service {
 	return &Service{
 		tenantRepo: tenantRepo,
 		userRepo:   userRepo,
 		roleRepo:   roleRepo,
+		groupRepo:  groupRepo, // ADDED
 	}
 }
 
 // RegisterNewTenantParams defines the parameters for registering a new tenant.
 type RegisterNewTenantParams struct {
-	TenantName  string
-	AdminEmail  string
+	TenantName    string
+	AdminEmail    string
 	AdminPassword string
 }
 
 // RegisterNewTenantResult defines the result of a tenant registration.
 type RegisterNewTenantResult struct {
-	TenantID uuid.UUID
+	TenantID    uuid.UUID
 	AdminUserID uuid.UUID
 }
 
@@ -54,7 +57,7 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 		return nil, err // wrap error
 	}
 
-	// 使用 AdminEmail 作为初始 Profile 中的名字
+	// 2. Create the admin user
 	profileJSON, _ := json.Marshal(map[string]string{"name": params.AdminEmail})
 	adminUser := &User{
 		TenantID: tenant.ID,
@@ -82,8 +85,7 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 		return nil, err // wrap error
 	}
 
-	// 4. Find the admin role for the tenant (or create it if it doesn't exist)
-	// For now, let's assume a system 'Admin' role exists and we fetch it.
+	// 4. Find the admin role for the tenant
 	adminRole, err := s.roleRepo.GetRoleByName(ctx, uuid.Nil, "Admin") // uuid.Nil for system roles
 	if err != nil {
 		return nil, err // wrap error
@@ -92,6 +94,26 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 	// 5. Assign the admin role to the user
 	if err := s.roleRepo.AddUserToRole(ctx, adminUser.ID, adminRole.ID, tenant.ID); err != nil {
 		return nil, err // wrap error
+	}
+
+	// 6. ADDED: Create a default group for the new tenant
+	adminGroup := &resource.Group{
+		ID:          uuid.New(),
+		TenantID:    tenant.ID,
+		Name:        "Administrators",
+		Description: "Default administrators group",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	if err := s.groupRepo.CreateGroup(ctx, adminGroup); err != nil {
+		// In a real app with transactions, we would roll back everything.
+		return nil, err
+	}
+
+	// 7. ADDED: Add the new admin user to the default group
+	if err := s.groupRepo.AddUserToGroup(ctx, tenant.ID, adminUser.ID, adminGroup.ID); err != nil {
+		// In a real app with transactions, we would roll back.
+		return nil, err
 	}
 
 	return &RegisterNewTenantResult{
@@ -115,7 +137,6 @@ type LoginResult struct {
 // Login handles the user authentication logic.
 func (s *Service) Login(ctx context.Context, params LoginParams) (*LoginResult, error) {
 	// 1. Find the principal by email (identifier)
-	// Note: We need to parse params.TenantID to UUID
 	tenantID, err := uuid.Parse(params.TenantID)
 	if err != nil {
 		return nil, err // Invalid tenant ID format
@@ -176,7 +197,6 @@ type CreateUserResult struct {
 }
 
 // CreateUser creates a new user within a tenant.
-// Note: This implementation is not yet fully transactional.
 func (s *Service) CreateUser(ctx context.Context, tenantID uuid.UUID, params CreateUserParams) (*CreateUserResult, error) {
 	// 1. Create the user object
 	user := &User{
@@ -234,19 +254,16 @@ type ListUsersResult struct {
 
 // ListUsers retrieves a paginated list of users.
 func (s *Service) ListUsers(ctx context.Context, tenantID uuid.UUID, params ListUsersParams) (*ListUsersResult, error) {
-	// 使用在 identity 包中定义的 repo 参数，不再依赖 postgres 包
 	repoParams := ListUsersRepoParams{
 		Limit:  params.PageSize,
 		Offset: (params.PageID - 1) * params.PageSize,
 	}
 
-	// 现在 s.userRepo 接口拥有 ListUsers 方法，可以被正确调用
 	users, err := s.userRepo.ListUsers(ctx, tenantID, repoParams)
 	if err != nil {
 		return nil, err
 	}
 
-	// Avoid returning nil slice if there are no users
 	if users == nil {
 		users = []User{}
 	}
@@ -281,10 +298,6 @@ type AssignRoleToUserParams struct {
 
 // AssignRoleToUser assigns a specific role to a user.
 func (s *Service) AssignRoleToUser(ctx context.Context, tenantID uuid.UUID, params AssignRoleToUserParams) error {
-	// 在生产代码中，这里应该有更多的检查：
-	// 1. 检查 roleID 是否存在于该租户下。
-	// 2. 检查 userID 是否存在于该租户下。
-	// 3. 检查当前操作者是否有权限进行此操作。
 	return s.roleRepo.AddUserToRole(ctx, params.UserID, params.RoleID, tenantID)
 }
 
@@ -297,13 +310,11 @@ type UpdateUserParams struct {
 
 // UpdateUser updates a user's details.
 func (s *Service) UpdateUser(ctx context.Context, tenantID uuid.UUID, params UpdateUserParams) error {
-	// 1. Get the existing user to ensure it exists
 	user, err := s.userRepo.GetUserByID(ctx, tenantID, params.UserID)
 	if err != nil {
-		return err // Returns error if user not found
+		return err
 	}
 
-	// 2. Update fields if they are provided in the request
 	if params.UserType != "" {
 		user.UserType = params.UserType
 	}
@@ -311,12 +322,10 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID uuid.UUID, params Upd
 		user.Profile = params.Profile
 	}
 
-	// 3. Save the updated user
 	return s.userRepo.UpdateUser(ctx, user)
 }
 
 // DeleteUser deletes a user.
 func (s *Service) DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error {
-	// In a real app, you'd want to ensure the user exists before deleting.
 	return s.userRepo.DeleteUser(ctx, tenantID, userID)
 }
