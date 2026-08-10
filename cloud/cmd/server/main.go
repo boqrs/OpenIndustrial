@@ -2,74 +2,56 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/OpenIndustrial/cloud/internal/api"
+	"github.com/OpenIndustrial/cloud/internal/config" // UNCOMMENTED
 	"github.com/OpenIndustrial/cloud/internal/identity"
 	"github.com/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/OpenIndustrial/cloud/internal/resource"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	// 0. Load configuration directly from environment variables
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		log.Fatal("DATABASE_URL environment variable is not set")
-	}
-
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is not set")
-	}
-
-	// 1. Initialize database connection
-	db, err := sqlx.Connect("postgres", databaseURL)
+	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	db, err := postgres.NewDB(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	// Dependency Injection: Wire everything together
-	// 1. Create repository implementations
-	tenantRepo := postgres.NewTenantRepository(db)
+	router := gin.Default()
+	apiV1 := router.Group("/api/v1")
+
+	// --- Repositories ---
 	userRepo := postgres.NewUserRepository(db)
+	tenantRepo := postgres.NewTenantRepository(db)
 	roleRepo := postgres.NewRoleRepository(db)
 	permRepo := postgres.NewPermissionRepository(db)
+	resourceRepo := postgres.NewResourceRepository(db)
+	groupRepo := postgres.NewGroupRepository(db)
+	authzRepo := postgres.NewAuthorizationRepository(db)
 
-	// Repositories for the new Resource Kernel
-	resourceRepo := postgres.NewPgResourceRepository(db)
-	groupRepo := postgres.NewPgGroupRepository(db)
-	authzRepo := groupRepo // PgGroupRepository implements both interfaces
+	// --- Services ---
+	// CORRECTED: Now passing jwtSecret as the last argument
+	identityService := identity.NewService(tenantRepo, userRepo, roleRepo, groupRepo, cfg.JWTSecret)
+	resourceService := resource.NewService(resourceRepo, groupRepo, authzRepo)
 
-	// 2. Create the services
-	// UPDATED: Pass groupRepo to the identity service
-	identityService := identity.NewService(tenantRepo, userRepo, roleRepo, groupRepo)
-	resourceService := resource.NewService(resourceRepo, groupRepo)
-
-	// 3. Create the shared middleware and HTTP handlers
-	authMiddleware := api.NewAuthMiddleware(jwtSecret)
+	// --- Handlers ---
+	authMiddleware := api.NewAuthMiddleware(cfg.JWTSecret)
 	identityHandler := api.NewIdentityHandler(identityService, permRepo, authMiddleware)
 	resourceHandler := api.NewResourceHandler(resourceService, authzRepo, permRepo, authMiddleware)
 
-	// 4. Set up the router and register routes
-	router := gin.Default()
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	apiV1 := router.Group("/api/v1")
-
-	api.RegisterHealthRoutes(router)
-
+	// --- Register Routes ---
 	identityHandler.RegisterRoutes(apiV1)
 	resourceHandler.RegisterRoutes(apiV1)
 
-	// 5. Start the server
-	log.Printf("Server starting on port %s", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	log.Printf("server starting on port %s", cfg.Port)
+	if err := router.Run(":" + cfg.Port); err != nil {
+		log.Fatalf("failed to run server: %v", err)
 	}
 }

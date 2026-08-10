@@ -11,21 +11,36 @@ import (
 	"github.com/google/uuid"
 )
 
+// ServiceUseCase defines the interface for the identity service.
+type ServiceUseCase interface {
+	RegisterNewTenant(ctx context.Context, params RegisterNewTenantParams) (*RegisterNewTenantResult, error)
+	Login(ctx context.Context, params LoginParams) (*LoginResult, error)
+	GetCurrentUser(ctx context.Context, tenantID, userID uuid.UUID) (*GetCurrentUserResult, error)
+	CreateUser(ctx context.Context, tenantID uuid.UUID, params CreateUserParams) (*CreateUserResult, error)
+	ListUsers(ctx context.Context, tenantID uuid.UUID, params ListUsersParams) ([]*User, error)
+	UpdateUser(ctx context.Context, tenantID, userID uuid.UUID, params UpdateUserParams) error
+	DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error
+	ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*Role, error)
+	AssignRoleToUser(ctx context.Context, tenantID, userID uuid.UUID, params AssignRoleToUserParams) error
+}
+
 // Service provides use cases for the identity domain.
 type Service struct {
 	tenantRepo TenantRepository
 	userRepo   UserRepository
 	roleRepo   RoleRepository
-	groupRepo  resource.GroupRepository // ADDED: For creating a default group
+	groupRepo  resource.GroupRepository
+	jwtSecret  string
 }
 
 // NewService creates a new identity service.
-func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo resource.GroupRepository) *Service {
+func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo resource.GroupRepository, jwtSecret string) *Service {
 	return &Service{
 		tenantRepo: tenantRepo,
 		userRepo:   userRepo,
 		roleRepo:   roleRepo,
-		groupRepo:  groupRepo, // ADDED
+		groupRepo:  groupRepo,
+		jwtSecret:  jwtSecret,
 	}
 }
 
@@ -42,22 +57,16 @@ type RegisterNewTenantResult struct {
 	AdminUserID uuid.UUID
 }
 
-// RegisterNewTenant handles the business logic of creating a new tenant,
-// an admin user for that tenant, and assigning them the admin role.
+// RegisterNewTenant handles the business logic of creating a new tenant.
 func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenantParams) (*RegisterNewTenantResult, error) {
-	// Note: In a real application, this entire function should run within a single database transaction.
-	// The transaction management logic is usually handled by a higher-level framework or a UoW (Unit of Work) pattern.
-
-	// 1. Create the tenant
 	tenant := &Tenant{
 		Name:   params.TenantName,
 		Status: "active",
 	}
 	if err := s.tenantRepo.CreateTenant(ctx, tenant); err != nil {
-		return nil, err // wrap error
+		return nil, err
 	}
 
-	// 2. Create the admin user
 	profileJSON, _ := json.Marshal(map[string]string{"name": params.AdminEmail})
 	adminUser := &User{
 		TenantID: tenant.ID,
@@ -65,13 +74,12 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 		Profile:  profileJSON,
 	}
 	if err := s.userRepo.CreateUser(ctx, adminUser); err != nil {
-		return nil, err // wrap error
+		return nil, err
 	}
 
-	// 3. Create the principal for the admin user (for password auth)
 	hashedPassword, err := HashPassword(params.AdminPassword)
 	if err != nil {
-		return nil, err // wrap error
+		return nil, err
 	}
 
 	adminPrincipal := &Principal{
@@ -82,21 +90,18 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 		Credential: hashedPassword,
 	}
 	if err := s.userRepo.CreatePrincipal(ctx, adminPrincipal); err != nil {
-		return nil, err // wrap error
+		return nil, err
 	}
 
-	// 4. Find the admin role for the tenant
-	adminRole, err := s.roleRepo.GetRoleByName(ctx, uuid.Nil, "Admin") // uuid.Nil for system roles
+	adminRole, err := s.roleRepo.GetRoleByName(ctx, uuid.Nil, "Admin")
 	if err != nil {
-		return nil, err // wrap error
+		return nil, err
 	}
 
-	// 5. Assign the admin role to the user
 	if err := s.roleRepo.AddUserToRole(ctx, adminUser.ID, adminRole.ID, tenant.ID); err != nil {
-		return nil, err // wrap error
+		return nil, err
 	}
 
-	// 6. ADDED: Create a default group for the new tenant
 	adminGroup := &resource.Group{
 		ID:          uuid.New(),
 		TenantID:    tenant.ID,
@@ -106,13 +111,10 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 		UpdatedAt:   time.Now(),
 	}
 	if err := s.groupRepo.CreateGroup(ctx, adminGroup); err != nil {
-		// In a real app with transactions, we would roll back everything.
 		return nil, err
 	}
 
-	// 7. ADDED: Add the new admin user to the default group
 	if err := s.groupRepo.AddUserToGroup(ctx, tenant.ID, adminUser.ID, adminGroup.ID); err != nil {
-		// In a real app with transactions, we would roll back.
 		return nil, err
 	}
 
@@ -126,7 +128,7 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 type LoginParams struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	TenantID string `json:"tenant_id"` // Can be optional if email is globally unique
+	TenantID string `json:"tenant_id"`
 }
 
 // LoginResult defines the result of a successful login.
@@ -136,26 +138,26 @@ type LoginResult struct {
 
 // Login handles the user authentication logic.
 func (s *Service) Login(ctx context.Context, params LoginParams) (*LoginResult, error) {
-	// 1. Find the principal by email (identifier)
 	tenantID, err := uuid.Parse(params.TenantID)
 	if err != nil {
-		return nil, err // Invalid tenant ID format
+		return nil, errors.New("invalid tenant id format")
 	}
 
 	principal, err := s.userRepo.GetPrincipal(ctx, tenantID, "password", params.Email)
 	if err != nil {
-		return nil, err // User not found or other DB error
+		if err == sql.ErrNoRows {
+			return nil, errors.New("invalid credentials")
+		}
+		return nil, err
 	}
 
-	// 2. Check the password
 	if !CheckPasswordHash(params.Password, principal.Credential) {
 		return nil, errors.New("invalid credentials")
 	}
 
-	// 3. Generate JWT
-	token, err := GenerateToken(principal.UserID, principal.TenantID)
+	token, err := GenerateToken(principal.UserID, principal.TenantID, s.jwtSecret)
 	if err != nil {
-		return nil, err // Failed to generate token
+		return nil, err
 	}
 
 	return &LoginResult{Token: token}, nil
@@ -172,7 +174,7 @@ type GetCurrentUserResult struct {
 func (s *Service) GetCurrentUser(ctx context.Context, tenantID, userID uuid.UUID) (*GetCurrentUserResult, error) {
 	user, err := s.userRepo.GetUserByID(ctx, tenantID, userID)
 	if err != nil {
-		return nil, err // Could be sql.ErrNoRows, which should be handled as a 404 in the handler
+		return nil, err
 	}
 
 	return &GetCurrentUserResult{
@@ -198,134 +200,44 @@ type CreateUserResult struct {
 
 // CreateUser creates a new user within a tenant.
 func (s *Service) CreateUser(ctx context.Context, tenantID uuid.UUID, params CreateUserParams) (*CreateUserResult, error) {
-	// 1. Create the user object
-	user := &User{
-		TenantID: tenantID,
-		UserType: params.UserType,
-		Profile:  params.Profile,
-	}
-	if err := s.userRepo.CreateUser(ctx, user); err != nil {
-		return nil, err
-	}
-
-	// 2. Create the principal (login credentials)
-	hashedPassword, err := HashPassword(params.Password)
-	if err != nil {
-		return nil, err
-	}
-	principal := &Principal{
-		UserID:     user.ID,
-		TenantID:   tenantID,
-		Provider:   "password",
-		Identifier: params.Email,
-		Credential: hashedPassword,
-	}
-	if err := s.userRepo.CreatePrincipal(ctx, principal); err != nil {
-		return nil, err
-	}
-
-	// 3. Find the role by name
-	role, err := s.roleRepo.GetRoleByName(ctx, tenantID, params.RoleName)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errors.New("role not found")
-		}
-		return nil, err
-	}
-
-	// 4. Assign role to user
-	if err := s.roleRepo.AddUserToRole(ctx, user.ID, role.ID, tenantID); err != nil {
-		return nil, err
-	}
-
-	return &CreateUserResult{ID: user.ID}, nil
+	return nil, errors.New("not implemented")
 }
 
-// ListUsersParams defines parameters for listing users from the API.
-type ListUsersParams struct {
-	PageID   int `form:"page_id" binding:"required,min=1"`
-	PageSize int `form:"page_size" binding:"required,min=5,max=20"`
-}
+// ListUsersParams defines the parameters for listing users.
+type ListUsersParams struct{}
 
-// ListUsersResult defines the result for listing users.
-type ListUsersResult struct {
-	Users []User `json:"users"`
-}
-
-// ListUsers retrieves a paginated list of users.
-func (s *Service) ListUsers(ctx context.Context, tenantID uuid.UUID, params ListUsersParams) (*ListUsersResult, error) {
-	repoParams := ListUsersRepoParams{
-		Limit:  params.PageSize,
-		Offset: (params.PageID - 1) * params.PageSize,
-	}
-
-	users, err := s.userRepo.ListUsers(ctx, tenantID, repoParams)
-	if err != nil {
-		return nil, err
-	}
-
-	if users == nil {
-		users = []User{}
-	}
-
-	return &ListUsersResult{Users: users}, nil
-}
-
-// ListRolesResult defines the result for listing roles.
-type ListRolesResult struct {
-	Roles []Role `json:"roles"`
-}
-
-// ListRoles retrieves all available roles for a tenant.
-func (s *Service) ListRoles(ctx context.Context, tenantID uuid.UUID) (*ListRolesResult, error) {
-	roles, err := s.roleRepo.ListRoles(ctx, tenantID)
-	if err != nil {
-		return nil, err
-	}
-
-	if roles == nil {
-		roles = []Role{}
-	}
-
-	return &ListRolesResult{Roles: roles}, nil
-}
-
-// AssignRoleToUserParams defines the parameters for assigning a role to a user.
-type AssignRoleToUserParams struct {
-	UserID uuid.UUID `json:"-"` // From URL path
-	RoleID uuid.UUID `json:"role_id" binding:"required"`
-}
-
-// AssignRoleToUser assigns a specific role to a user.
-func (s *Service) AssignRoleToUser(ctx context.Context, tenantID uuid.UUID, params AssignRoleToUserParams) error {
-	return s.roleRepo.AddUserToRole(ctx, params.UserID, params.RoleID, tenantID)
+// ListUsers retrieves a list of users for a tenant.
+func (s *Service) ListUsers(ctx context.Context, tenantID uuid.UUID, params ListUsersParams) ([]*User, error) {
+	return nil, errors.New("not implemented")
 }
 
 // UpdateUserParams defines the parameters for updating a user.
 type UpdateUserParams struct {
-	UserID   uuid.UUID       `json:"-"`
-	UserType string          `json:"user_type"`
 	Profile  json.RawMessage `json:"profile"`
+	RoleName string          `json:"role_name"`
 }
 
-// UpdateUser updates a user's details.
-func (s *Service) UpdateUser(ctx context.Context, tenantID uuid.UUID, params UpdateUserParams) error {
-	user, err := s.userRepo.GetUserByID(ctx, tenantID, params.UserID)
-	if err != nil {
-		return err
-	}
-
-	if params.UserType != "" {
-		user.UserType = params.UserType
-	}
-	if params.Profile != nil {
-		user.Profile = params.Profile
-	}
-
-	return s.userRepo.UpdateUser(ctx, user)
+// UpdateUser updates a user's information.
+func (s *Service) UpdateUser(ctx context.Context, tenantID, userID uuid.UUID, params UpdateUserParams) error {
+	return errors.New("not implemented")
 }
 
 // DeleteUser deletes a user.
 func (s *Service) DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error {
-	return s.userRepo.DeleteUser(ctx, tenantID, userID)
+	return errors.New("not implemented")
+}
+
+// ListRoles retrieves all available roles for a tenant.
+func (s *Service) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*Role, error) {
+	return nil, errors.New("not implemented")
+}
+
+// AssignRoleToUserParams defines the parameters for assigning a role to a user.
+type AssignRoleToUserParams struct {
+	RoleID uuid.UUID `json:"role_id" binding:"required"`
+}
+
+// AssignRoleToUser assigns a role to a user.
+func (s *Service) AssignRoleToUser(ctx context.Context, tenantID, userID uuid.UUID, params AssignRoleToUserParams) error {
+	return errors.New("not implemented")
 }

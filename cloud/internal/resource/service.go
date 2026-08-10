@@ -7,22 +7,27 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service provides use cases for the resource domain.
+// Service provides business logic for resources.
 type Service struct {
 	resourceRepo ResourceRepository
 	groupRepo    GroupRepository
+	authzRepo    AuthorizationRepository
 }
 
 // NewService creates a new resource service.
-func NewService(resourceRepo ResourceRepository, groupRepo GroupRepository) *Service {
+func NewService(
+	resourceRepo ResourceRepository,
+	groupRepo GroupRepository,
+	authzRepo AuthorizationRepository,
+) *Service {
 	return &Service{
 		resourceRepo: resourceRepo,
 		groupRepo:    groupRepo,
+		authzRepo:    authzRepo,
 	}
 }
 
-// CreateProductParams defines the parameters for creating a new product (Resource).
-// These fields now directly match the Resource struct.
+// CreateProductParams defines the parameters for creating a product.
 type CreateProductParams struct {
 	Name         string
 	Description  string
@@ -31,19 +36,16 @@ type CreateProductParams struct {
 	OwnerGroupID uuid.UUID
 }
 
-// CreateProduct handles the business logic for creating a new product.
-// It creates the resource and associates it with an owner group.
+// CreateProduct creates a new product resource and associates it with an owner group.
 func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params CreateProductParams) (*Resource, error) {
-	// In a real app, this should be a single transaction.
-
-	// 1. Create the resource using the corrected fields.
+	// In a real transaction, you'd wrap these calls.
 	resource := &Resource{
 		ID:           uuid.New(),
 		TenantID:     tenantID,
 		Name:         params.Name,
-		Description:  params.Description,  // CORRECTED
+		Description:  params.Description,
 		Type:         params.Type,
-		SerialNumber: params.SerialNumber, // CORRECTED
+		SerialNumber: params.SerialNumber,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -52,24 +54,41 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 		return nil, err
 	}
 
-	// 2. Associate the new resource with its owner group.
+	// Associate the resource with its owner group.
 	if err := s.groupRepo.AddResourceToGroup(ctx, tenantID, resource.ID, params.OwnerGroupID); err != nil {
-		// If this fails, we should ideally roll back the resource creation.
+		// In a real scenario, you might want to roll back the resource creation here.
 		return nil, err
 	}
 
 	return resource, nil
 }
 
-// ListUserGroups retrieves all groups that the given user is a member of.
+// ListUserGroups lists all groups a user is a member of.
 func (s *Service) ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID) ([]*Group, error) {
 	groups, err := s.groupRepo.ListGroupsByUserID(ctx, tenantID, userID)
 	if err != nil {
 		return nil, err
 	}
-	// Ensure we always return a non-nil slice for JSON marshalling, which is good practice.
+	// Ensure we always return a non-nil slice
 	if groups == nil {
 		return []*Group{}, nil
 	}
 	return groups, nil
+}
+
+// GetResource retrieves a single resource by its ID.
+// It will perform authorization checks in the future.
+func (s *Service) GetResource(ctx context.Context, tenantID, resourceID uuid.UUID) (*Resource, error) {
+	// TODO: Add authorization check here.
+	// For example: s.authzRepo.CheckUserPermissionForResource(ctx, userID, resourceID, "read")
+	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
+}
+
+// ListResources retrieves a list of resources for a tenant.
+// It will perform authorization filtering in the future.
+func (s *Service) ListResources(ctx context.Context, tenantID uuid.UUID) ([]*Resource, error) {
+	// TODO: Add authorization filtering here.
+	// The current implementation returns all resources for the tenant.
+	// A future implementation would filter based on the user's group memberships.
+	return s.resourceRepo.ListResources(ctx, tenantID)
 }
