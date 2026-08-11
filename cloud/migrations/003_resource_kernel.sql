@@ -1,32 +1,55 @@
--- +goose Up
--- I. Core Resource Kernel Tables
--- These two tables are the heart of our Digital Twin / Digital Thread platform.
+QL
 
--- The 'resources' table is a generic container for ANY entity in our ecosystem.
--- This could be a physical device, a virtual product, a supplier, a customer, etc.
--- The 'type' column gives it semantic meaning.
--- The 'metadata' JSONB column allows for flexible, type-specific attributes.
+-- +migrate Up
+-- This migration script establishes the core 'resources' table with best practices.
+-- It uses an auto-incrementing integer as the primary key for performance
+-- and a separate UUID for the public-facing business ID to enhance security.
+-- Column names that could conflict with SQL keywords have been renamed (e.g., 'type' -> 'resource_type').
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS resources (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL, -- e.g., 'product', 'device', 'supplier', 'customer', 'production_line'
-    name VARCHAR(255) NOT NULL,
-    code VARCHAR(255), -- Business-specific code or identifier
-    status VARCHAR(50), -- e.g., 'active', 'inactive', 'maintenance'
+    -- Internal, auto-incrementing primary key for performance and joins
+    id BIGSERIAL PRIMARY KEY,
+    
+    -- External-facing, unique business identifier to prevent enumeration attacks
+    uuid uuid NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
+
+    tenant_id uuid NOT NULL,
+    
+    -- Renamed to avoid SQL keyword conflicts
+    resource_type VARCHAR(100) NOT NULL,
+    resource_name VARCHAR(255) NOT NULL,
+    code VARCHAR(100) UNIQUE,
+    resource_status VARCHAR(50) NOT NULL DEFAULT 'active',
+    
     metadata JSONB,
+    record_version INTEGER NOT NULL DEFAULT 1,
+
+    -- Foreign key now references the internal auto-incrementing 'id'
+    parent_id uuid,
+
+    -- Assuming owner_group_id references the 'uuid' of a group, so it remains uuid
+    owner_group_id uuid,
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    record_version INT NOT NULL DEFAULT 1, -- Renamed from 'version' to avoid keyword conflicts
-    parent_id UUID REFERENCES resources(id) ON DELETE SET NULL,
-    owner_group_id UUID REFERENCES groups(id) ON DELETE SET NULL
-);
-CREATE INDEX IF NOT EXISTS idx_resources_tenant_id_type ON resources (tenant_id, type);
-CREATE INDEX IF NOT EXISTS idx_resources_name ON resources (name);
-CREATE INDEX IF NOT EXISTS idx_resources_code ON resources (tenant_id, code);
-CREATE INDEX IF NOT EXISTS idx_resources_parent_id ON resources (parent_id);
-CREATE INDEX IF NOT EXISTS idx_resources_owner_group_id ON resources (owner_group_id);
 
+    CONSTRAINT fk_resources_parent
+        FOREIGN KEY(parent_id) 
+        REFERENCES resources(id)
+);
+
+-- Create indexes for frequently queried columns
+CREATE INDEX IF NOT EXISTS idx_resources_tenant_id ON resources(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_resources_resource_type ON resources(resource_type);
+CREATE INDEX IF NOT EXISTS idx_resources_parent_id ON resources(parent_id);
+CREATE INDEX IF NOT EXISTS idx_resources_owner_group_id ON resources(owner_group_id);
+CREATE INDEX IF NOT EXISTS idx_resources_deleted_at ON resources(deleted_at);
+
+-- +migrate Down
+DROP TABLE IF EXISTS resources;
 
 -- The 'resource_relations' table defines the relationships between resources.
 -- This forms the "Digital Thread" connecting all entities.

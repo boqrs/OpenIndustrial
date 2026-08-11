@@ -4,61 +4,89 @@ import (
 	"context"
 
 	"github.com/OpenIndustrial/cloud/internal/identity"
+	"github.com/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"gorm.io/gorm"
 )
 
-// GroupRepository implements the identity.GroupRepository interface for PostgreSQL.
-type GroupRepository struct {
-	db *sqlx.DB
+
+
+// groupRepository implements the identity.GroupRepository interface using GORM.
+type groupRepository struct {
+	db *gorm.DB
 }
 
-// NewGroupRepository creates a new GroupRepository.
-func NewGroupRepository(db *sqlx.DB) *GroupRepository {
-	return &GroupRepository{db: db}
+// NewGroupRepository creates a new GORM-based GroupRepository.
+// It now correctly returns the interface type.
+func NewGroupRepository(db *gorm.DB) identity.GroupRepository {
+	return &groupRepository{db: db}
 }
 
 // CreateGroup creates a new group in the database.
-func (r *GroupRepository) CreateGroup(ctx context.Context, group *identity.Group) error {
-	query := `
-		INSERT INTO groups (id, tenant_id, name, description, created_at, updated_at)
-		VALUES (:id, :tenant_id, :name, :description, :created_at, :updated_at)`
-	_, err := r.db.NamedExecContext(ctx, query, group)
-	return err
+func (r *groupRepository) CreateGroup(ctx context.Context, group *model.Group) error {
+	return r.db.WithContext(ctx).Create(group).Error
 }
 
-// GetGroupByID retrieves a group by its ID.
-func (r *GroupRepository) GetGroupByID(ctx context.Context, tenantID, groupID uuid.UUID) (*identity.Group, error) {
-	var group identity.Group
-	query := `SELECT * FROM groups WHERE id = $1 AND tenant_id = $2`
-	err := r.db.GetContext(ctx, &group, query, groupID, tenantID)
-	return &group, err
+// GetGroupByID retrieves a group by its UUID and tenant ID.
+func (r *groupRepository) GetGroupByID(ctx context.Context, tenantID, groupID uuid.UUID) (*model.Group, error) {
+	var group model.Group
+	err := r.db.WithContext(ctx).
+		Where("uuid = ? AND tenant_id = ?", groupID, tenantID).
+		First(&group).Error
+	if err != nil {
+		return nil, err // GORM will return gorm.ErrRecordNotFound if not found.
+	}
+	return &group, nil
 }
 
-// AddUserToGroup adds a user to a group in the group_members table.
-func (r *GroupRepository) AddUserToGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error {
-	query := `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
-	_, err := r.db.ExecContext(ctx, query, groupID, userID)
-	return err
+// AddUserToGroup adds a user to a group.
+// This demonstrates handling a many-to-many relationship with GORM.
+func (r *groupRepository) AddUserToGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error {
+	// First, find the target group and user.
+	var group model.Group
+	if err := r.db.WithContext(ctx).Where("uuid = ? AND tenant_id = ?", groupID, tenantID).First(&group).Error; err != nil {
+		return err // Group not found
+	}
+
+	var user model.User
+	if err := r.db.WithContext(ctx).Where("uuid = ? AND tenant_id = ?", userID, tenantID).First(&user).Error; err != nil {
+		return err // User not found
+	}
+
+	// Use GORM's Association to append the user to the group's Users.
+	// GORM will handle the `user_groups` join table insertion.
+	return r.db.WithContext(ctx).Model(&group).Association("Users").Append(&user)
 }
 
 // RemoveUserFromGroup removes a user from a group.
-func (r *GroupRepository) RemoveUserFromGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error {
-	query := `DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`
-	_, err := r.db.ExecContext(ctx, query, groupID, userID)
-	return err
+func (r *groupRepository) RemoveUserFromGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error {
+	var group model.Group
+	if err := r.db.WithContext(ctx).Where("uuid = ? AND tenant_id = ?", groupID, tenantID).First(&group).Error; err != nil {
+		return err
+	}
+
+	var user model.User
+	if err := r.db.WithContext(ctx).Where("uuid = ? AND tenant_id = ?", userID, tenantID).First(&user).Error; err != nil {
+		return err
+	}
+
+	// Use GORM's Association to delete the relationship.
+	return r.db.WithContext(ctx).Model(&group).Association("Users").Delete(&user)
 }
 
 // ListGroupsByUserID retrieves all groups a specific user is a member of.
-// This is the core implementation for our API endpoint.
-func (r *GroupRepository) ListGroupsByUserID(ctx context.Context, tenantID, userID uuid.UUID) ([]*identity.Group, error) {
-	var groups []*identity.Group
-	query := `
-		SELECT g.*
-		FROM groups g
-		JOIN group_members gm ON g.id = gm.group_id
-		WHERE g.tenant_id = $1 AND gm.user_id = $2
-		ORDER BY g.name`
-	err := r.db.SelectContext(ctx, &groups, query, tenantID, userID)
-	return groups, err
+func (r *groupRepository) ListGroupsByUserID(ctx context.Context, tenantID, userID uuid.UUID) ([]*model.Group, error) {
+	var user model.User
+	// Find the user and preload their associated groups.
+	err := r.db.WithContext(ctx).
+		Preload("Groups", "tenant_id = ?", tenantID). // Preload groups, ensuring they belong to the correct tenant.
+		Where("uuid = ? AND tenant_id = ?", userID, tenantID).
+		First(&user).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// The preloaded groups are now available in the user object.
+	return user.Groups, nil
 }

@@ -6,19 +6,20 @@ import (
 	"net/http"
 
 	"github.com/OpenIndustrial/cloud/internal/identity"
+	"github.com/OpenIndustrial/cloud/internal/param"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // IdentityHandler handles HTTP requests for the identity domain.
 type IdentityHandler struct {
-	service          identity.ServiceUseCase
+	service          identity.Service
 	permissionRepo   PermissionRepository
 	authMiddleware   gin.HandlerFunc
 }
 
 // NewIdentityHandler creates a new IdentityHandler.
-func NewIdentityHandler(service identity.ServiceUseCase, permissionRepo PermissionRepository, authMiddleware gin.HandlerFunc) *IdentityHandler {
+func NewIdentityHandler(service identity.Service, permissionRepo PermissionRepository, authMiddleware gin.HandlerFunc) *IdentityHandler {
 	return &IdentityHandler{
 		service:          service,
 		permissionRepo:   permissionRepo,
@@ -60,13 +61,13 @@ func (h *IdentityHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *IdentityHandler) handleRegister(c *gin.Context) {
-	var params identity.RegisterNewTenantParams
+	var params param.RegisterTenantRequest
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	result, err := h.service.RegisterNewTenant(c.Request.Context(), params)
+	result, err := h.service.RegisterNewTenant(c.Request.Context(), &params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register tenant"})
 		return
@@ -76,13 +77,13 @@ func (h *IdentityHandler) handleRegister(c *gin.Context) {
 }
 
 func (h *IdentityHandler) handleLogin(c *gin.Context) {
-	var params identity.LoginParams
+	var params param.LoginRequest
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	result, err := h.service.Login(c.Request.Context(), params)
+	result, err := h.service.Login(c.Request.Context(), &params)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -124,13 +125,13 @@ func (h *IdentityHandler) handleCreateUser(c *gin.Context) {
 		return
 	}
 
-	var params identity.CreateUserParams
+	var params param.CreateUserRequest
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	result, err := h.service.CreateUser(c.Request.Context(), tenantID, params)
+	result, err := h.service.CreateUser(c.Request.Context(), tenantID, &params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
@@ -147,11 +148,15 @@ func (h *IdentityHandler) handleListUsers(c *gin.Context) {
 		return
 	}
 
-	var params identity.ListUsersParams
+	var params param.ListUsersRequest
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	// We can bind query params here in the future, e.g., for pagination
 	// if err := c.ShouldBindQuery(&params); err != nil { ... }
 
-	users, err := h.service.ListUsers(c.Request.Context(), tenantID, params)
+	users, err := h.service.ListUsers(c.Request.Context(), tenantID, &params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list users"})
 		return
@@ -203,14 +208,14 @@ func (h *IdentityHandler) handleUpdateUser(c *gin.Context) {
 		return
 	}
 
-	var params identity.UpdateUserParams
+	var params param.UpdateUserRequest
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	// CORRECTED: Pass userID from URL to the service call
-	err = h.service.UpdateUser(c.Request.Context(), tenantID, userID, params)
+	err = h.service.UpdateUser(c.Request.Context(), tenantID, userID, &params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
 		return
@@ -274,14 +279,14 @@ func (h *IdentityHandler) handleAssignRoleToUser(c *gin.Context) {
 		return
 	}
 
-	var params identity.AssignRoleToUserParams
+	var params param.AssignRoleToUserRequest
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	// CORRECTED: Pass userID from URL to the service call
-	err = h.service.AssignRoleToUser(c.Request.Context(), tenantID, userID, params)
+	err = h.service.AssignRoleToUser(c.Request.Context(), tenantID, userID, &params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to assign role"})
 		return

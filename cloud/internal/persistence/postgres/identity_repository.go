@@ -5,188 +5,170 @@ import (
 	"fmt"
 
 	"github.com/OpenIndustrial/cloud/internal/identity"
+	"github.com/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"github.com/OpenIndustrial/cloud/internal/param"
+
+	"gorm.io/gorm"
 )
 
-// TenantRepository implements the identity.TenantRepository interface for PostgreSQL.
-type TenantRepository struct {
-	db *sqlx.DB
+// --- TenantRepository ---
+
+type tenantRepository struct {
+	db *gorm.DB
 }
 
-func NewTenantRepository(db *sqlx.DB) *TenantRepository {
-	return &TenantRepository{db: db}
+func NewTenantRepository(db *gorm.DB) identity.TenantRepository {
+	return &tenantRepository{db: db}
 }
 
-func (r *TenantRepository) CreateTenant(ctx context.Context, tenant *identity.Tenant) error {
-	query := `INSERT INTO tenants (name, status) VALUES ($1, $2) RETURNING id, created_at, updated_at`
-	return r.db.QueryRowxContext(ctx, query, tenant.Name, tenant.Status).StructScan(tenant)
+func (r *tenantRepository) CreateTenant(ctx context.Context, tenant *model.Tenant) error {
+	return r.db.WithContext(ctx).Create(tenant).Error
 }
 
-func (r *TenantRepository) GetTenantByID(ctx context.Context, id uuid.UUID) (*identity.Tenant, error) {
-	panic("not implemented")
+func (r *tenantRepository) GetTenantByID(ctx context.Context, id uuid.UUID) (*model.Tenant, error) {
+	var tenant model.Tenant
+	err := r.db.WithContext(ctx).Where("uuid = ?", id).First(&tenant).Error
+	return &tenant, err
 }
 
-func (r *TenantRepository) UpdateTenant(ctx context.Context, tenant *identity.Tenant) error {
-	panic("not implemented")
+func (r *tenantRepository) UpdateTenant(ctx context.Context, tenant *model.Tenant) error {
+	// GORM's Save method will update all fields of the struct,
+	// or create a new record if it does not exist.
+	// It uses the primary key value to find the record.
+	return r.db.WithContext(ctx).Save(tenant).Error
 }
 
-// UserRepository implements the identity.UserRepository interface for PostgreSQL.
-type UserRepository struct {
-	db *sqlx.DB
+// --- UserRepository ---
+
+type userRepository struct {
+	db *gorm.DB
 }
 
-func NewUserRepository(db *sqlx.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserRepository(db *gorm.DB) identity.UserRepository {
+	return &userRepository{db: db}
 }
 
-func (r *UserRepository) CreateUser(ctx context.Context, user *identity.User) error {
-	query := `INSERT INTO users (tenant_id, user_type, profile) VALUES ($1, $2, $3) RETURNING id, created_at, updated_at`
-	return r.db.QueryRowxContext(ctx, query, user.TenantID, user.UserType, user.Profile).StructScan(user)
+func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
 }
 
-func (r *UserRepository) CreatePrincipal(ctx context.Context, p *identity.Principal) error {
-	query := `INSERT INTO principals (user_id, tenant_id, provider, identifier, credential) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
-	return r.db.QueryRowxContext(ctx, query, p.UserID, p.TenantID, p.Provider, p.Identifier, p.Credential).StructScan(p)
-}
-
-func (r *UserRepository) GetPrincipal(ctx context.Context, tenantID uuid.UUID, provider, identifier string) (*identity.Principal, error) {
-	var p identity.Principal
-	query := `SELECT * FROM principals WHERE tenant_id = $1 AND provider = $2 AND identifier = $3`
-	err := r.db.GetContext(ctx, &p, query, tenantID, provider, identifier)
-	return &p, err
-}
-
-func (r *UserRepository) GetUserByID(ctx context.Context, tenantID, userID uuid.UUID) (*identity.User, error) {
-	var user identity.User
-	query := `SELECT * FROM users WHERE id = $1 AND tenant_id = $2`
-	err := r.db.GetContext(ctx, &user, query, userID, tenantID)
+func (r *userRepository) GetUserByID(ctx context.Context, tenantID, userID uuid.UUID) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Where("uuid = ? AND tenant_id = ?", userID, tenantID).
+		First(&user).Error
 	return &user, err
 }
 
-// ListUsers retrieves a paginated list of users for a tenant.
-func (r *UserRepository) ListUsers(ctx context.Context, tenantID uuid.UUID, params identity.ListUsersRepoParams) ([]*identity.User, error) {
-	var users []*identity.User
-	query := `SELECT * FROM users WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
-	err := r.db.SelectContext(ctx, &users, query, tenantID, params.Limit, params.Offset)
+func (r *userRepository) CreatePrincipal(ctx context.Context, p *model.Principal) error {
+	return r.db.WithContext(ctx).Create(p).Error
+}
+
+func (r *userRepository) GetPrincipal(ctx context.Context, tenantID uuid.UUID, provider, identifier string) (*model.Principal, error) {
+	var p model.Principal
+	err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND provider = ? AND identifier = ?", tenantID, provider, identifier).
+		First(&p).Error
+	return &p, err
+}
+
+func (r *userRepository) ListUsers(ctx context.Context, tenantID uuid.UUID, params param.ListUsersRepoReq) ([]*model.User, error) {
+	var users []*model.User
+	err := r.db.WithContext(ctx).
+		Where("tenant_id = ?", tenantID).
+		Order("created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&users).Error
 	return users, err
 }
 
-func (r *UserRepository) UpdateUser(ctx context.Context, user *identity.User) error {
-	query := `UPDATE users SET user_type = $1, profile = $2, updated_at = NOW() WHERE id = $3 AND tenant_id = $4`
-	_, err := r.db.ExecContext(ctx, query, user.UserType, user.Profile, user.ID, user.TenantID)
-	return err
+// --- RoleRepository ---
+
+type roleRepository struct {
+	db *gorm.DB
 }
 
-func (r *UserRepository) DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error {
-	query := `DELETE FROM users WHERE id = $1 AND tenant_id = $2`
-	_, err := r.db.ExecContext(ctx, query, userID, tenantID)
-	return err
+func NewRoleRepository(db *gorm.DB) identity.RoleRepository {
+	return &roleRepository{db: db}
 }
 
-// RoleRepository implements the identity.RoleRepository interface for PostgreSQL.
-type RoleRepository struct {
-	db *sqlx.DB
+func (r *roleRepository) CreateRole(ctx context.Context, role *model.Role) error {
+	return r.db.WithContext(ctx).Create(role).Error
 }
 
-func NewRoleRepository(db *sqlx.DB) *RoleRepository {
-	return &RoleRepository{db: db}
-}
-
-func (r *RoleRepository) AddUserToRole(ctx context.Context, userID, roleID, tenantID uuid.UUID) error {
-	query := `INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3)`
-	_, err := r.db.ExecContext(ctx, query, userID, roleID, tenantID)
-	return err
-}
-
-func (r *RoleRepository) CreateRole(ctx context.Context, role *identity.Role) error {
-	panic("not implemented")
-}
-
-func (r *RoleRepository) GetRoleByID(ctx context.Context, tenantID, roleID uuid.UUID) (*identity.Role, error) {
-	panic("not implemented")
-}
-
-func (r *RoleRepository) RemoveUserFromRole(ctx context.Context, userID, roleID, tenantID uuid.UUID) error {
-	panic("not implemented")
-}
-
-func (r *RoleRepository) AddPermissionToRole(ctx context.Context, roleID, permissionID uuid.UUID) error {
-	panic("not implemented")
-}
-
-func (r *RoleRepository) GetRoleByName(ctx context.Context, tenantID uuid.UUID, name string) (*identity.Role, error) {
-	var role identity.Role
-	query := `
-        SELECT * FROM roles 
-        WHERE name = $1 AND (tenant_id = $2 OR is_system_role = true)
-        ORDER BY tenant_id IS NULL ASC, is_system_role ASC 
-        LIMIT 1`
-	err := r.db.GetContext(ctx, &role, query, name, tenantID)
+func (r *roleRepository) GetRoleByID(ctx context.Context, tenantID, roleID uuid.UUID) (*model.Role, error) {
+	var role model.Role
+	err := r.db.WithContext(ctx).
+		Where("uuid = ? AND tenant_id = ?", roleID, tenantID).
+		First(&role).Error
 	return &role, err
 }
 
-func (r *RoleRepository) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]identity.Role, error) {
-	var roles []identity.Role
-	query := `SELECT * FROM roles WHERE tenant_id = $1 OR is_system_role = true ORDER BY name`
-	err := r.db.SelectContext(ctx, &roles, query, tenantID)
-	return roles, err
+func (r *roleRepository) GetRoleByName(ctx context.Context, tenantID uuid.UUID, name string) (*model.Role, error) {
+	var role model.Role
+	err := r.db.WithContext(ctx).
+		Where("name = ? AND (tenant_id = ? OR is_system = true)", name, tenantID).
+		Order("is_system ASC"). // Prioritize non-system roles
+		First(&role).Error
+	return &role, err
 }
 
-// PermissionRepository implements the identity.PermissionRepository interface for PostgreSQL.
-type PermissionRepository struct {
-	db *sqlx.DB
-}
-
-func NewPermissionRepository(db *sqlx.DB) *PermissionRepository {
-	return &PermissionRepository{db: db}
-}
-
-func (r *PermissionRepository) CheckPermissionForUser(ctx context.Context, userID uuid.UUID, permissionName string) (bool, error) {
-	var hasPermission bool
-	query := `
-        SELECT EXISTS (
-            SELECT 1
-            FROM user_roles ur
-            JOIN role_permissions rp ON ur.role_id = rp.role_id
-            JOIN permissions p ON rp.permission_id = p.id
-            WHERE ur.user_id = $1 AND p.name = $2
-        )`
-	err := r.db.GetContext(ctx, &hasPermission, query, userID, permissionName)
-	if err != nil {
-		return false, err
+func (r *roleRepository) AddUserToRole(ctx context.Context, userID, roleID, tenantID uuid.UUID) error {
+	user := model.User{}
+	if err := r.db.WithContext(ctx).First(&user, "uuid = ?", userID).Error; err != nil {
+		return err // User not found
 	}
-	return hasPermission, nil
+
+	role := model.Role{}
+	if err := r.db.WithContext(ctx).First(&role, "uuid = ?", roleID).Error; err != nil {
+		return err // Role not found
+	}
+
+	return r.db.WithContext(ctx).Model(&user).Association("Roles").Append(&role)
 }
 
-func (r *PermissionRepository) CreatePermission(ctx context.Context, p *identity.Permission) error {
-	query := `INSERT INTO permissions (id, name, description) VALUES ($1, $2, $3)`
-	_, err := r.db.ExecContext(ctx, query, p.ID, p.Name, p.Description)
-	return err
+// --- PermissionRepository ---
+
+type permissionRepository struct {
+	db *gorm.DB
 }
 
-func (r *PermissionRepository) GetPermission(ctx context.Context, resourceKey, action string) (*identity.Permission, error) {
-	var p identity.Permission
+func NewPermissionRepository(db *gorm.DB) identity.PermissionRepository {
+	return &permissionRepository{db: db}
+}
+
+func (r *permissionRepository) CheckPermissionForUser(ctx context.Context, userID uuid.UUID, permissionName string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.User{}).
+		Joins("JOIN user_roles ON user_roles.user_id = users.uuid").
+		Joins("JOIN role_permissions ON role_permissions.role_id = user_roles.role_id").
+		Joins("JOIN permissions ON permissions.id = role_permissions.permission_id").
+		Where("users.uuid = ? AND permissions.name = ?", userID, permissionName).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (r *permissionRepository) CreatePermission(ctx context.Context, p *model.Permission) error {
+	return r.db.WithContext(ctx).Create(p).Error
+}
+
+func (r *permissionRepository) GetPermission(ctx context.Context, resourceKey, action string) (*model.Permission, error) {
+	var p model.Permission
 	permissionName := fmt.Sprintf("%s:%s", resourceKey, action)
-	query := `SELECT * FROM permissions WHERE name = $1`
-	err := r.db.GetContext(ctx, &p, query, permissionName)
-	if err != nil {
-		return nil, err
-	}
-	return &p, nil
+	err := r.db.WithContext(ctx).Where("name = ?", permissionName).First(&p).Error
+	return &p, err
 }
 
-func (r *PermissionRepository) ListPermissionsByRole(ctx context.Context, roleID uuid.UUID) ([]*identity.Permission, error) {
-	var permissions []*identity.Permission
-	query := `
-		SELECT p.*
-		FROM permissions p
-		JOIN role_permissions rp ON p.id = rp.permission_id
-		WHERE rp.role_id = $1
-		ORDER BY p.name`
-	err := r.db.SelectContext(ctx, &permissions, query, roleID)
+func (r *permissionRepository) ListPermissionsByRole(ctx context.Context, roleID uuid.UUID) ([]*model.Permission, error) {
+	var role model.Role
+	err := r.db.WithContext(ctx).
+		Preload("Permissions").
+		Where("uuid = ?", roleID).
+		First(&role).Error
 	if err != nil {
 		return nil, err
 	}
-	return permissions, nil
+	return role.Permissions, nil
 }

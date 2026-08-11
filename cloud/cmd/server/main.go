@@ -9,8 +9,8 @@ import (
 	"github.com/OpenIndustrial/cloud/internal/kernel/resource"
 	"github.com/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // Still needed by the postgres driver
+	//"gorm.io/gorm"
 )
 
 func main() {
@@ -24,29 +24,28 @@ func main() {
 		log.Fatal("JWT_SECRET environment variable is not set")
 	}
 
-	// --- Database Connection ---
-	db, err := sqlx.Connect("postgres", dbURL)
+	// --- Database Connection (Using GORM) ---
+	gormDB, err := postgres.NewDB(dbURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to database using GORM: %v", err)
 	}
-	defer db.Close()
 
-	// --- Repository Instantiation ---
-	// UPDATED: Create all necessary repositories with their correct constructors.
-	userRepo := postgres.NewUserRepository(db)
-	roleRepo := postgres.NewRoleRepository(db)
-	groupRepo := postgres.NewGroupRepository(db) // For Identity Kernel
-	tenantRepo := postgres.NewTenantRepository(db)
-	permRepo := postgres.NewPermissionRepository(db)
+	// --- Repository Instantiation (Using GORM DB) ---
+	// Identity Kernel Repositories
+	userRepo := postgres.NewUserRepository(gormDB)
+	roleRepo := postgres.NewRoleRepository(gormDB)
+	groupRepo := postgres.NewGroupRepository(gormDB)
+	tenantRepo := postgres.NewTenantRepository(gormDB)
+	permRepo := postgres.NewPermissionRepository(gormDB)
 
-	// Repositories for the Resource Kernel
-	resourceRepo := postgres.NewResourceRepository(db)
-	attrDefRepo := postgres.NewAttributeDefinitionRepository(db)
-	resAttrRepo := postgres.NewResourceAttributeRepository(db)
+	// Resource Kernel Repositories
+	resourceRepo := postgres.NewResourceRepository(gormDB)
+	attrDefRepo := postgres.NewAttributeDefinitionRepository(gormDB)
+	resAttrRepo := postgres.NewResourceAttributeRepository(gormDB)
 
 	// --- Service Instantiation ---
-	// UPDATED: Inject correct repositories into each service.
 	identityService := identity.NewService(tenantRepo, userRepo, roleRepo, groupRepo, jwtSecret)
+	// Corrected: resource.NewService only takes 3 arguments.
 	resourceService := resource.NewService(resourceRepo, attrDefRepo, resAttrRepo)
 
 	// --- HTTP Server Setup ---
@@ -56,11 +55,11 @@ func main() {
 	// --- Handler Instantiation & Route Registration ---
 	apiV1 := router.Group("/api/v1")
 
-	// UPDATED: Instantiate and register the new IdentityHandler.
-	identityHandler := api.NewIdentityHandler(identityService, permRepo,authMiddleware)
+	// Corrected: NewIdentityHandler takes the identity.Service interface.
+	identityHandler := api.NewIdentityHandler(identityService, permRepo, authMiddleware)
 	identityHandler.RegisterRoutes(apiV1)
 
-	// UPDATED: Fix the ResourceHandler instantiation.
+	// Corrected: NewResourceHandler takes 3 arguments.
 	resourceHandler := api.NewResourceHandler(resourceService, permRepo, authMiddleware)
 	resourceHandler.RegisterRoutes(apiV1)
 

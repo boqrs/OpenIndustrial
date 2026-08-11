@@ -5,6 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/OpenIndustrial/cloud/internal/param"
+	"github.com/OpenIndustrial/cloud/internal/persistence/model"
+
 	"github.com/google/uuid"
 )
 
@@ -28,29 +31,19 @@ func NewService(
 	}
 }
 
-// CreateProductParams defines the parameters for creating a product.
-// This remains as a clear Data Transfer Object (DTO).
-type CreateProductParams struct {
-	Name         string
-	Description  string
-	Type         string
-	SerialNumber string
-	OwnerGroupID uuid.UUID
-}
-
 // CreateProduct creates a new product resource, sets its owner, and saves its specific attributes.
 // This function is PRESERVED and UPGRADED to the new architecture.
-func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params CreateProductParams) (*Resource, error) {
+func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params *param.CreateProduct) (*model.Resource, error) {
 	// 1. Create the core resource object.
 	// Note: Description and SerialNumber are NOT part of the core resource anymore.
 	// We now correctly set the OwnerGroupID directly on the resource.
-	resource := &Resource{
-		ID:           uuid.New(),
+	resource := &model.Resource{
+		UUID:           uuid.New(),
 		TenantID:     tenantID,
-		Name:         params.Name,
-		Type:         params.Type,
+		ResourceName:         params.Name,
+		ResourceType:         params.Type,
 		OwnerGroupID: &params.OwnerGroupID, // This is the NEW way to set ownership.
-		RecordVersion: 1,
+		Version: 1,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -62,7 +55,7 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 
 	// 3. Handle Description and SerialNumber as DYNAMIC ATTRIBUTES.
 	// This is the "add new interface implementation" part.
-	attributesToSet := []*ResourceAttribute{}
+	attributesToSet := []*model.ResourceAttribute{}
 
 	// Handle Description attribute
 	if params.Description != "" {
@@ -72,10 +65,10 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 			// For now, we'll assume it exists and return an error if not.
 			return nil, errors.New("attribute definition for 'description' not found")
 		}
-		attributesToSet = append(attributesToSet, &ResourceAttribute{
-			ResourceID:  resource.ID,
-			AttributeID: def.ID,
-			ValueString: &params.Description,
+		attributesToSet = append(attributesToSet, &model.ResourceAttribute{
+			ResourceID:  resource.UUID,
+			ID: def.ID,
+			Value: []byte(params.Description), // Assuming Value is a []byte for JSONB storage.
 		})
 	}
 
@@ -85,10 +78,10 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 		if err != nil {
 			return nil, errors.New("attribute definition for 'serial_number' not found")
 		}
-		attributesToSet = append(attributesToSet, &ResourceAttribute{
-			ResourceID:  resource.ID,
-			AttributeID: def.ID,
-			ValueString: &params.SerialNumber,
+		attributesToSet = append(attributesToSet, &model.ResourceAttribute{
+			ResourceID:  resource.UUID,
+			ID: def.ID,
+			Value: []byte(params.SerialNumber), // Assuming Value is a []byte for JSONB storage.
 		})
 	}
 
@@ -103,33 +96,19 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 	return resource, nil
 }
 
-// --- Generic CRUD Methods ---
-
-// CreateResourceParams defines the parameters for creating a generic resource.
-type CreateResourceParams struct {
-	TenantID     uuid.UUID
-	Type         string
-	Name         string
-	Code         *string
-	Status       string
-	Metadata     []byte
-	ParentID     *uuid.UUID
-	OwnerGroupID *uuid.UUID
-}
-
 // CreateResource creates a new, generic resource.
-func (s *Service) CreateResource(ctx context.Context, params CreateResourceParams) (*Resource, error) {
-	resource := &Resource{
-		ID:            uuid.New(),
+func (s *Service) CreateResource(ctx context.Context, params *param.CreateResource) (*model.Resource, error) {
+	resource := &model.Resource{
+		UUID:            uuid.New(),
 		TenantID:      params.TenantID,
-		Type:          params.Type,
-		Name:          params.Name,
+		ResourceType:          params.Type,
+		ResourceName:          params.Name,
 		Code:          params.Code,
-		Status:        params.Status,
+		ResourceStatus:        params.Status,
 		Metadata:      params.Metadata,
-		ParentID:      params.ParentID,
+		ParentID:      *params.ParentID,
 		OwnerGroupID:  params.OwnerGroupID,
-		RecordVersion: 1,
+		Version: 1,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
@@ -140,33 +119,24 @@ func (s *Service) CreateResource(ctx context.Context, params CreateResourceParam
 	return resource, nil
 }
 
-// UpdateResourceParams defines the parameters for updating a resource.
-type UpdateResourceParams struct {
-	Name     string
-	Code     *string
-	Status   string
-	Metadata []byte
-	// Note: TenantID, Type, ParentID, OwnerGroupID are generally not updated via a simple PATCH.
-}
-
 // UpdateResource updates an existing resource. It uses optimistic locking.
-func (s *Service) UpdateResource(ctx context.Context, tenantID, resourceID uuid.UUID, version int, params UpdateResourceParams) (*Resource, error) {
+func (s *Service) UpdateResource(ctx context.Context, resourceID uuid.UUID, req *param.UpdateResource) (*model.Resource, error) {
 	// 1. Get the existing resource to ensure it exists and to get its current state.
-	res, err := s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
+	res, err := s.resourceRepo.GetResourceByID(ctx, req.TenantID, resourceID)
 	if err != nil {
 		return nil, err // Handles not found, etc.
 	}
 
 	// 2. Optimistic locking check.
-	if res.RecordVersion != version {
+	if res.Version != req.Version {
 		return nil, errors.New("update conflict: resource has been modified by another process")
 	}
 
 	// 3. Apply changes from params.
-	res.Name = params.Name
-	res.Code = params.Code
-	res.Status = params.Status
-	res.Metadata = params.Metadata
+	res.ResourceName = req.Name
+	res.Code = req.Code
+	res.ResourceStatus = req.Status
+	res.Metadata = req.Metadata
 	res.UpdatedAt = time.Now()
 	// The repository will handle incrementing the version.
 
@@ -177,7 +147,7 @@ func (s *Service) UpdateResource(ctx context.Context, tenantID, resourceID uuid.
 
 	// The resource object 'res' now has an old version number.
 	// We should return the resource with the *new* version number.
-	res.RecordVersion++
+	res.Version++
 
 	return res, nil
 }
@@ -191,14 +161,14 @@ func (s *Service) DeleteResource(ctx context.Context, tenantID, resourceID uuid.
 
 // GetResource retrieves a single resource by its ID.
 // This can be enhanced later to also fetch and compose its attributes.
-func (s *Service) GetResource(ctx context.Context, tenantID, resourceID uuid.UUID) (*Resource, error) {
+func (s *Service) GetResource(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
 	// TODO: Add authorization check here.
 	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
 }
 
 // ListResources retrieves a list of resources for a tenant, with filtering and pagination.
 // This is the corrected implementation.
-func (s *Service) ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*Resource, error) {
+func (s *Service) ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error) {
 	// TODO: Add authorization filtering here.
 	if limit <= 0 {
 		limit = 100 // Default limit
@@ -211,34 +181,30 @@ func (s *Service) ListResources(ctx context.Context, tenantID uuid.UUID, resourc
 
 // SetAttribute is a new function that properly uses the new interfaces.
 func (s *Service) SetAttribute(ctx context.Context, tenantID, resourceID uuid.UUID, attrKey string, attrValue interface{}) error {
-	def, err := s.attrDefRepo.GetAttributeDefinitionByKey(ctx, tenantID, attrKey)
+	// 1. 编排步骤一：验证业务规则
+	// 在更新属性之前，先确认这个属性的“定义”是否存在。
+	// 这是一个核心的业务规则：不允许设置未定义的属性。
+	// 我们调用 `attrDefRepo` 的接口来完成这个验证。
+	_, err := s.attrDefRepo.FindByName(ctx, tenantID, attrKey)
 	if err != nil {
+		// 如果 FindByName 返回错误（比如 ErrNotFound），说明该属性定义不存在，
+		// 直接将错误返回给上层，阻止后续操作。
 		return err
 	}
 
-	attr := &ResourceAttribute{
-		ResourceID:  resourceID,
-		AttributeID: def.ID,
+	// 2. 编排步骤二：准备数据
+	// 因为 `resAttrRepo` 的 `UpsertForResource` 接口接收的是一个 map，
+	// 所以我们在这里创建一个只包含一个键值对的 map。
+	attributes := map[string]interface{}{
+		attrKey: attrValue,
 	}
 
-	// This is a simplified type switch. A real implementation would be more robust.
-	switch v := attrValue.(type) {
-	case string:
-		attr.ValueString = &v
-	case int:
-		val := int64(v)
-		attr.ValueInteger = &val
-	case float64:
-		attr.ValueFloat = &v
-	case bool:
-		attr.ValueBoolean = &v
-	case time.Time:
-		attr.ValueDateTime = &v
-	default:
-		return errors.New("unsupported attribute type")
-	}
-
-	return s.resAttrRepo.SetAttribute(ctx, attr)
+	// 3. 编排步骤三：委托执行
+	// 将准备好的数据（tenantID, resourceID, attributes map）传递给 `resAttrRepo`。
+	// Service 层的任务到此结束。它不关心这个属性是如何被存入数据库的，
+	// 不关心 JSON 转换，不关心是 INSERT 还是 UPDATE。
+	// 这一切都由 `resAttrRepo` 的具体实现去负责。
+	return s.resAttrRepo.UpsertForResource(ctx, tenantID, resourceID, attributes)
 }
 
 /*

@@ -8,6 +8,16 @@ import (
 	"github.com/OpenIndustrial/cloud/internal/kernel/resource"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/OpenIndustrial/cloud/internal/param"
+)
+
+// --- Permission Constants (ADDED) ---
+// Using constants for permission keys improves readability and maintainability.
+const (
+	PermissionResourceCreate = "resource:create"
+	PermissionResourceRead   = "resource:read"
+	PermissionResourceUpdate = "resource:update"
+	PermissionResourceDelete = "resource:delete"
 )
 
 // ResourceHandler handles HTTP requests for the resource domain.
@@ -39,6 +49,8 @@ func NewResourceHandler(
 // RegisterRoutes registers the resource-related API routes.
 func (h *ResourceHandler) RegisterRoutes(router *gin.RouterGroup) {
 	// --- Existing Product-specific Routes (PRESERVED) ---
+	// Note: For simplicity, we are not applying fine-grained permissions here yet,
+	// but it would follow the same pattern as the generic resources below.
 	products := router.Group("/products")
 	products.Use(h.authMiddleware) // Secure all product routes
 	{
@@ -47,15 +59,16 @@ func (h *ResourceHandler) RegisterRoutes(router *gin.RouterGroup) {
 		products.GET("/:id", h.handleGetProduct)
 	}
 
-	// --- New Generic Resource Routes (ADDED) ---
+	// --- Generic Resource Routes with Fine-Grained Permissions (UPDATED) ---
 	resources := router.Group("/resources")
-	resources.Use(h.authMiddleware)
+	resources.Use(h.authMiddleware) // First, ensure the user is authenticated.
 	{
-		resources.POST("", h.handleCreateResource)
-		resources.GET("", h.handleListResources)
-		resources.GET("/:id", h.handleGetResource)
-		resources.PUT("/:id", h.handleUpdateResource)
-		resources.DELETE("/:id", h.handleDeleteResource)
+		// Then, apply specific permission checks for each action.
+		resources.POST("", h.permMiddleware.RequirePermission(PermissionResourceCreate), h.handleCreateResource)
+		resources.GET("", h.permMiddleware.RequirePermission(PermissionResourceRead), h.handleListResources)
+		resources.GET("/:id", h.permMiddleware.RequirePermission(PermissionResourceRead), h.handleGetResource)
+		resources.PUT("/:id", h.permMiddleware.RequirePermission(PermissionResourceUpdate), h.handleUpdateResource)
+		resources.DELETE("/:id", h.permMiddleware.RequirePermission(PermissionResourceDelete), h.handleDeleteResource)
 	}
 
 	// REMOVED: The /groups route is removed from this handler.
@@ -81,21 +94,13 @@ func (h *ResourceHandler) handleCreateProduct(c *gin.Context) {
 		return
 	}
 
-	var req CreateProductRequest
+	var req param.CreateProduct
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
 		return
 	}
 
-	params := resource.CreateProductParams{
-		Name:         req.Name,
-		Description:  req.Description,
-		Type:         req.Type,
-		SerialNumber: req.SerialNumber,
-		OwnerGroupID: req.OwnerGroupID,
-	}
-
-	product, err := h.service.CreateProduct(c.Request.Context(), tenantID, params)
+	product, err := h.service.CreateProduct(c.Request.Context(), tenantID, &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product: " + err.Error()})
 		return
@@ -157,19 +162,6 @@ func (h *ResourceHandler) handleGetProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, product)
 }
 
-// --- New Generic Resource Handlers (ADDED) ---
-
-// CreateResourceRequest defines the body for creating a generic resource.
-type CreateResourceRequest struct {
-	Type         string     `json:"type" binding:"required"`
-	Name         string     `json:"name" binding:"required"`
-	Code         *string    `json:"code"`
-	Status       string     `json:"status"`
-	Metadata     []byte     `json:"metadata"`
-	ParentID     *uuid.UUID `json:"parent_id"`
-	OwnerGroupID *uuid.UUID `json:"owner_group_id"`
-}
-
 // handleCreateResource handles creating a generic resource.
 func (h *ResourceHandler) handleCreateResource(c *gin.Context) {
 	tenantID, err := getTenantIDFromContext(c)
@@ -178,24 +170,13 @@ func (h *ResourceHandler) handleCreateResource(c *gin.Context) {
 		return
 	}
 
-	var req CreateResourceRequest
+	var req param.CreateResource
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
 		return
 	}
-
-	params := resource.CreateResourceParams{
-		TenantID:     tenantID,
-		Type:         req.Type,
-		Name:         req.Name,
-		Code:         req.Code,
-		Status:       req.Status,
-		Metadata:     req.Metadata,
-		ParentID:     req.ParentID,
-		OwnerGroupID: req.OwnerGroupID,
-	}
-
-	res, err := h.service.CreateResource(c.Request.Context(), params)
+	req.TenantID = tenantID // Ensure the tenant ID is set from the context, not the request body.
+	res, err := h.service.CreateResource(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create resource: " + err.Error()})
 		return
@@ -252,14 +233,14 @@ func (h *ResourceHandler) handleGetResource(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-// UpdateResourceRequest defines the body for updating a resource.
-type UpdateResourceRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Code     *string `json:"code"`
-	Status   string `json:"status"`
-	Metadata []byte `json:"metadata"`
-	Version  int    `json:"version" binding:"required"` // For optimistic locking
-}
+// // UpdateResourceRequest defines the body for updating a resource.
+// type UpdateResourceRequest struct {
+// 	Name     string `json:"name" binding:"required"`
+// 	Code     *string `json:"code"`
+// 	Status   string `json:"status"`
+// 	Metadata []byte `json:"metadata"`
+// 	Version  int    `json:"version" binding:"required"` // For optimistic locking
+// }
 
 // handleUpdateResource handles updating a generic resource.
 func (h *ResourceHandler) handleUpdateResource(c *gin.Context) {
@@ -275,20 +256,15 @@ func (h *ResourceHandler) handleUpdateResource(c *gin.Context) {
 		return
 	}
 
-	var req UpdateResourceRequest
+	var req param.UpdateResource
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
 		return
 	}
 
-	params := resource.UpdateResourceParams{
-		Name:     req.Name,
-		Code:     req.Code,
-		Status:   req.Status,
-		Metadata: req.Metadata,
-	}
-
-	res, err := h.service.UpdateResource(c.Request.Context(), tenantID, resourceID, req.Version, params)
+	req.TenantID = tenantID
+	
+	res, err := h.service.UpdateResource(c.Request.Context(), resourceID, &req)
 	if err != nil {
 		// Specific error handling for optimistic locking
 		if err.Error() == "update conflict: resource has been modified by another process" {
