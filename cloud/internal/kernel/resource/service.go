@@ -50,7 +50,7 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 		Name:         params.Name,
 		Type:         params.Type,
 		OwnerGroupID: &params.OwnerGroupID, // This is the NEW way to set ownership.
-		Version:      1,
+		RecordVersion: 1,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -101,6 +101,92 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 	}
 
 	return resource, nil
+}
+
+// --- Generic CRUD Methods ---
+
+// CreateResourceParams defines the parameters for creating a generic resource.
+type CreateResourceParams struct {
+	TenantID     uuid.UUID
+	Type         string
+	Name         string
+	Code         *string
+	Status       string
+	Metadata     []byte
+	ParentID     *uuid.UUID
+	OwnerGroupID *uuid.UUID
+}
+
+// CreateResource creates a new, generic resource.
+func (s *Service) CreateResource(ctx context.Context, params CreateResourceParams) (*Resource, error) {
+	resource := &Resource{
+		ID:            uuid.New(),
+		TenantID:      params.TenantID,
+		Type:          params.Type,
+		Name:          params.Name,
+		Code:          params.Code,
+		Status:        params.Status,
+		Metadata:      params.Metadata,
+		ParentID:      params.ParentID,
+		OwnerGroupID:  params.OwnerGroupID,
+		RecordVersion: 1,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := s.resourceRepo.CreateResource(ctx, resource); err != nil {
+		return nil, err
+	}
+	return resource, nil
+}
+
+// UpdateResourceParams defines the parameters for updating a resource.
+type UpdateResourceParams struct {
+	Name     string
+	Code     *string
+	Status   string
+	Metadata []byte
+	// Note: TenantID, Type, ParentID, OwnerGroupID are generally not updated via a simple PATCH.
+}
+
+// UpdateResource updates an existing resource. It uses optimistic locking.
+func (s *Service) UpdateResource(ctx context.Context, tenantID, resourceID uuid.UUID, version int, params UpdateResourceParams) (*Resource, error) {
+	// 1. Get the existing resource to ensure it exists and to get its current state.
+	res, err := s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
+	if err != nil {
+		return nil, err // Handles not found, etc.
+	}
+
+	// 2. Optimistic locking check.
+	if res.RecordVersion != version {
+		return nil, errors.New("update conflict: resource has been modified by another process")
+	}
+
+	// 3. Apply changes from params.
+	res.Name = params.Name
+	res.Code = params.Code
+	res.Status = params.Status
+	res.Metadata = params.Metadata
+	res.UpdatedAt = time.Now()
+	// The repository will handle incrementing the version.
+
+	// 4. Persist the changes.
+	if err := s.resourceRepo.UpdateResource(ctx, res); err != nil {
+		return nil, err
+	}
+
+	// The resource object 'res' now has an old version number.
+	// We should return the resource with the *new* version number.
+	res.RecordVersion++
+
+	return res, nil
+}
+
+// DeleteResource performs a soft delete on a resource.
+func (s *Service) DeleteResource(ctx context.Context, tenantID, resourceID uuid.UUID) error {
+	// We could add a check here to ensure the resource exists before deleting.
+	// For now, we delegate this to the repository.
+	return s.resourceRepo.DeleteResource(ctx, tenantID, resourceID)
 }
 
 // GetResource retrieves a single resource by its ID.

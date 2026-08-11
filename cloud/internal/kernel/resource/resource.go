@@ -9,19 +9,19 @@ import (
 
 // Resource represents a fundamental entity in the industrial ecosystem.
 type Resource struct {
-	ID           uuid.UUID  `db:"id"`
-	TenantID     uuid.UUID  `db:"tenant_id"`
-	Type         string     `db:"type"`
-	Name         string     `db:"name"`
-	Code         *string    `db:"code"`
-	Status       string     `db:"status"`
-	Metadata     []byte     `db:"metadata"`
-	CreatedAt    time.Time  `db:"created_at"`
-	UpdatedAt    time.Time  `db:"updated_at"`
-	DeletedAt    *time.Time `db:"deleted_at"`
-	Version      int        `db:"version"`
-	ParentID     *uuid.UUID `db:"parent_id"`
-	OwnerGroupID *uuid.UUID `db:"owner_group_id"`
+	ID            uuid.UUID  `db:"id"`
+	TenantID      uuid.UUID  `db:"tenant_id"`
+	Type          string     `db:"type"`
+	Name          string     `db:"name"`
+	Code          *string    `db:"code"`
+	Status        string     `db:"status"`
+	Metadata      []byte     `db:"metadata"`
+	CreatedAt     time.Time  `db:"created_at"`
+	UpdatedAt     time.Time  `db:"updated_at"`
+	DeletedAt     *time.Time `db:"deleted_at"`
+	RecordVersion int        `db:"record_version"`
+	ParentID      *uuid.UUID `db:"parent_id"`
+	OwnerGroupID  *uuid.UUID `db:"owner_group_id"`
 }
 
 // ResourceRelation defines the relationship between two resources.
