@@ -14,10 +14,16 @@ CREATE TABLE IF NOT EXISTS resources (
     name VARCHAR(255) NOT NULL,
     properties JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    version INT NOT NULL DEFAULT 1,
+    parent_id UUID REFERENCES resources(id) ON DELETE SET NULL,
+    owner_group_id UUID REFERENCES groups(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_resources_tenant_id_type ON resources (tenant_id, type);
 CREATE INDEX IF NOT EXISTS idx_resources_name ON resources (name);
+CREATE INDEX IF NOT EXISTS idx_resources_parent_id ON resources (parent_id);
+CREATE INDEX IF NOT EXISTS idx_resources_owner_group_id ON resources (owner_group_id);
 
 
 -- The 'resource_relations' table defines the relationships between resources.

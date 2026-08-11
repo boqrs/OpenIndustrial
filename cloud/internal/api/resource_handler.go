@@ -3,31 +3,32 @@ package api
 import (
 	"database/sql"
 	"net/http"
+	"strconv"
 
-	"github.com/OpenIndustrial/cloud/internal/resource"
+	"github.com/OpenIndustrial/cloud/internal/kernel/resource"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // ResourceHandler handles HTTP requests for the resource domain.
 type ResourceHandler struct {
-	service         *resource.Service
-	authzRepo       resource.AuthorizationRepository
-	permRepo        PermissionRepository
-	authMiddleware  gin.HandlerFunc
-	permMiddleware  *PermissionMiddleware
+	service *resource.Service
+	// REMOVED: authzRepo is no longer the responsibility of the resource kernel.
+	// Authorization should be handled by dedicated middleware or an identity service.
+	permRepo       PermissionRepository
+	authMiddleware gin.HandlerFunc
+	permMiddleware *PermissionMiddleware
 }
 
 // NewResourceHandler creates a new ResourceHandler.
+// UPDATED: Removed authzRepo from parameters.
 func NewResourceHandler(
 	service *resource.Service,
-	authzRepo resource.AuthorizationRepository,
 	permRepo PermissionRepository,
 	authMiddleware gin.HandlerFunc,
 ) *ResourceHandler {
 	h := &ResourceHandler{
 		service:        service,
-		authzRepo:      authzRepo,
 		permRepo:       permRepo,
 		authMiddleware: authMiddleware,
 	}
@@ -45,12 +46,8 @@ func (h *ResourceHandler) RegisterRoutes(router *gin.RouterGroup) {
 		products.GET("/:id", h.handleGetProduct)
 	}
 
-	// Register the new route for listing groups
-	groupRoutes := router.Group("/groups")
-	groupRoutes.Use(h.authMiddleware)
-	{
-		groupRoutes.GET("", h.handleListGroups)
-	}
+	// REMOVED: The /groups route is removed from this handler.
+	// Group listing is an identity concern and should be handled by an IdentityHandler.
 }
 
 // CreateProductRequest defines the expected JSON body for creating a product.
@@ -94,6 +91,7 @@ func (h *ResourceHandler) handleCreateProduct(c *gin.Context) {
 }
 
 // handleListProducts handles listing all products for the tenant.
+// UPDATED: This function now supports pagination and correctly calls the new service method.
 func (h *ResourceHandler) handleListProducts(c *gin.Context) {
 	tenantID, err := getTenantIDFromContext(c)
 	if err != nil {
@@ -101,7 +99,15 @@ func (h *ResourceHandler) handleListProducts(c *gin.Context) {
 		return
 	}
 
-	products, err := h.service.ListResources(c.Request.Context(), tenantID)
+	// Read pagination parameters from query string, with defaults.
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	// In this handler, we are specifically listing resources of type "product".
+	// A more generic handler might pass this type from the URL.
+	resourceType := "product"
+
+	products, err := h.service.ListResources(c.Request.Context(), tenantID, resourceType, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list products: " + err.Error()})
 		return
@@ -137,25 +143,5 @@ func (h *ResourceHandler) handleGetProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, product)
 }
 
-// handleListGroups handles listing all groups the current user is a member of.
-func (h *ResourceHandler) handleListGroups(c *gin.Context) {
-	tenantID, err := getTenantIDFromContext(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-
-	userID, err := getUserIDFromContext(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-
-	groups, err := h.service.ListUserGroups(c.Request.Context(), tenantID, userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, groups)
-}
+// REMOVED: handleListGroups function is removed.
+// This logic belongs in an IdentityHandler that uses the Identity service.

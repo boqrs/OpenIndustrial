@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OpenIndustrial/cloud/internal/resource"
 	"github.com/google/uuid"
 )
 
@@ -23,6 +22,7 @@ type ServiceUseCase interface {
 	DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error
 	ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*Role, error)
 	AssignRoleToUser(ctx context.Context, tenantID, userID uuid.UUID, params AssignRoleToUserParams) error
+	ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID) ([]*Group, error)
 }
 
 // Service provides use cases for the identity domain.
@@ -30,12 +30,12 @@ type Service struct {
 	tenantRepo TenantRepository
 	userRepo   UserRepository
 	roleRepo   RoleRepository
-	groupRepo  resource.GroupRepository
+	groupRepo  GroupRepository
 	jwtSecret  string
 }
 
 // NewService creates a new identity service.
-func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo resource.GroupRepository, jwtSecret string) *Service {
+func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo GroupRepository, jwtSecret string) *Service {
 	return &Service{
 		tenantRepo: tenantRepo,
 		userRepo:   userRepo,
@@ -103,7 +103,7 @@ func (s *Service) RegisterNewTenant(ctx context.Context, params RegisterNewTenan
 		return nil, err
 	}
 
-	adminGroup := &resource.Group{
+	adminGroup := &Group{
 		ID:          uuid.New(),
 		TenantID:    tenant.ID,
 		Name:        "Administrators",
@@ -314,4 +314,18 @@ type AssignRoleToUserParams struct {
 // AssignRoleToUser assigns a role to a user.
 func (s *Service) AssignRoleToUser(ctx context.Context, tenantID, userID uuid.UUID, params AssignRoleToUserParams) error {
 	return errors.New("not implemented")
+}
+
+// ListUserGroups lists all groups a user is a member of.
+// This is the new function to fulfill the requirement.
+func (s *Service) ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID) ([]*Group, error) {
+	groups, err := s.groupRepo.ListGroupsByUserID(ctx, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	// Ensure we always return a non-nil slice for JSON marshalling consistency.
+	if groups == nil {
+		return []*Group{}, nil
+	}
+	return groups, nil
 }
