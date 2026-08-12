@@ -207,6 +207,32 @@ func (s *Service) SetAttribute(ctx context.Context, tenantID, resourceID uuid.UU
 	return s.resAttrRepo.UpsertForResource(ctx, tenantID, resourceID, attributes)
 }
 
+func (s *Service) BatchCreateResources(ctx context.Context, resources []*model.Resource) error {
+	return s.resourceRepo.BatchCreateResources(ctx, resources)
+}
+
+func (s *Service) GetResourceByID(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
+	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
+}
+
+func (s *Service) FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) {
+	return s.resourceRepo.FindResourceByNameAndType(ctx, tenantID, name, resourceType)
+}
+
+
+func (s *Service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error{
+		return s.attrDefRepo.BatchCreateAttributeDefinition(ctx, attrs)
+}
+
+func (s *Service)	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error){
+	return s.attrDefRepo.FindAttributeDefinitionByResourceID(ctx, resourceID)
+} //TODO: 需要实现底层{}
+
+func (s *Service)	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error{
+	return s.resAttrRepo.BatchCreateResourceAttributes(ctx, attr)
+}
+
+
 /*
 NOTE ON ListUserGroups:
 

@@ -7,6 +7,26 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	// StatusActive means the resource is active and operational.
+	StatusActive = "active"
+	// StatusInactive means the resource is not currently in use.
+	StatusInactive = "inactive"
+	// StatusArchived means the resource is archived for historical purposes.
+	StatusArchived = "archived"
+	// StatusPending means the resource is awaiting some action (e.g., approval).
+	StatusPending = "pending"
+
+	// StatusProvisioned means a device has been registered in the factory but not yet activated by an end-user.
+	StatusProvisioned = "PROVISIONED"
+	// StatusOnboarded means a device has been successfully activated by an end-user.
+	StatusOnboarded = "ONBOARDED"
+	// StatusOffline means a device is currently not connected.
+	StatusOffline = "OFFLINE"
+	// StatusDecommissioned means a device has been permanently taken out of service.
+	StatusDecommissioned = "DECOMMISSIONED"
+)
+
 // Resource is the GORM model for the 'resources' table, reflecting the final architectural decision.
 // It uses an auto-incrementing integer ID as the primary key for internal use,
 // and a separate UUID field as the public-facing business identifier.

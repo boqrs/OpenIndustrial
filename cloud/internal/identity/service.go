@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/OpenIndustrial/cloud/internal/param"
+	"github.com/OpenIndustrial/cloud/internal/event"
 	"github.com/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/google/uuid"
 )
@@ -33,16 +36,18 @@ type service struct {
 	roleRepo   RoleRepository
 	groupRepo  GroupRepository
 	jwtSecret  string
+	publisher   event.Publisher
 }
 
 // NewService creates a new identity service.
-func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo GroupRepository, jwtSecret string) Service {
+func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo GroupRepository, jwtSecret string, publisher event.Publisher) Service {
 	return &service{
 		tenantRepo: tenantRepo,
 		userRepo:   userRepo,
 		roleRepo:   roleRepo,
 		groupRepo:  groupRepo,
 		jwtSecret:  jwtSecret,
+		publisher: publisher,
 	}
 }
 
@@ -166,6 +171,8 @@ func (s *service) CreateUser(ctx context.Context, tenantID uuid.UUID, req *param
 		return nil, fmt.Errorf("failed to create user record: %w", err)
 	}
 
+
+
 	hashedPassword, err := HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
@@ -260,4 +267,59 @@ func (s *service) ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID
 		return []*param.GroupResponse{}, nil
 	}
 	return groupResponses, nil
+}
+
+// --- Event Publishing Helper Methods ---
+
+func (s *service) publishUserCreatedEvent(userID, tenantID uuid.UUID, email string) {
+	payload := event.UserCreatedPayload{
+		UserID: userID.String(),
+		Email:  email,
+	}
+	userCreatedEvent, err := event.NewEnvelope(
+		event.IdentityUserCreated,
+		"user",
+		userID.String(),
+		tenantID.String(),
+		payload,
+	)
+	if err != nil {
+		log.Printf("ERROR: failed to create user.created event envelope: %v", err)
+		return
+	}
+	s.publishWithRetry(userCreatedEvent)
+}
+
+func (s *service) publishTenantCreatedEvent(tenantID uuid.UUID, name, code string, adminUserID uuid.UUID) {
+	payload := event.TenantCreatedPayload{
+		TenantID:    tenantID.String(),
+		Name:        name,
+		Code:        code,
+		AdminUserID: adminUserID.String(),
+	}
+	tenantCreatedEvent, err := event.NewEnvelope(
+		event.IdentityTenantCreated,
+		"tenant",
+		tenantID.String(),
+		tenantID.String(), // For tenant-level events, aggregate ID and tenant ID are the same
+		payload,
+	)
+	if err != nil {
+		log.Printf("ERROR: failed to create tenant.created event envelope: %v", err)
+		return
+	}
+	s.publishWithRetry(tenantCreatedEvent)
+}
+
+func (s *service) publishWithRetry(evt *event.Envelope) {
+	for i := 0; i < 3; i++ {
+		err := s.publisher.Publish(context.Background(), "openindustrial:events", evt)
+		if err == nil {
+			log.Printf("INFO: successfully published event %s of type %s", evt.ID, evt.Type)
+			return
+		}
+		log.Printf("WARN: failed to publish event %s, retrying... (%d/3): %v", evt.ID, i+1, err)
+		time.Sleep(time.Second * time.Duration(i+1))
+	}
+	log.Printf("ERROR: failed to publish event %s after multiple retries", evt.ID)
 }

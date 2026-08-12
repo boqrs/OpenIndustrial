@@ -94,19 +94,21 @@ func (r *ResourceRepository) CheckUserInSameGroupAsResource(ctx context.Context,
 	return true, nil // Placeholder
 }
 
-// CreateResourceRelation creates a new relationship between two resources using GORM.
-func (r *ResourceRepository) CreateResourceRelation(ctx context.Context, relation *model.ResourceRelation) error {
-	return r.db.WithContext(ctx).Create(relation).Error
+func (r *ResourceRepository) BatchCreateResources(ctx context.Context, resources []*model.Resource) error {
+	if len(resources) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Create(&resources).Error
 }
 
-// ListResourceRelations lists relationships for a given resource using GORM.
-func (r *ResourceRepository) ListResourceRelations(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceRelation, error) {
-	var relations []*model.ResourceRelation
+func (r *ResourceRepository) FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) {
+	var resource model.Resource
 	err := r.db.WithContext(ctx).
-		Where("from_id = ? OR to_id = ?", resourceID, resourceID).
-		Find(&relations).Error
-	return relations, err
+		Where("tenant_id = ? AND resource_name = ? AND resource_type = ?", tenantID, name, resourceType).
+		First(&resource).Error
+	return &resource, err
 }
+
 
 // ===================================================================
 // AttributeDefinitionRepository Implementation
@@ -171,6 +173,38 @@ func (r *AttributeDefinitionRepository) FindByName(ctx context.Context, tenantID
 		First(&def).Error
 	return &def, err
 }
+
+// FindByIDs retrieves multiple definitions by their primary UUIDs.
+func (r *AttributeDefinitionRepository) FindByIDs(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) ([]*model.AttributeDefinition, error) {
+	if len(ids) == 0 {
+		return []*model.AttributeDefinition{}, nil
+	}
+	var definitions []*model.AttributeDefinition
+	err := r.db.WithContext(ctx).Where("tenant_id = ? AND uuid IN ?", tenantID, ids).Find(&definitions).Error
+	return definitions, err
+}
+
+func (r *AttributeDefinitionRepository) BatchCreateDefinitions(ctx context.Context, defs []*model.AttributeDefinition) error {
+	if len(defs) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Create(&defs).Error
+}
+
+func ( r *AttributeDefinitionRepository)FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error){
+	var results []*model.AttributeDefinition 
+	
+	if err := r.db.Model(&model.AttributeDefinition{}).Where("resource_id = ?", resourceID).Find(&results).Error; err != nil{
+		return results, err
+	}
+
+	return results, nil
+}
+
+func (r * AttributeDefinitionRepository)BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error{
+	return r.db.Model(&model.AttributeDefinition{}).CreateInBatches(attrs, len(attrs)).Error
+}
+
 
 // ===================================================================
 // ResourceAttributeRepository Implementation
@@ -313,4 +347,9 @@ func (r *ResourceAttributeRepository) UpsertForResource(ctx context.Context, ten
 		}
 		return nil
 	})
+}
+
+
+func( r *ResourceAttributeRepository)	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error{
+	return r.db.Model(&model.ResourceAttribute{}).CreateInBatches(attr, len(attr)).Error
 }

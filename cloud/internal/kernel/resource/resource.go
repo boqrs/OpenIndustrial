@@ -17,20 +17,22 @@ type ResourceRepository interface {
 	DeleteResource(ctx context.Context, tenantID, resourceID uuid.UUID) error
 	ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error)
 	CheckUserInSameGroupAsResource(ctx context.Context, userID, resourceID uuid.UUID) (bool, error)
-	CreateResourceRelation(ctx context.Context, relation *model.ResourceRelation) error
-	ListResourceRelations(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceRelation, error)
+	BatchCreateResources(ctx context.Context, resources []*model.Resource) error // New
+	FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) // New
 }
 
 // AttributeDefinitionRepository defines the persistence interface for AttributeDefinition entities.
 type AttributeDefinitionRepository interface {
 	CreateAttributeDefinition(ctx context.Context, def *model.AttributeDefinition) error
+	BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error
 	GetAttributeDefinitionByID(ctx context.Context, tenantID, defID uuid.UUID) (*model.AttributeDefinition, error)
+	FindByIDs(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) ([]*model.AttributeDefinition, error)
 	GetAttributeDefinitionByKey(ctx context.Context, tenantID uuid.UUID, key string) (*model.AttributeDefinition, error)
 	ListAttributeDefinitions(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*model.AttributeDefinition, error)
 	UpdateAttributeDefinition(ctx context.Context, def *model.AttributeDefinition) error
 	DeleteAttributeDefinition(ctx context.Context, tenantID, defID uuid.UUID) error
 	FindByName(ctx context.Context, tenantID uuid.UUID, name string) (*model.AttributeDefinition, error)
-
+	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error) 
 }
 
 // ResourceAttributeRepository defines the persistence interface for ResourceAttribute values.
@@ -42,4 +44,5 @@ type ResourceAttributeRepository interface {
 	DeleteAttribute(ctx context.Context, resourceID, attributeID uuid.UUID) error
 	GetForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error)
 	UpsertForResource(ctx context.Context, tenantID, resourceID uuid.UUID, attributes map[string]interface{}) error
+	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error
 }

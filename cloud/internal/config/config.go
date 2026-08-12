@@ -9,6 +9,7 @@ type Config struct {
 	DatabaseURL string
 	Port        string
 	JWTSecret   string
+	RedisAddr   string
 }
 
 // Load reads configuration from environment variables or uses sensible defaults.
@@ -19,6 +20,7 @@ func Load() (*Config, error) {
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://user:password@localhost:5432/open_industrial?sslmode=disable"),
 		Port:        getEnv("PORT", "8080"),
 		JWTSecret:   getEnv("JWT_SECRET", "a-very-secret-and-strong-key-that-should-be-changed"),
+		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
 	}
 	return cfg, nil
 }
