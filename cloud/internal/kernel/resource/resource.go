@@ -20,6 +20,7 @@ type ResourceRepository interface {
 	BatchCreateResources(ctx context.Context, resources []*model.Resource) error // New
 	FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error)
 	UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error
+	Exists(ctx context.Context, id uuid.UUID) (bool, error) 
 }
 
 // AttributeDefinitionRepository defines the persistence interface for AttributeDefinition entities.

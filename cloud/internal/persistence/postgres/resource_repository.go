@@ -133,6 +133,14 @@ var parentResource model.Resource
 	return nil
 }
 
+func (r *ResourceRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Resource{}).Where("uuid = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
 // ===================================================================
 // AttributeDefinitionRepository Implementation
 // ===================================================================
