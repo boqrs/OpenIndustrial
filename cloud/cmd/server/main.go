@@ -56,10 +56,10 @@ func main() {
 	resourceRepo := postgres.NewResourceRepository(gormDB)
 	attrDefRepo := postgres.NewAttributeDefinitionRepository(gormDB)
 	resAttrRepo := postgres.NewResourceAttributeRepository(gormDB)
-
+    resConRepo := postgres.NewResourceConnectionsRepository(gormDB)
 	// --- Service Instantiation ---
 	identityService := identity.NewService(tenantRepo, userRepo, roleRepo, groupRepo, cfg.JWTSecret, eventPublisher)
-	resourceService := resource.NewService(resourceRepo, attrDefRepo, resAttrRepo)
+	resourceService := resource.NewService(resourceRepo, attrDefRepo, resAttrRepo, resConRepo)
 	deviceService := device.NewService(resourceService)
 
 	// --- Register Event Handlers ---

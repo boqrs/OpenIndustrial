@@ -10,27 +10,20 @@ import (
 // It stores the actual value of a defined attribute for a specific resource instance.
 // Following the new architecture decision, all foreign keys are now UUIDs.
 type ResourceAttribute struct {
-	// ID is the internal, auto-incrementing primary key. This model is not
-	// exposed directly via API, so it does not need a public-facing UUID.
-	ID uint `gorm:"primaryKey"`
+    ID uint `gorm:"primaryKey"`
 
-	// Foreign key to the 'resources' table's public-facing UUID.
-	ResourceID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_resource_attr_def"`
+    ResourceID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_resource_attr_def"`
 
-	// Foreign key to the 'attribute_definitions' table's public-facing UUID.
-	AttributeDefinitionID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_resource_attr_def"`
+    AttributeDefinitionID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_resource_attr_def"`
 
-	// The actual value of the attribute, stored in a flexible JSONB format.
-	Value []byte `gorm:"type:jsonb"`
+    Value []byte `gorm:"type:jsonb;not null"`
 
-	// Standard timestamp fields
-	CreatedAt time.Time
-	UpdatedAt time.Time
+    CreatedAt time.Time
+    UpdatedAt time.Time
 
-	// Relationships for GORM to preload data if needed.
-	// Note: GORM needs to know which fields to use for the join.
-	Resource            Resource            `gorm:"references:UUID;foreignKey:ResourceID"`
-	AttributeDefinition AttributeDefinition `gorm:"references:UUID;foreignKey:AttributeDefinitionID"`
+    Resource Resource `gorm:"foreignKey:ResourceID;references:UUID"`
+
+    AttributeDefinition AttributeDefinition `gorm:"foreignKey:AttributeDefinitionID;references:ID"`
 }
 
 // TableName specifies the table name for the ResourceAttribute model.

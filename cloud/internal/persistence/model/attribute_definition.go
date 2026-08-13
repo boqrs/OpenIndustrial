@@ -38,7 +38,6 @@ type AttributeDefinition struct {
 	// product model (which is a type of Resource). This creates a "blueprint" of
 	// attributes for all device instances of that model.
 	ResourceID uuid.UUID `gorm:"type:uuid;not null;index"`
-
 	// Name is the machine-readable key for the attribute (e.g., "motor_speed").
 	// It should be unique per product model.
 	Name string `gorm:"type:varchar(255);not null;uniqueIndex:idx_attr_def_model_name"`

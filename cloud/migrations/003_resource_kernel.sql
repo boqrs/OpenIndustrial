@@ -1,110 +1,147 @@
-QL
-
 -- +migrate Up
--- This migration script establishes the core 'resources' table with best practices.
--- It uses an auto-incrementing integer as the primary key for performance
--- and a separate UUID for the public-facing business ID to enhance security.
--- Column names that could conflict with SQL keywords have been renamed (e.g., 'type' -> 'resource_type').
+-- This migration establishes the core "Resource Kernel" of the OpenIndustrial platform.
+-- It defines the fundamental tables for identity, hierarchy, attributes, and connections.
 
+-- Enable UUID generation extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- 1. Resource Status Enum
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'resource_status') THEN
+        CREATE TYPE resource_status AS ENUM (
+            'active',
+            'inactive',
+            'archived',
+            'pending'
+        );
+    END IF;
+END$$;
+
+-- 2. Attribute Value Type Enum
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'attribute_value_type') THEN
+        CREATE TYPE attribute_value_type AS ENUM (
+            'string',
+            'text',
+            'integer',
+            'float',
+            'boolean',
+            'datetime',
+            'json',
+            'decimal',
+            'resource_reference',
+            'resource_reference_list'
+        );
+    END IF;
+END$$;
+
+
+-- 3. Resources Table
 CREATE TABLE IF NOT EXISTS resources (
-    -- Internal, auto-incrementing primary key for performance and joins
     id BIGSERIAL PRIMARY KEY,
-    
-    -- External-facing, unique business identifier to prevent enumeration attacks
-    uuid uuid NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
-
-    tenant_id uuid NOT NULL,
-    
-    -- Renamed to avoid SQL keyword conflicts
-    resource_type VARCHAR(100) NOT NULL,
-    resource_name VARCHAR(255) NOT NULL,
-    code VARCHAR(100) UNIQUE,
-    resource_status VARCHAR(50) NOT NULL DEFAULT 'active',
-    
+    uuid UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL,
+    type VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    status resource_status NOT NULL,
+    parent_id UUID, -- Nullable for root resources, references resources.uuid
     metadata JSONB,
-    record_version INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
 
-    -- Foreign key now references the internal auto-incrementing 'id'
-    parent_id uuid,
+CREATE INDEX IF NOT EXISTS idx_resources_tenant_id ON resources(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type);
+CREATE INDEX IF NOT EXISTS idx_resources_parent_id ON resources(parent_id);
+CREATE INDEX IF NOT EXISTS idx_resources_deleted_at ON resources(deleted_at);
 
-    -- Assuming owner_group_id references the 'uuid' of a group, so it remains uuid
-    owner_group_id uuid,
 
+-- 4. Attribute Definitions Table
+CREATE TABLE IF NOT EXISTS attribute_definitions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    resource_id UUID NOT NULL, -- Points to a "model" or "template" resource
+    name VARCHAR(255) NOT NULL,
+    label VARCHAR(255),
+    description TEXT,
+    data_type attribute_value_type NOT NULL,
+    unit VARCHAR(50),
+    required BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
 
-    CONSTRAINT fk_resources_parent
-        FOREIGN KEY(parent_id) 
-        REFERENCES resources(id)
+    CONSTRAINT fk_attribute_definitions_resource
+        FOREIGN KEY(resource_id) 
+        REFERENCES resources(uuid)
+        ON DELETE CASCADE
 );
 
--- Create indexes for frequently queried columns
-CREATE INDEX IF NOT EXISTS idx_resources_tenant_id ON resources(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_resources_resource_type ON resources(resource_type);
-CREATE INDEX IF NOT EXISTS idx_resources_parent_id ON resources(parent_id);
-CREATE INDEX IF NOT EXISTS idx_resources_owner_group_id ON resources(owner_group_id);
-CREATE INDEX IF NOT EXISTS idx_resources_deleted_at ON resources(deleted_at);
-
--- +migrate Down
-DROP TABLE IF EXISTS resources;
-
--- The 'resource_relations' table defines the relationships between resources.
--- This forms the "Digital Thread" connecting all entities.
--- e.g., (product_A, 'IS_PART_OF', device_B), (device_B, 'LOCATED_IN', factory_C)
-CREATE TABLE IF NOT EXISTS resource_relations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    from_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE, -- Renamed from source_resource_id
-    to_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,   -- Renamed from target_resource_id
-    relation_type VARCHAR(50) NOT NULL, -- e.g., 'CONTAINS', 'PRODUCED_ON', 'IS_PART_OF', 'OWNS'
-    metadata JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_resource_relations_from ON resource_relations (from_id);
-CREATE INDEX IF NOT EXISTS idx_resource_relations_to ON resource_relations (to_id);
-CREATE INDEX IF NOT EXISTS idx_resource_relations_type ON resource_relations (relation_type);
+CREATE INDEX IF NOT EXISTS idx_attribute_definitions_tenant_id ON attribute_definitions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_attribute_definitions_resource_id ON attribute_definitions(resource_id);
+CREATE INDEX IF NOT EXISTS idx_attribute_definitions_deleted_at ON attribute_definitions(deleted_at);
 
 
--- II. ABAC (Attribute-Based Access Control) Support Tables
--- These tables allow for instance-level permissions.
-
--- 'groups' define a collection of users or resources.
--- e.g., 'Factory-A-Staff', 'Customer-B-Users', 'High-Priority-Devices'
-CREATE TABLE IF NOT EXISTS groups (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
+-- 5. Resource Attributes Table
+CREATE TABLE IF NOT EXISTS resource_attributes (
+    id BIGSERIAL PRIMARY KEY,
+    resource_id UUID NOT NULL,
+    attribute_definition_id UUID NOT NULL,
+    value JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(tenant_id, name)
+    
+    CONSTRAINT fk_resource_attributes_resource
+        FOREIGN KEY(resource_id) 
+        REFERENCES resources(uuid)
+        ON DELETE CASCADE,
+    
+    CONSTRAINT fk_resource_attributes_definition
+        FOREIGN KEY(attribute_definition_id) 
+        REFERENCES attribute_definitions(id)
+        ON DELETE RESTRICT,
+
+    UNIQUE (resource_id, attribute_definition_id)
 );
 
--- 'group_members' is the many-to-many link between users and groups.
--- Note: Renamed from user_groups for consistency with other potential member types.
-CREATE TABLE IF NOT EXISTS group_members (
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    PRIMARY KEY (tenant_id, user_id, group_id)
+CREATE INDEX IF NOT EXISTS idx_resource_attributes_tenant_id ON resource_attributes(tenant_id);
+
+
+-- 6. Resource Connections Table
+CREATE TABLE IF NOT EXISTS resource_connections (
+    id BIGSERIAL PRIMARY KEY,
+    source_resource_id UUID NOT NULL,
+    target_resource_id UUID NOT NULL,
+    connection_type VARCHAR(100) NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+
+    CONSTRAINT fk_resource_connections_source
+        FOREIGN KEY(source_resource_id) 
+        REFERENCES resources(uuid)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_resource_connections_target
+        FOREIGN KEY(target_resource_id) 
+        REFERENCES resources(uuid)
+        ON DELETE CASCADE,
+
+    UNIQUE (source_resource_id, target_resource_id, connection_type)
 );
 
--- 'resource_groups' is the many-to-many link between resources and groups.
--- This is the core of our ABAC implementation, controlling which groups can see/manage which resources.
-CREATE TABLE IF NOT EXISTS resource_groups (
-    resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
-    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    PRIMARY KEY (tenant_id, resource_id, group_id)
-);
+CREATE INDEX IF NOT EXISTS idx_resource_connections_tenant_id ON resource_connections(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_resource_connections_deleted_at ON resource_connections(deleted_at);
 
--- +goose Down
-DROP TABLE IF EXISTS resource_groups;
-DROP TABLE IF EXISTS group_members;
-DROP TABLE IF EXISTS groups;
-DROP TABLE IF EXISTS resource_relations;
+
+-- +migrate Down
+DROP TABLE IF EXISTS resource_connections;
+DROP TABLE IF EXISTS resource_attributes;
+DROP TABLE IF EXISTS attribute_definitions;
 DROP TABLE IF EXISTS resources;
+
+DROP TYPE IF EXISTS attribute_value_type;
+DROP TYPE IF EXISTS resource_status;

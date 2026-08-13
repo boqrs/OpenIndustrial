@@ -108,7 +108,30 @@ func (r *ResourceRepository) FindResourceByNameAndType(ctx context.Context, tena
 		First(&resource).Error
 	return &resource, err
 }
+func (r *ResourceRepository)	UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error{
+var parentResource model.Resource
+	if err := r.db.WithContext(ctx).
+		Where("uuid = ? AND tenant_id = ?", newParentID, tenantID).
+		First(&parentResource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("parent resource with ID %s not found for tenant %s", newParentID, tenantID)
+		}
+		return fmt.Errorf("failed to verify parent resource: %w", err)
+	}
 
+	result := r.db.WithContext(ctx).
+		Model(&model.Resource{}).
+		Where("uuid = ? AND tenant_id = ?", resourceID, tenantID).
+		Update("parent_id", &newParentID)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update parent for resource %s: %w", resourceID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("resource with ID %s not found for tenant %s", resourceID, tenantID)
+	}
+	return nil
+}
 
 // ===================================================================
 // AttributeDefinitionRepository Implementation
@@ -353,3 +376,27 @@ func (r *ResourceAttributeRepository) UpsertForResource(ctx context.Context, ten
 func( r *ResourceAttributeRepository)	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error{
 	return r.db.Model(&model.ResourceAttribute{}).CreateInBatches(attr, len(attr)).Error
 }
+
+// ===================================================================
+// ResourceAttributeRepository Implementation
+// ===================================================================
+
+// NewResourceAttributeRepository creates a new ResourceAttributeRepository.
+func NewResourceConnectionsRepository(db *gorm.DB) *ResourceAttributeRepository {
+	return &ResourceAttributeRepository{db: db}
+}
+
+
+	func( r *ResourceAttributeRepository)CreateConnection(ctx context.Context, conn *model.ResourceConnection) error{
+		return r.db.WithContext(ctx).Create(conn).Error
+	}
+
+
+
+
+
+
+
+
+
+// ResourceAttributeRepository implements the resource.ResourceAttributeRepository interface for PostgreSQL.

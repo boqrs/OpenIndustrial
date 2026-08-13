@@ -18,7 +18,8 @@ type ResourceRepository interface {
 	ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error)
 	CheckUserInSameGroupAsResource(ctx context.Context, userID, resourceID uuid.UUID) (bool, error)
 	BatchCreateResources(ctx context.Context, resources []*model.Resource) error // New
-	FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) // New
+	FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error)
+	UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error
 }
 
 // AttributeDefinitionRepository defines the persistence interface for AttributeDefinition entities.
@@ -45,4 +46,8 @@ type ResourceAttributeRepository interface {
 	GetForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error)
 	UpsertForResource(ctx context.Context, tenantID, resourceID uuid.UUID, attributes map[string]interface{}) error
 	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error
+}
+
+type ResourceConnectionsRepository interface {
+	CreateConnection(ctx context.Context, conn *model.ResourceConnection) error
 }

@@ -16,6 +16,7 @@ type Service struct {
 	resourceRepo ResourceRepository
 	attrDefRepo  AttributeDefinitionRepository
 	resAttrRepo  ResourceAttributeRepository
+	resourceConRepo ResourceConnectionsRepository
 }
 
 // NewService creates a new resource service.
@@ -23,11 +24,13 @@ func NewService(
 	resourceRepo ResourceRepository,
 	attrDefRepo AttributeDefinitionRepository,
 	resAttrRepo ResourceAttributeRepository,
+	resourceConRepo ResourceConnectionsRepository,
 ) *Service {
 	return &Service{
 		resourceRepo: resourceRepo,
 		attrDefRepo:  attrDefRepo,
 		resAttrRepo:  resAttrRepo,
+		resourceConRepo: resourceConRepo,
 	}
 }
 
@@ -232,6 +235,24 @@ func (s *Service)	BatchCreateResourceAttributes(ctx context.Context, attr []*mod
 	return s.resAttrRepo.BatchCreateResourceAttributes(ctx, attr)
 }
 
+
+	// UpdateParent changes the hierarchical parent of a given resource.
+func (s *Service)UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error{
+	return s.resourceRepo.UpdateParent(ctx, tenantID, resourceID, newParentID)
+}
+
+func (s *Service) CreateConnection(ctx context.Context, deviceID, gatewayID uuid.UUID) error{
+	res := &model.ResourceConnection{
+		SourceResourceID: deviceID ,
+		TargetResourceID: gatewayID,
+		ConnectionType: model.ConnectionTypeConnectedThrough,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	return s.resourceConRepo.CreateConnection(ctx, res)
+}
+
+// CreateConnection establishes a new technical connection between two resources.
 
 /*
 NOTE ON ListUserGroups:

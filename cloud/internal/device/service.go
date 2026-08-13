@@ -21,6 +21,8 @@ type Service interface{
  CreateProductModel(ctx context.Context, req *param.CreateProductModelRequest) (*model.Resource, error)
  RegisterIoTProduct(ctx context.Context, req *param.RegisterDeviceRequest) (*param.ResourceResponse, error)
  RegisterFactoryAsset(ctx context.Context, req *param.RegisterDeviceRequest) (*param.ResourceResponse, error) 
+ AssignToProductionLine(ctx context.Context, tenantID, deviceID, productionLineID uuid.UUID) error
+ ConnectToGateway(ctx context.Context, tenantID, deviceID, gatewayID uuid.UUID) error
 }
 
 // serviceImpl 是 device.Service 的具体实现
@@ -43,7 +45,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *param.CreateP
 		TenantID: req.TenantID,
 		Type:     ResourceTypeProductModel,
 		Name:     req.Name,
-		Status:   "active",
+		Status:   model.StatusActive,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource for product model: %w", err)
@@ -93,7 +95,6 @@ func (s *serviceImpl) registerDevice(ctx context.Context, req *param.RegisterDev
 		return nil, fmt.Errorf("could not retrieve attribute definitions for model %s: %w", req.ProductModelID, err)
 	}
 
-
 	// 4. 通过 resource 服务创建设备实例的 Resource 记录
 	deviceInstance, err := s.resourceSvc.CreateResource(ctx, &param.CreateResource{
 		TenantID: req.TenantID,
@@ -101,7 +102,7 @@ func (s *serviceImpl) registerDevice(ctx context.Context, req *param.RegisterDev
 		Name:     req.InstanceName,
 		Status:   model.StatusProvisioned,
 		ParentID: &req.ProductModelID,
-		Code:     &req.SerialNumber,
+		Code:     &req.SerialNumber,//对于设备是序列号作为code
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource for device instance: %w", err)
@@ -155,4 +156,22 @@ func (s *serviceImpl) validateAndPrepareAttributes(attrs map[string]interface{},
 		})
 	}
 	return attributesToCreate, nil
+}
+
+func (s *serviceImpl) AssignToProductionLine(ctx context.Context, tenantID, deviceID, productionLineID uuid.UUID) error {
+	err := s.resourceSvc.UpdateParent(ctx, tenantID, deviceID, productionLineID)
+	if err != nil {
+		return fmt.Errorf("failed to assign device %s to production line %s: %w", deviceID, productionLineID, err)
+	}
+	return nil
+
+	return nil
+}
+
+func (s *serviceImpl) ConnectToGateway(ctx context.Context, tenantID, deviceID, gatewayID uuid.UUID) error {
+	
+	if err := s.resourceSvc.CreateConnection(ctx, deviceID, gatewayID);err != nil {
+		return fmt.Errorf("failed to connect device %s to gateway %s: %w", deviceID, gatewayID, err)
+	}
+	return nil
 }
