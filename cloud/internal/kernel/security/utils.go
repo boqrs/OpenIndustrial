@@ -13,21 +13,14 @@ import(
 
 )
 
-func verifySecret(
-	secret string,
-	expectedHash string,
-) bool {
-
+func verifySecret(secret string,expectedHash string) bool {
 	actualHash := hashSecret(secret)
 
 	if len(actualHash) != len(expectedHash) {
 		return false
 	}
 
-	return subtle.ConstantTimeCompare(
-		[]byte(actualHash),
-		[]byte(expectedHash),
-	) == 1
+	return subtle.ConstantTimeCompare([]byte(actualHash),[]byte(expectedHash)) == 1
 }
 
 func parseBootstrapToken(

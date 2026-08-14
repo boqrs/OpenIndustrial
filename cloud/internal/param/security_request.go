@@ -1,6 +1,10 @@
 package param
 
-import "github.com/google/uuid"
+import (
+	//"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type CreateBootstrapCredentialRequest struct {
 	ResourceID uuid.UUID `json:"resource_id"`
@@ -40,4 +44,9 @@ type RevokeCertificateRequest struct {
 	CertificateID string `json:"certificate_id"`
 
 	Reason string `json:"reason"`
+}
+
+type CertificateReq struct{
+	Resource uuid.UUID `json:"resource_id" form:"resource_id"`
+	CertificateID string `json:"certificate_id" form:"certificate_id"`
 }
