@@ -32,6 +32,13 @@ func (r *ResourceRepository) CreateResource(ctx context.Context, res *model.Reso
 	return r.db.WithContext(ctx).Create(res).Error
 }
 
+func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID, parentID uuid.UUID) ([]*model.Resource, error) {
+	var resources []*model.Resource
+	err := r.db.WithContext(ctx).Where("tenant_id = ? AND parent_id = ?", tenantID, parentID).Find(&resources).Error
+	return resources, err
+}
+
+
 // GetResourceByID retrieves a resource by its ID using GORM.
 func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
 	var res model.Resource
@@ -395,15 +402,54 @@ func NewResourceConnectionsRepository(db *gorm.DB) *ResourceAttributeRepository 
 }
 
 
-	func( r *ResourceAttributeRepository)CreateConnection(ctx context.Context, conn *model.ResourceConnection) error{
-		return r.db.WithContext(ctx).Create(conn).Error
+func( r *ResourceAttributeRepository)CreateConnection(ctx context.Context, conn *model.ResourceConnection) error{
+	return r.db.WithContext(ctx).Create(conn).Error
+}
+
+func (r *ResourceAttributeRepository) GetConnectionByID(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
+	var conn model.ResourceConnection
+	err := r.db.WithContext(ctx).First(&conn, connectionID).Error
+	return &conn, err
+}
+
+func (r *ResourceAttributeRepository) DeleteConnection(ctx context.Context, connectionID uint) error {
+	return r.db.WithContext(ctx).Delete(&model.ResourceConnection{}, connectionID).Error
+}
+
+
+func (r *ResourceAttributeRepository) ListConnectionsByResourceID(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error) {
+	var conns []*model.ResourceConnection
+	err := r.db.WithContext(ctx).Where("source_resource_id = ? OR target_resource_id = ?", resourceID, resourceID).Find(&conns).Error
+	return conns, err
+}
+
+func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Context, tenantID, resourceID uuid.UUID) (map[string]interface{}, error) {
+	var results []struct {
+		Name  string
+		Value json.RawMessage
+	}
+	err := r.db.WithContext(ctx).Model(&model.ResourceAttribute{}).
+		Select("ad.name, ra.value").
+		Joins("JOIN attribute_definitions ad ON ad.uuid = ra.attribute_definition_id").
+		Where("ra.resource_id = ?", resourceID).
+		Scan(&results).Error
+
+	if err != nil {
+		return nil, err
 	}
 
+	attrs := make(map[string]interface{})
+	for _, r := range results {
+		var val interface{}
+		if err := json.Unmarshal(r.Value, &val); err != nil {
+			// Decide how to handle malformed JSON in the DB
+			continue
+		}
+		attrs[r.Name] = val
+	}
 
-
-
-
-
+	return attrs, nil
+}
 
 
 

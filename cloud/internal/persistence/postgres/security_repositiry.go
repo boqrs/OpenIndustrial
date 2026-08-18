@@ -24,7 +24,7 @@ func NewCredentialRepository(db *gorm.DB) *CredentialRepository {
 // Compile-time check to ensure credentialRepository implements the interface.
 //var _ security.CredentialRepository = (*credentialRepository)(nil)
 
-func (r *CertificateRepository) Create(ctx context.Context, cred *model.ResourceCredential) error {
+func (r *CertificateRepository) Create(ctx context.Context, cred *model.ResourceCertificate) error {
 	return r.db.WithContext(ctx).Create(cred).Error
 }
 
@@ -57,6 +57,32 @@ func (r *CertificateRepository) GetByFingerprint(ctx context.Context, fingerprin
 func (r *CertificateRepository) Update(ctx context.Context, cert *model.ResourceCertificate) error {
 	return r.db.WithContext(ctx).Save(cert).Error
 }
+func(r *CertificateRepository) GetActiveByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ResourceCertificate, error){
+	return nil, nil
+}
+
+func ( r *CertificateRepository)    GetByCertificateID(ctx context.Context,certificateID string) (*model.ResourceCertificate, error){
+	return nil, nil
+}
+
+func (CertificateRepository)  ListByResourceID(ctx context.Context,resourceID uuid.UUID) ([]model.ResourceCertificate, error){
+	return nil, nil
+}
+
+
+func ( r *CertificateRepository)    Activate(ctx context.Context,id uuid.UUID,activatedAt time.Time) error{
+	return nil
+}
+
+func (r *CertificateRepository)    Revoke(ctx context.Context,id uuid.UUID,revokedAt time.Time) error{
+	return nil
+}
+
+// func (r *CertificateRepository)    GetByCertificateID(ctx context.Context,certificateID string) (*model.ResourceCertificate, error){
+// 	return nil, nil
+// }
+
+
 
 // ===================================================================
 // IdentityRepository Implementation
@@ -105,6 +131,22 @@ func (r *IdentityRepository) FindBySerialNumber(ctx context.Context, serialNumbe
 	return &identity, nil
 }
 
+func (r *IdentityRepository)    GetByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ResourceIdentity, error){
+	return nil, nil
+}
+
+func (r *IdentityRepository)    CreateOrUpdate(ctx context.Context,identity *model.ResourceIdentity) error{
+	return nil
+}
+
+func (r *IdentityRepository)    HardwareIDExists(ctx context.Context,hardwareID string,excludeResourceID *uuid.UUID) (bool, error){
+	return false, nil
+}
+
+func (r *IdentityRepository)    SerialNumberExists(ctx context.Context,tenantID uuid.UUID,serialNumber string,excludeResourceID *uuid.UUID) (bool, error){
+	return false, nil
+}
+
 // ===================================================================
 // CertificateRepository Implementation
 // ===================================================================
@@ -118,11 +160,12 @@ type CredentialRepository struct {
 func NewCertificateRepository(db *gorm.DB) *CertificateRepository {
 	return &CertificateRepository{db: db}
 }
-
+func(r *CredentialRepository)    Consume(ctx context.Context,id uuid.UUID,consumedAt time.Time) error{
+	return nil
+}
 // Compile-time check to ensure certificateRepository implements the interface.
 //var _ security.CertificateRepository = (*certificateRepository)(nil)
-
-func (r *CredentialRepository) Create(ctx context.Context, cert *model.ResourceCertificate) error {
+func (r *CredentialRepository) Create(ctx context.Context, cert *model.ResourceCredential) error {
 	return r.db.WithContext(ctx).Create(cert).Error
 }
 
@@ -178,4 +221,12 @@ func (r *CredentialRepository) Revoke(ctx context.Context, id uuid.UUID) error {
 
 func (r *CredentialRepository) Update(ctx context.Context, cred *model.ResourceCredential) error {
 	return r.db.WithContext(ctx).Save(cred).Error
+}
+
+func (r *CredentialRepository)    GetActive(ctx context.Context,resourceID uuid.UUID,credentialType model.CredentialType) (*model.ResourceCredential, error){
+	return nil, nil
+}
+
+func (r *CredentialRepository)    GetByID(ctx context.Context,id uuid.UUID) (*model.ResourceCredential, error){
+	return nil, nil
 }

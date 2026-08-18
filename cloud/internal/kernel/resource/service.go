@@ -34,6 +34,21 @@ func NewService(
 	}
 }
 
+// tenantIDFromContext is a placeholder helper function.
+// In a real application, this would be part of a shared context utility.
+func tenantIDFromContext(ctx context.Context) uuid.UUID {
+	// Dummy implementation for now
+	// In a real application, you would extract this from a JWT token or similar.
+	val := ctx.Value("tenant_id")
+	if val != nil {
+		if id, ok := val.(uuid.UUID); ok {
+			return id
+		}
+	}
+	return uuid.Nil
+}
+
+
 // CreateProduct creates a new product resource, sets its owner, and saves its specific attributes.
 // This function is PRESERVED and UPGRADED to the new architecture.
 func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params *param.CreateProduct) (*model.Resource, error) {
@@ -227,6 +242,11 @@ func (s *Service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*m
 		return s.attrDefRepo.BatchCreateAttributeDefinition(ctx, attrs)
 }
 
+func (s *Service) GetAttributesForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error) {
+	return s.resAttrRepo.GetAttributesForResource(ctx, tenantIDFromContext(ctx), resourceID)
+}
+
+
 func (s *Service)	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error){
 	return s.attrDefRepo.FindAttributeDefinitionByResourceID(ctx, resourceID)
 } //TODO: 需要实现底层{}
@@ -241,17 +261,43 @@ func (s *Service)UpdateParent(ctx context.Context, tenantID, resourceID, newPare
 	return s.resourceRepo.UpdateParent(ctx, tenantID, resourceID, newParentID)
 }
 
-func (s *Service) CreateConnection(ctx context.Context, deviceID, gatewayID uuid.UUID) error{
+func (s *Service) CreateConnection(ctx context.Context, sourceID, tragetID uuid.UUID) error{
 	res := &model.ResourceConnection{
-		SourceResourceID: deviceID ,
-		TargetResourceID: gatewayID,
-		ConnectionType: model.ConnectionTypeConnectedThrough,
+		SourceResourceID: sourceID ,
+		TargetResourceID: tragetID,
+		ConnectionType: model.ConnectionTypeConnectedThrough, //TODO: 这里需要参数传入
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 	return s.resourceConRepo.CreateConnection(ctx, res)
 }
+// UpsertAttributesForResource updates or inserts a batch of attributes for a given resource.
+func (s *Service) UpsertAttributesForResource(ctx context.Context, resourceID uuid.UUID, attributes map[string]interface{}) error {
+	// In a real implementation, you would first validate the attributes against their definitions.
+	// For now, we delegate directly to the repository.
+	return s.resAttrRepo.UpsertForResource(ctx, tenantIDFromContext(ctx), resourceID, attributes)
+}
 
+// ClearParent removes the parent from a resource, making it a root-level resource.
+func (s *Service) ClearParent(ctx context.Context, resourceID uuid.UUID) error {
+	return s.resourceRepo.UpdateParent(ctx, tenantIDFromContext(ctx), resourceID, uuid.Nil)
+}
+
+
+func (s *Service) GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
+	return s.resourceConRepo.GetConnectionByID(ctx, connectionID)
+}
+
+func (s *Service) DeleteConnection(ctx context.Context, connectionID uint) error {
+	return s.resourceConRepo.DeleteConnection(ctx, connectionID)
+}
+
+func (s *Service) GetChildren(ctx context.Context, resourceID uuid.UUID) ([]*model.Resource, error) {
+	return s.resourceRepo.FindByParentID(ctx, tenantIDFromContext(ctx), resourceID)
+}
+func (s *Service) ListConnections(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error) {
+	return s.resourceConRepo.ListConnectionsByResourceID(ctx, resourceID)
+}
 // CreateConnection establishes a new technical connection between two resources.
 
 /*

@@ -2,6 +2,10 @@ package resource
 
 import (
 	"context"
+	"crypto"
+	"crypto/x509/pkix" // 修正: 导入 pkix
+	"net"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,6 +25,7 @@ type ResourceRepository interface {
 	FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error)
 	UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error
 	Exists(ctx context.Context, id uuid.UUID) (bool, error) 
+	FindByParentID(ctx context.Context, tenantID, parentID uuid.UUID) ([]*model.Resource, error)
 }
 
 // AttributeDefinitionRepository defines the persistence interface for AttributeDefinition entities.
@@ -47,8 +52,50 @@ type ResourceAttributeRepository interface {
 	GetForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error)
 	UpsertForResource(ctx context.Context, tenantID, resourceID uuid.UUID, attributes map[string]interface{}) error
 	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error
+    GetAttributesForResource(ctx context.Context, tenantID, resourceID uuid.UUID) (map[string]interface{}, error)
+
 }
 
 type ResourceConnectionsRepository interface {
 	CreateConnection(ctx context.Context, conn *model.ResourceConnection) error
+	GetConnectionByID(ctx context.Context, conID uint)(*model.ResourceConnection, error)
+	DeleteConnection(ctx context.Context, connectionID uint) error
+	ListConnectionsByResourceID(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error)
+}
+
+type ParsedCSR struct {
+	Subject      pkix.Name // 修正: 类型从 string 变为 pkix.Name
+	PublicKey    crypto.PublicKey
+	DNSNames     []string
+	IPAddresses  []net.IP
+	EmailAddress []string
+}
+
+// IssueCertificateRequest is the request to issue a new certificate.
+type IssueCertificateRequest struct {
+	CSR      string
+	Validity time.Duration // 修正: 增加 Validity 字段
+}
+
+// IssuedCertificate is the result of a successful certificate issuance.
+type IssuedCertificate struct {
+	CertificatePEM string
+	CertificateID  string
+}
+
+type CertificateAuthority interface {
+	ValidateCSR(
+		csrPEM string,
+	) (*ParsedCSR, error)
+
+	IssueCertificate(
+		ctx context.Context,
+		req IssueCertificateRequest,
+	) (*IssuedCertificate, error)
+
+	RevokeCertificate(
+		ctx context.Context,
+		certificateID string,
+		reason string,
+	) error
 }

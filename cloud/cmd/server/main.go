@@ -1,87 +1,137 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/OpenIndustrial/cloud/internal/api"
 	"github.com/OpenIndustrial/cloud/internal/config"
-	//"github.com/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/OpenIndustrial/cloud/internal/kernel/resource"
 	"github.com/OpenIndustrial/cloud/internal/kernel/security"
+	"github.com/OpenIndustrial/cloud/internal/kernel/security/provider"
+
 	"github.com/OpenIndustrial/cloud/internal/persistence/postgres"
 
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware is a placeholder for your actual authentication middleware.
-// The compiler errors indicated that the ResourceHandler requires a `gin.HandlerFunc`,
-// which is almost certainly for authentication and authorization.
-// You should replace the contents of this function with your real auth logic,
-// for example, validating a JWT and setting tenant/user info in the context.
+// ==================================================================================
+// 占位符实现 (Mock Implementations)
+// ==================================================================================
+// mockMQTT 是 MQTTProvider 依赖的占位符。
+type mockMQTT struct{}
+
+func (m *mockMQTT) Endpoint() string { return "ssl://dummy-mqtt.local" }
+func (m *mockMQTT) Port() int        { return 8883 }
+func (m *mockMQTT) Protocol() string { return "mqtt" }
+
+// mockTxManager 是 TransactionManager 依赖的占位符。
+type mockTxManager struct{}
+
+func (m *mockTxManager) WithinTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
+	log.Println("警告: 正在使用 mock Transaction Manager，操作不具备事务性。")
+	return fn(ctx)
+}
+
+// AuthMiddleware 是认证中间件的占位符。
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Println("Executing placeholder authentication middleware...")
-		// Example: c.Set("tenant_id", "some-tenant-id-from-token")
 		c.Next()
 	}
 }
 
+// ==================================================================================
+// 主程序 (Main Application)
+// ==================================================================================
+
 func main() {
-	// 1. Load application configuration
+	// 1. 加载配置
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load configuration: %v", err)
 	}
 
-	// 2. Connect to the database
-	// FIX: Using `database.NewDb` as requested and passing the whole config,
-	// as `cfg.Database` was undefined.
+	// 2. 连接数据库
 	db, err := postgres.NewDB(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	// 3. Initialize ALL Repositories
-	// FIX: The compiler showed that resource.New needs 4 repositories.
+	// 3. 初始化所有仓储 (Repositories)
 	resourceRepo := postgres.NewResourceRepository(db)
 	attrDefRepo := postgres.NewAttributeDefinitionRepository(db)
 	resAttrRepo := postgres.NewResourceAttributeRepository(db)
 	resConnRepo := postgres.NewResourceConnectionsRepository(db)
-
-	// FIX: The compiler showed that api.NewResourceHandler needs a PermissionRepository.
 	permissionRepo := postgres.NewPermissionRepository(db)
-
-	// Security Repositories
 	credRepo := postgres.NewCredentialRepository(db)
 	identityRepo := postgres.NewIdentityRepository(db)
 	certRepo := postgres.NewCertificateRepository(db)
 
-	// 4. Initialize Services
-	// FIX: Calling `resource.New` with all 4 required repository dependencies.
-	// I've removed the TransactionManager as it was undefined.
+	// --- Initialize Certificate Authority --
+	pkiConfig := provider.ProviderConfig{
+		Provider: "",
+		AWS: provider.AWSConfig{
+			Region:                 cfg.PKI.AWS.Region,
+			AccessKey:                  cfg.PKI.AWS.AccessKey,
+			SecretKey: cfg.PKI.AWS.SecretKey,
+			CAArn:           cfg.PKI.AWS.CAArn,
+		},
+
+		Aliyun: provider.AliyunConfig{
+			Endpoint:       cfg.PKI.Aliyun.Endpoint,
+			AccessKeyID:    cfg.PKI.Aliyun.AccessKeyID,
+			AccessKeySecret:    cfg.PKI.Aliyun.AccessKeySecret,
+			ParentIdentifier: cfg.PKI.Aliyun.ParentIdentifier,
+		},
+	}
+
+	pkiFactory, err := provider.NewFactory(pkiConfig)
+	if err != nil {
+		log.Fatalf("failed to create pki provider factory: %v", err)
+	}
+
+		// 2. Create the specific Certificate Authority instance based on config
+	ca, err := pkiFactory.Create(provider.Provider(cfg.PKI.Provider))
+	if err != nil {
+		log.Fatalf("failed to create certificate authority: %v", err)
+	}
+
+	adaptedCA := security.NewCertificateAuthorityAdapter(ca)
+
+
+	// 4. 初始化所有服务 (Services)
 	resourceSvc := resource.NewService(resourceRepo, attrDefRepo, resAttrRepo, resConnRepo)
 
-	// FIX: Renamed `security.NewService` to `security.New` and injected dependencies.
-	securitySvc := security.NewService(resourceSvc, credRepo, identityRepo, certRepo)
+	securitySvc := security.NewService(
+		resourceRepo,
+		credRepo,
+		identityRepo,
+		certRepo,
+		adaptedCA,
+		&mockMQTT{},
+		&mockTxManager{},
+	)
 
-	// 5. Setup HTTP Server & Handlers
+	// 5. 设置 HTTP 服务器和处理器 (Handlers)
 	router := gin.Default()
 
-	// FIX: Calling `api.NewResourceHandler` with all 3 required arguments,
-	// including the placeholder authentication middleware.
 	resourceHandler := api.NewResourceHandler(resourceSvc, permissionRepo, AuthMiddleware())
 	securityHandler := api.NewSecurityHandler(securitySvc)
 
-	// 6. Register Routes
-	// FIX: Renamed `RegisterResourceRoutes` to `Register` as the original was undefined.
-	resourceHandler.Register(router)
+	// 6. 注册路由
+	// 【修复】: `resourceHandler.RegisterRoutes` 需要一个 `*gin.RouterGroup`。
+	// 我们创建一个 API group (例如 /v1) 并将其传入。
+	// `securityHandler` 仍然接收 `*gin.Engine`，因为它没有报错。
+	apiV1Group := router.Group("/v1")
+	resourceHandler.RegisterRoutes(apiV1Group)
 	securityHandler.RegisterSecurityRoutes(router)
 
-	// 7. Start the server
-	// FIX: Using `cfg.HTTP.Address` as a guess, since `cfg.Server` was undefined.
-	// Please adjust if your config structure is different.
-	log.Printf("server starting on %s", cfg.HTTP.Address)
-	if err := router.Run(cfg.HTTP.Address); err != nil {
+	// 7. 启动服务器
+	// 【修复】: `cfg.Address` 未定义。使用一个默认的占位符地址来让程序可以运行。
+	// TODO: 请将 "0.0.0.0:8080" 替换为您 `config.Config` 结构体中正确的服务器地址字段。
+	listenAddress := "0.0.0.0:8080"
+	log.Printf("server starting on %s", listenAddress)
+	if err := router.Run(listenAddress); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }

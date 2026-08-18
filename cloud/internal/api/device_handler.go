@@ -1,122 +1,329 @@
 package api
 
 import (
-	"errors"
 	"net/http"
+	"strconv"
 
-	"github.com/OpenIndustrial/cloud/internal/device"
-	"github.com/OpenIndustrial/cloud/internal/param"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"github.com/OpenIndustrial/cloud/internal/device"
+	"github.com/OpenIndustrial/cloud/internal/param"
+
 )
 
-// DeviceHandler handles HTTP requests related to devices, product models, and assets.
-type DeviceHandler struct {
-	deviceSvc device.Service
-	auth      gin.HandlerFunc // Changed: The middleware is a gin.HandlerFunc
+// handler handles HTTP requests for the device domain.
+type handler struct {
+	svc device.Service
 }
 
-// NewDeviceHandler creates a new DeviceHandler.
-// It now accepts the auth middleware directly as a gin.HandlerFunc.
-func NewDeviceHandler(deviceSvc device.Service, auth gin.HandlerFunc) *DeviceHandler {
-	return &DeviceHandler{
-		deviceSvc: deviceSvc,
-		auth:      auth,
-	}
-}
+// RegisterRoutes registers all device API routes to the given router group.
+func RegisterRoutes(rg *gin.RouterGroup, svc device.Service) {
+	h := &handler{svc: svc}
 
-// RegisterRoutes registers all device-related routes.
-func (h *DeviceHandler) RegisterRoutes(router *gin.RouterGroup) {
-	// Product model routes
-	// Create a group and then apply the middleware to it.
-	productModels := router.Group("/product-models")
-	productModels.Use(h.auth) // Correct way to apply middleware
+	// DeviceType routes
+	dt := rg.Group("/device-types")
 	{
-		productModels.POST("", h.createProductModel)
+		dt.POST("", h.createDeviceType)
+		dt.GET("", h.listDeviceTypes)
+		dt.GET("/:id", h.getDeviceType)
+		dt.PUT("/:id", h.updateDeviceType)
 	}
 
-	// Device instance routes
-	devices := router.Group("/devices")
-	devices.Use(h.auth) // Correct way to apply middleware
+	// Device routes
+	d := rg.Group("/devices")
 	{
-		devices.POST("/iot-products", h.registerIoTProduct)
-		devices.POST("/factory-assets", h.registerFactoryAsset)
+		d.POST("", h.createDevice)
+		d.GET("", h.listDevices)
+		d.GET("/:id", h.getDevice)
+		d.PUT("/:id", h.updateDevice)
+		d.DELETE("/:id", h.deleteDevice)
+
+		// Topology routes
+		d.POST("/:id/attach", h.attachDevice)
+		d.POST("/:id/detach", h.detachDevice)
+		d.POST("/:id/connect", h.connectDevice)
+		d.POST("/:id/disconnect/:connectionId", h.disconnectDevice)
+		d.GET("/:id/topology", h.getTopology)
 	}
 }
 
-// createProductModel handles the API request to create a new product model.
-func (h *DeviceHandler) createProductModel(c *gin.Context) {
-	var req param.CreateProductModelRequest
+// --- DeviceType Handlers ---
+
+func (h *handler) createDeviceType(c *gin.Context) {
+	var req param.CreateDeviceTypeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Extract tenant ID from the context (set by auth middleware)
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tenant ID not found in context"})
-		return
-	}
-	req.TenantID = tenantID.(uuid.UUID)
-
-	// Call the service to create the product model
-	productModel, err := h.deviceSvc.CreateProductModel(c.Request.Context(), &req)
+	resp, err := h.svc.CreateDeviceType(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product model: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, productModel)
-}
-
-// registerIoTProduct handles the API request to register a new IoT product instance.
-func (h *DeviceHandler) registerIoTProduct(c *gin.Context) {
-	h.registerDevice(c, device.ResourceTypeIoTProduct)
-}
-
-// registerFactoryAsset handles the API request to register a new factory asset instance.
-func (h *DeviceHandler) registerFactoryAsset(c *gin.Context) {
-	h.registerDevice(c, device.ResourceTypeFactoryAsset)
-}
-
-// registerDevice is a generic handler for registering any type of device instance.
-func (h *DeviceHandler) registerDevice(c *gin.Context, resourceType string) {
-	var req param.RegisterDeviceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
-		return
-	}
-
-	// Extract tenant ID from the context
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tenant ID not found in context"})
-		return
-	}
-	req.TenantID = tenantID.(uuid.UUID)
-
-	var resp *param.ResourceResponse
-	var err error
-
-	// The service layer abstracts away the type, so we can call the appropriate method directly.
-	if resourceType == device.ResourceTypeIoTProduct {
-		resp, err = h.deviceSvc.RegisterIoTProduct(c.Request.Context(), &req)
-	} else {
-		resp, err = h.deviceSvc.RegisterFactoryAsset(c.Request.Context(), &req)
-	}
-
-	if err != nil {
-		// Check for specific, known errors from the service layer
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product model not found"})
-			return
-		}
-		// You can add more checks here for other specific errors, like invalid attributes
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register device: " + err.Error()})
+		// Consider mapping specific errors to status codes
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *handler) listDeviceTypes(c *gin.Context) {
+	resp, err := h.svc.ListDeviceTypes(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *handler) getDeviceType(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device type ID"})
+		return
+	}
+
+	resp, err := h.svc.GetDeviceType(c.Request.Context(), id)
+	if err != nil {
+		// if err == ErrDeviceTypeNotFound {
+		// 	c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		// 	return
+		// }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *handler) updateDeviceType(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device type ID"})
+		return
+	}
+
+	var req param.UpdateDeviceTypeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.svc.UpdateDeviceType(c.Request.Context(), id, &req)
+	if err != nil {
+		// if err == ErrDeviceTypeNotFound {
+		// 	c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		// 	return
+		// }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// --- Device Handlers ---
+
+func (h *handler) createDevice(c *gin.Context) {
+	var req param.CreateDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.svc.CreateDevice(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *handler) listDevices(c *gin.Context) {
+	var deviceTypeID *uuid.UUID
+	if dtIDStr := c.Query("device_type_id"); dtIDStr != "" {
+		id, err := uuid.Parse(dtIDStr)
+		if err == nil {
+			deviceTypeID = &id
+		}
+	}
+
+	resp, err := h.svc.ListDevices(c.Request.Context(), deviceTypeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *handler) getDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	resp, err := h.svc.GetDevice(c.Request.Context(), id)
+	if err != nil {
+		// if err == ErrDeviceNotFound {
+		// 	c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		// 	return
+		// }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *handler) updateDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	var req param.UpdateDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.svc.UpdateDevice(c.Request.Context(), id, &req)
+	if err != nil {
+		// if err == ErrDeviceNotFound {
+		// 	c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		// 	return
+		// }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *handler) deleteDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	err = h.svc.DeleteDevice(c.Request.Context(), id)
+	if err != nil {
+		// if err == ErrDeviceNotFound {
+		// 	c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		// 	return
+		// }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// --- Topology Handlers ---
+
+func (h *handler) attachDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	var req param.AttachDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.svc.AttachDevice(c.Request.Context(), id, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (h *handler) detachDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	err = h.svc.DetachDevice(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (h *handler) connectDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	var req param.ConnectDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.svc.ConnectDevice(c.Request.Context(), id, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (h *handler) disconnectDevice(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	connID, err := strconv.ParseUint(c.Param("connectionId"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid connection ID"})
+		return
+	}
+
+	err = h.svc.DisconnectDevice(c.Request.Context(), id, uint(connID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (h *handler) getTopology(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device ID"})
+		return
+	}
+
+	resp, err := h.svc.GetTopology(c.Request.Context(), id)
+	if err != nil {
+		// if err == ErrDeviceNotFound {
+		// 	c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		// 	return
+		// }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

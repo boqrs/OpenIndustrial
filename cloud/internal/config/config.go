@@ -1,6 +1,8 @@
 package config
 
 import (
+	"github.com/OpenIndustrial/cloud/internal/kernel/security/provider"
+
 	"os"
 )
 
@@ -10,6 +12,7 @@ type Config struct {
 	Port        string
 	JWTSecret   string
 	RedisAddr   string
+	PKI provider.ProviderConfig `mapstructure:"provider"`
 }
 
 // Load reads configuration from environment variables or uses sensible defaults.

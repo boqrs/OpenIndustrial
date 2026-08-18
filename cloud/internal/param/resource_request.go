@@ -30,6 +30,7 @@ type UpdateResource struct {
 	Status   string `json:"status" binding:"required,oneof=active inactive archived pending"`
 	Metadata []byte `json:"metadata,omitempty"`
 	Version  int    `json:"version" binding:"required,gt=0"`
+	ParentID uuid.UUID `json:"parent_id,omitempty"`
 
 	// Populated by the handler from the URL and context.
 	TenantID   uuid.UUID `json:"-"`

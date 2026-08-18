@@ -45,20 +45,9 @@ type CredentialRepository interface {
 }
 
 type CertificateAuthority interface {
-	ValidateCSR(
-		csrPEM string,
-	) (*ParsedCSR, error)
-
-	IssueCertificate(
-		ctx context.Context,
-		req IssueCertificateRequest,
-	) (*IssuedCertificate, error)
-
-	RevokeCertificate(
-		ctx context.Context,
-		certificateID string,
-		reason string,
-	) error
+	ValidateCSR(csrPEM string) (*ParsedCSR, error)
+	IssueCertificate(ctx context.Context,req IssueCertificateRequest) (*IssuedCertificate, error)
+	RevokeCertificate(ctx context.Context,certificateID string,reason string) error
 }
 
 type ParsedCSR struct {
