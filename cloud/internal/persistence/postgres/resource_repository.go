@@ -244,6 +244,25 @@ func (r * AttributeDefinitionRepository)BatchCreateAttributeDefinition(ctx conte
 }
 
 
+func (r * AttributeDefinitionRepository)ReplaceAttributeDefinitions(ctx context.Context, resourceID uuid.UUID, definitions []*model.AttributeDefinition) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. Delete all existing definitions associated with the resource ID.
+		if err := tx.Where("resource_id = ?", resourceID).Delete(&model.AttributeDefinition{}).Error; err != nil {
+			return fmt.Errorf("failed to delete old attribute definitions: %w", err)
+		}
+
+		// 2. If new definitions are provided, create them in a batch.
+		// GORM's Create function can handle a slice of structs for batch insertion.
+		if len(definitions) > 0 {
+			if err := tx.Create(&definitions).Error; err != nil {
+				return fmt.Errorf("failed to create new attribute definitions: %w", err)
+			}
+		}
+
+		// If both operations succeed, the transaction is committed.
+		return nil
+	})
+}
 // ===================================================================
 // ResourceAttributeRepository Implementation
 // ===================================================================

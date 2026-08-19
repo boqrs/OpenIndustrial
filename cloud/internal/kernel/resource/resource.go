@@ -40,6 +40,7 @@ type AttributeDefinitionRepository interface {
 	DeleteAttributeDefinition(ctx context.Context, tenantID, defID uuid.UUID) error
 	FindByName(ctx context.Context, tenantID uuid.UUID, name string) (*model.AttributeDefinition, error)
 	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error) 
+	ReplaceAttributeDefinitions(ctx context.Context, resourceID uuid.UUID, definitions []*model.AttributeDefinition) error 
 }
 
 // ResourceAttributeRepository defines the persistence interface for ResourceAttribute values.

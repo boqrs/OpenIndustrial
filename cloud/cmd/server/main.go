@@ -6,11 +6,12 @@ import (
 
 	"github.com/OpenIndustrial/cloud/internal/api"
 	"github.com/OpenIndustrial/cloud/internal/config"
-	"github.com/OpenIndustrial/cloud/internal/factory"
 	"github.com/OpenIndustrial/cloud/internal/device"
+	"github.com/OpenIndustrial/cloud/internal/factory"
 	"github.com/OpenIndustrial/cloud/internal/kernel/resource"
 	"github.com/OpenIndustrial/cloud/internal/kernel/security"
 	"github.com/OpenIndustrial/cloud/internal/kernel/security/provider"
+	"github.com/OpenIndustrial/cloud/internal/product"
 
 	"github.com/OpenIndustrial/cloud/internal/persistence/postgres"
 
@@ -71,6 +72,8 @@ func main() {
 	factoryRepo := postgres.NewFactoryRepository(db)
 	deviceRepo := postgres.NewDeviceRepository(db)
 	dtRepo := postgres.NewDeviceTypeRepository(db)
+	pRepo := postgres.NewProductRepository(db)
+
 	// --- Initialize Certificate Authority --
 	pkiConfig := provider.ProviderConfig{
 		Provider: "",
@@ -116,7 +119,7 @@ func main() {
 	)
 	factorySvc := factory.NewService(resourceSvc, factoryRepo)
 	deviceSvc := device.NewService(resourceSvc, dtRepo, deviceRepo)
-
+	productSvc := product.NewService(resourceSvc, pRepo)			
 	// 5. 设置 HTTP 服务器和处理器 (Handlers)
 	router := gin.Default()
 
@@ -124,7 +127,7 @@ func main() {
 	securityHandler := api.NewSecurityHandler(securitySvc)
 	factoryHandler := api.NewFactoryAPI(factorySvc)
 	deviceHandler := api.NewDeviceAPI(deviceSvc)
-
+	productHandler := api.NewAPI(productSvc)
 	// 6. 注册路由
 	// 【修复】: `resourceHandler.RegisterRoutes` 需要一个 `*gin.RouterGroup`。
 	// 我们创建一个 API group (例如 /v1) 并将其传入。
@@ -134,6 +137,7 @@ func main() {
 	securityHandler.RegisterSecurityRoutes(apiV1Group)
 	factoryHandler.RegisterRouts(apiV1Group)
 	deviceHandler.RegisterRoutes(apiV1Group)
+	productHandler.Register(apiV1Group)
 
 	// 7. 启动服务器
 	// 【修复】: `cfg.Address` 未定义。使用一个默认的占位符地址来让程序可以运行。

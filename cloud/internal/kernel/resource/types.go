@@ -17,5 +17,5 @@ const (
 
 	// Product-related resource types
 	ResourceTypeProductModel    ResourceType = "PRODUCT_MODEL"
-	ResourceTypeProductInstance ResourceType = "PRODUCT_INSTANCE"
+	//ResourceTypeProductInstance ResourceType = "PRODUCT_INSTANCE"
 )

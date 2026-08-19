@@ -35,6 +35,7 @@ type Service interface{
 	DeleteConnection(ctx context.Context, connectionID uint) error
 	GetChildren(ctx context.Context, resourceID uuid.UUID) ([]*model.Resource, error)
 	ListConnections(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error)
+	ReplaceAttributeDefinitions(ctx context.Context, resourceID uuid.UUID, definitions []*model.AttributeDefinition) error 
 }
 type service struct {
 	resourceRepo ResourceRepository
@@ -321,6 +322,14 @@ func (s *service) GetChildren(ctx context.Context, resourceID uuid.UUID) ([]*mod
 }
 func (s *service) ListConnections(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error) {
 	return s.resourceConRepo.ListConnectionsByResourceID(ctx, resourceID)
+}
+
+// ReplaceAttributeDefinitions atomically replaces all attribute definitions for a given resource.
+// It first deletes all existing definitions and then creates the new ones within a single database transaction.
+// This ensures that there's no intermediate state where a resource has a mix of old and new definitions, or no definitions at all.
+func (s *service) ReplaceAttributeDefinitions(ctx context.Context, resourceID uuid.UUID, definitions []*model.AttributeDefinition) error {
+	// Use a transaction to ensure atomicity of the delete-and-create operation.
+	return s.attrDefRepo.ReplaceAttributeDefinitions(ctx, resourceID, definitions)
 }
 // CreateConnection establishes a new technical connection between two resources.
 
