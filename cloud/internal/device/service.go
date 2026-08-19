@@ -54,11 +54,7 @@ type serviceImpl struct {
 	deviceRepo     DeviceRepository
 }
 
-func NewService(
-	resourceSvc resource.Service,
-	deviceTypeRepo DeviceTypeRepository,
-	deviceRepo DeviceRepository,
-) Service {
+func NewService(resourceSvc resource.Service,deviceTypeRepo DeviceTypeRepository,deviceRepo DeviceRepository) Service {
 	return &serviceImpl{
 		resourceSvc:    resourceSvc,
 		deviceTypeRepo: deviceTypeRepo,

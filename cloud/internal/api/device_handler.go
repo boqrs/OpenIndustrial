@@ -16,11 +16,12 @@ type handler struct {
 	svc device.Service
 }
 
-// RegisterRoutes registers all device API routes to the given router group.
-func RegisterRoutes(rg *gin.RouterGroup, svc device.Service) {
-	h := &handler{svc: svc}
+func NewDeviceAPI(service device.Service) *handler {
+	return &handler{svc: service}
+}
 
-	// DeviceType routes
+// RegisterRoutes registers all device API routes to the given router group.
+func (h *handler)RegisterRoutes(rg *gin.RouterGroup) {
 	dt := rg.Group("/device-types")
 	{
 		dt.POST("", h.createDeviceType)
