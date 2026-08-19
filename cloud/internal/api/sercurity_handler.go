@@ -24,7 +24,7 @@ func NewSecurityHandler(service security.Service) *SecurityHandler {
 }
 
 // RegisterSecurityRoutes registers all security-related HTTP routes.
-func (h *SecurityHandler) RegisterSecurityRoutes(router *gin.Engine) {
+func (h *SecurityHandler) RegisterSecurityRoutes(router *gin.RouterGroup) {
 	// Endpoint for unauthenticated devices to get their initial identity.
 	router.POST("/provision", h.provisionDevice)
 

@@ -1,8 +1,44 @@
 package param
 
-// CreateFactoryRequest defines the parameters for creating a new factory.
+import (
+	"github.com/google/uuid"
+)
+
 type CreateFactoryRequest struct {
-	Name    string `json:"name" binding:"required"`    // Name of the factory, will be stored in the Resource model.
-	Code    string `json:"code" binding:"required"`    // Factory-specific code, e.g., "F001".
-	Address string `json:"address" binding:"required"` // Physical address of the factory.
+	Name     string `json:"name"`
+	Code     string `json:"code"`
+	Address  string `json:"address,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
+}
+
+type UpdateFactoryRequest struct {
+	Name     *string `json:"name,omitempty"`
+	Code     *string `json:"code,omitempty"`
+	Address  *string `json:"address,omitempty"`
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+type CreateTopologyNodeRequest struct {
+	FactoryID uuid.UUID `json:"factory_id"`
+
+	ParentResourceID *uuid.UUID `json:"parent_resource_id,omitempty"`
+
+	Type string `json:"type"`
+
+	Name string `json:"name"`
+
+	Code string `json:"code,omitempty"`
+
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type UpdateTopologyNodeRequest struct {
+	Name     *string                `json:"name,omitempty"`
+	Code     *string                `json:"code,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type MoveTopologyNodeRequest struct {
+	ResourceID       uuid.UUID `json:"resource_id"`
+	ParentResourceID *uuid.UUID `json:"parent_resource_id,omitempty"`
 }

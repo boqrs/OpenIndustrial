@@ -6,6 +6,7 @@ import (
 
 	"github.com/OpenIndustrial/cloud/internal/api"
 	"github.com/OpenIndustrial/cloud/internal/config"
+	"github.com/OpenIndustrial/cloud/internal/factory"
 	"github.com/OpenIndustrial/cloud/internal/kernel/resource"
 	"github.com/OpenIndustrial/cloud/internal/kernel/security"
 	"github.com/OpenIndustrial/cloud/internal/kernel/security/provider"
@@ -66,7 +67,7 @@ func main() {
 	credRepo := postgres.NewCredentialRepository(db)
 	identityRepo := postgres.NewIdentityRepository(db)
 	certRepo := postgres.NewCertificateRepository(db)
-
+	factoryRepo := postgres.NewFactoryRepository(db)
 	// --- Initialize Certificate Authority --
 	pkiConfig := provider.ProviderConfig{
 		Provider: "",
@@ -101,7 +102,6 @@ func main() {
 
 	// 4. 初始化所有服务 (Services)
 	resourceSvc := resource.NewService(resourceRepo, attrDefRepo, resAttrRepo, resConnRepo)
-
 	securitySvc := security.NewService(
 		resourceRepo,
 		credRepo,
@@ -111,12 +111,17 @@ func main() {
 		&mockMQTT{},
 		&mockTxManager{},
 	)
+	factorySvc := factory.NewService(resourceSvc, factoryRepo)
+
+
 
 	// 5. 设置 HTTP 服务器和处理器 (Handlers)
 	router := gin.Default()
 
 	resourceHandler := api.NewResourceHandler(resourceSvc, permissionRepo, AuthMiddleware())
 	securityHandler := api.NewSecurityHandler(securitySvc)
+	factoryHandler := api.NewFactoryAPI(factorySvc)
+
 
 	// 6. 注册路由
 	// 【修复】: `resourceHandler.RegisterRoutes` 需要一个 `*gin.RouterGroup`。
@@ -124,8 +129,8 @@ func main() {
 	// `securityHandler` 仍然接收 `*gin.Engine`，因为它没有报错。
 	apiV1Group := router.Group("/v1")
 	resourceHandler.RegisterRoutes(apiV1Group)
-	securityHandler.RegisterSecurityRoutes(router)
-
+	securityHandler.RegisterSecurityRoutes(apiV1Group)
+	factoryHandler.RegisterRouts(apiV1Group)
 	// 7. 启动服务器
 	// 【修复】: `cfg.Address` 未定义。使用一个默认的占位符地址来让程序可以运行。
 	// TODO: 请将 "0.0.0.0:8080" 替换为您 `config.Config` 结构体中正确的服务器地址字段。

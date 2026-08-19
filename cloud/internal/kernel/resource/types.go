@@ -8,6 +8,7 @@ const (
 	ResourceTypeFactory        ResourceType = "FACTORY"
 	ResourceTypeWorkshop       ResourceType = "WORKSHOP"
 	ResourceTypeProductionLine ResourceType = "PRODUCTION_LINE"
+	ResourceTypeProductionCell ResourceType = "PRODUCTION_CELL"
 	ResourceTypeWorkCenter     ResourceType = "WORK_CENTER"
 
 	// Device-related resource types

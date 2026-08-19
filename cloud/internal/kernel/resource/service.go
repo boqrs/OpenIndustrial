@@ -12,7 +12,31 @@ import (
 )
 
 // Service provides business logic for resources, including attribute management.
-type Service struct {
+type Service interface{
+	CreateProduct(ctx context.Context, tenantID uuid.UUID, params *param.CreateProduct) (*model.Resource, error)
+	CreateResource(ctx context.Context, params *param.CreateResource) (*model.Resource, error)
+	UpdateResource(ctx context.Context, resourceID uuid.UUID, req *param.UpdateResource) (*model.Resource, error)
+	DeleteResource(ctx context.Context, tenantID, resourceID uuid.UUID) error 
+	GetResource(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error)
+	ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error)
+	SetAttribute(ctx context.Context, tenantID, resourceID uuid.UUID, attrKey string, attrValue interface{}) error 
+	BatchCreateResources(ctx context.Context, resources []*model.Resource) error 
+	GetResourceByID(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error)
+	FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error)
+	BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error
+	GetAttributesForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error)
+	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error)
+	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error
+	UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error
+	CreateConnection(ctx context.Context, sourceID, tragetID uuid.UUID) error
+	UpsertAttributesForResource(ctx context.Context, resourceID uuid.UUID, attributes map[string]interface{}) error 
+	ClearParent(ctx context.Context, resourceID uuid.UUID) error
+	GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) 
+	DeleteConnection(ctx context.Context, connectionID uint) error
+	GetChildren(ctx context.Context, resourceID uuid.UUID) ([]*model.Resource, error)
+	ListConnections(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error)
+}
+type service struct {
 	resourceRepo ResourceRepository
 	attrDefRepo  AttributeDefinitionRepository
 	resAttrRepo  ResourceAttributeRepository
@@ -25,8 +49,8 @@ func NewService(
 	attrDefRepo AttributeDefinitionRepository,
 	resAttrRepo ResourceAttributeRepository,
 	resourceConRepo ResourceConnectionsRepository,
-) *Service {
-	return &Service{
+) Service {
+	return &service{
 		resourceRepo: resourceRepo,
 		attrDefRepo:  attrDefRepo,
 		resAttrRepo:  resAttrRepo,
@@ -51,7 +75,7 @@ func tenantIDFromContext(ctx context.Context) uuid.UUID {
 
 // CreateProduct creates a new product resource, sets its owner, and saves its specific attributes.
 // This function is PRESERVED and UPGRADED to the new architecture.
-func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params *param.CreateProduct) (*model.Resource, error) {
+func (s *service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params *param.CreateProduct) (*model.Resource, error) {
 	// 1. Create the core resource object.
 	// Note: Description and SerialNumber are NOT part of the core resource anymore.
 	// We now correctly set the OwnerGroupID directly on the resource.
@@ -115,7 +139,7 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 }
 
 // CreateResource creates a new, generic resource.
-func (s *Service) CreateResource(ctx context.Context, params *param.CreateResource) (*model.Resource, error) {
+func (s *service) CreateResource(ctx context.Context, params *param.CreateResource) (*model.Resource, error) {
 	resource := &model.Resource{
 		UUID:            uuid.New(),
 		TenantID:      params.TenantID,
@@ -138,7 +162,7 @@ func (s *Service) CreateResource(ctx context.Context, params *param.CreateResour
 }
 
 // UpdateResource updates an existing resource. It uses optimistic locking.
-func (s *Service) UpdateResource(ctx context.Context, resourceID uuid.UUID, req *param.UpdateResource) (*model.Resource, error) {
+func (s *service) UpdateResource(ctx context.Context, resourceID uuid.UUID, req *param.UpdateResource) (*model.Resource, error) {
 	// 1. Get the existing resource to ensure it exists and to get its current state.
 	res, err := s.resourceRepo.GetResourceByID(ctx, req.TenantID, resourceID)
 	if err != nil {
@@ -171,7 +195,7 @@ func (s *Service) UpdateResource(ctx context.Context, resourceID uuid.UUID, req 
 }
 
 // DeleteResource performs a soft delete on a resource.
-func (s *Service) DeleteResource(ctx context.Context, tenantID, resourceID uuid.UUID) error {
+func (s *service) DeleteResource(ctx context.Context, tenantID, resourceID uuid.UUID) error {
 	// We could add a check here to ensure the resource exists before deleting.
 	// For now, we delegate this to the repository.
 	return s.resourceRepo.DeleteResource(ctx, tenantID, resourceID)
@@ -179,14 +203,14 @@ func (s *Service) DeleteResource(ctx context.Context, tenantID, resourceID uuid.
 
 // GetResource retrieves a single resource by its ID.
 // This can be enhanced later to also fetch and compose its attributes.
-func (s *Service) GetResource(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
+func (s *service) GetResource(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
 	// TODO: Add authorization check here.
 	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
 }
 
 // ListResources retrieves a list of resources for a tenant, with filtering and pagination.
 // This is the corrected implementation.
-func (s *Service) ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error) {
+func (s *service) ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error) {
 	// TODO: Add authorization filtering here.
 	if limit <= 0 {
 		limit = 100 // Default limit
@@ -198,7 +222,7 @@ func (s *Service) ListResources(ctx context.Context, tenantID uuid.UUID, resourc
 }
 
 // SetAttribute is a new function that properly uses the new interfaces.
-func (s *Service) SetAttribute(ctx context.Context, tenantID, resourceID uuid.UUID, attrKey string, attrValue interface{}) error {
+func (s *service) SetAttribute(ctx context.Context, tenantID, resourceID uuid.UUID, attrKey string, attrValue interface{}) error {
 	// 1. 编排步骤一：验证业务规则
 	// 在更新属性之前，先确认这个属性的“定义”是否存在。
 	// 这是一个核心的业务规则：不允许设置未定义的属性。
@@ -225,43 +249,43 @@ func (s *Service) SetAttribute(ctx context.Context, tenantID, resourceID uuid.UU
 	return s.resAttrRepo.UpsertForResource(ctx, tenantID, resourceID, attributes)
 }
 
-func (s *Service) BatchCreateResources(ctx context.Context, resources []*model.Resource) error {
+func (s *service) BatchCreateResources(ctx context.Context, resources []*model.Resource) error {
 	return s.resourceRepo.BatchCreateResources(ctx, resources)
 }
 
-func (s *Service) GetResourceByID(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
+func (s *service) GetResourceByID(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
 	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
 }
 
-func (s *Service) FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) {
+func (s *service) FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) {
 	return s.resourceRepo.FindResourceByNameAndType(ctx, tenantID, name, resourceType)
 }
 
 
-func (s *Service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error{
+func (s *service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error{
 		return s.attrDefRepo.BatchCreateAttributeDefinition(ctx, attrs)
 }
 
-func (s *Service) GetAttributesForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error) {
+func (s *service) GetAttributesForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error) {
 	return s.resAttrRepo.GetAttributesForResource(ctx, tenantIDFromContext(ctx), resourceID)
 }
 
 
-func (s *Service)	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error){
+func (s *service)	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error){
 	return s.attrDefRepo.FindAttributeDefinitionByResourceID(ctx, resourceID)
 } //TODO: 需要实现底层{}
 
-func (s *Service)	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error{
+func (s *service)	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error{
 	return s.resAttrRepo.BatchCreateResourceAttributes(ctx, attr)
 }
 
 
 	// UpdateParent changes the hierarchical parent of a given resource.
-func (s *Service)UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error{
+func (s *service)UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error{
 	return s.resourceRepo.UpdateParent(ctx, tenantID, resourceID, newParentID)
 }
 
-func (s *Service) CreateConnection(ctx context.Context, sourceID, tragetID uuid.UUID) error{
+func (s *service) CreateConnection(ctx context.Context, sourceID, tragetID uuid.UUID) error{
 	res := &model.ResourceConnection{
 		SourceResourceID: sourceID ,
 		TargetResourceID: tragetID,
@@ -272,30 +296,30 @@ func (s *Service) CreateConnection(ctx context.Context, sourceID, tragetID uuid.
 	return s.resourceConRepo.CreateConnection(ctx, res)
 }
 // UpsertAttributesForResource updates or inserts a batch of attributes for a given resource.
-func (s *Service) UpsertAttributesForResource(ctx context.Context, resourceID uuid.UUID, attributes map[string]interface{}) error {
+func (s *service) UpsertAttributesForResource(ctx context.Context, resourceID uuid.UUID, attributes map[string]interface{}) error {
 	// In a real implementation, you would first validate the attributes against their definitions.
 	// For now, we delegate directly to the repository.
 	return s.resAttrRepo.UpsertForResource(ctx, tenantIDFromContext(ctx), resourceID, attributes)
 }
 
 // ClearParent removes the parent from a resource, making it a root-level resource.
-func (s *Service) ClearParent(ctx context.Context, resourceID uuid.UUID) error {
+func (s *service) ClearParent(ctx context.Context, resourceID uuid.UUID) error {
 	return s.resourceRepo.UpdateParent(ctx, tenantIDFromContext(ctx), resourceID, uuid.Nil)
 }
 
 
-func (s *Service) GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
+func (s *service) GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
 	return s.resourceConRepo.GetConnectionByID(ctx, connectionID)
 }
 
-func (s *Service) DeleteConnection(ctx context.Context, connectionID uint) error {
+func (s *service) DeleteConnection(ctx context.Context, connectionID uint) error {
 	return s.resourceConRepo.DeleteConnection(ctx, connectionID)
 }
 
-func (s *Service) GetChildren(ctx context.Context, resourceID uuid.UUID) ([]*model.Resource, error) {
+func (s *service) GetChildren(ctx context.Context, resourceID uuid.UUID) ([]*model.Resource, error) {
 	return s.resourceRepo.FindByParentID(ctx, tenantIDFromContext(ctx), resourceID)
 }
-func (s *Service) ListConnections(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error) {
+func (s *service) ListConnections(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error) {
 	return s.resourceConRepo.ListConnectionsByResourceID(ctx, resourceID)
 }
 // CreateConnection establishes a new technical connection between two resources.

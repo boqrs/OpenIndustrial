@@ -22,7 +22,7 @@ const (
 
 // ResourceHandler handles HTTP requests for the resource domain.
 type ResourceHandler struct {
-	service *resource.Service
+	service resource.Service
 	// REMOVED: authzRepo is no longer the responsibility of the resource kernel.
 	// Authorization should be handled by dedicated middleware or an identity service.
 	permRepo       PermissionRepository
@@ -33,7 +33,7 @@ type ResourceHandler struct {
 // NewResourceHandler creates a new ResourceHandler.
 // UPDATED: Removed authzRepo from parameters.
 func NewResourceHandler(
-	service *resource.Service,
+	service resource.Service,
 	permRepo PermissionRepository,
 	authMiddleware gin.HandlerFunc,
 ) *ResourceHandler {
