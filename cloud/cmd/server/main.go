@@ -71,7 +71,6 @@ func main() {
 	certRepo := postgres.NewCertificateRepository(db)
 	factoryRepo := postgres.NewFactoryRepository(db)
 	deviceRepo := postgres.NewDeviceRepository(db)
-	dtRepo := postgres.NewDeviceTypeRepository(db)
 	pRepo := postgres.NewProductRepository(db)
 
 	// --- Initialize Certificate Authority --
@@ -117,9 +116,9 @@ func main() {
 		&mockMQTT{},
 		&mockTxManager{},
 	)
-	factorySvc := factory.NewService(resourceSvc, factoryRepo)
-	deviceSvc := device.NewService(resourceSvc, dtRepo, deviceRepo)
 	productSvc := product.NewService(resourceSvc, pRepo)			
+	factorySvc := factory.NewService(resourceSvc, factoryRepo)
+	deviceSvc := device.NewService(deviceRepo,resourceSvc, productSvc,securitySvc)
 	// 5. 设置 HTTP 服务器和处理器 (Handlers)
 	router := gin.Default()
 
@@ -127,7 +126,7 @@ func main() {
 	securityHandler := api.NewSecurityHandler(securitySvc)
 	factoryHandler := api.NewFactoryAPI(factorySvc)
 	deviceHandler := api.NewDeviceAPI(deviceSvc)
-	productHandler := api.NewAPI(productSvc)
+	productHandler := api.NewProductAPI(productSvc)
 	// 6. 注册路由
 	// 【修复】: `resourceHandler.RegisterRoutes` 需要一个 `*gin.RouterGroup`。
 	// 我们创建一个 API group (例如 /v1) 并将其传入。
@@ -136,7 +135,7 @@ func main() {
 	resourceHandler.RegisterRoutes(apiV1Group)
 	securityHandler.RegisterSecurityRoutes(apiV1Group)
 	factoryHandler.RegisterRouts(apiV1Group)
-	deviceHandler.RegisterRoutes(apiV1Group)
+	deviceHandler.Register(apiV1Group)
 	productHandler.Register(apiV1Group)
 
 	// 7. 启动服务器

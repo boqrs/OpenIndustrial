@@ -6,13 +6,13 @@ import (
 	//"github.com/google/uuid"
 )
 
-// type AttributeDefinitionRequest struct {
-// 	Label       string `json:"label,omitempty"`
-// 	Description string `json:"description,omitempty"`
-// 	DataType    string `json:"data_type"`
-// 	Unit        string `json:"unit,omitempty"`
-// 	Required    bool   `json:"required"`
-// }
+type AttributeDefinitionRequest struct {
+	Label       string `json:"label,omitempty"`
+	Description string `json:"description,omitempty"`
+	DataType    string `json:"data_type"`
+	Unit        string `json:"unit,omitempty"`
+	Required    bool   `json:"required"`
+}
 
 type CreateProductModelRequest struct {
 	Name        string                              `json:"name"`

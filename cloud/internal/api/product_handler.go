@@ -13,17 +13,17 @@ import (
 )
 
 // API handles HTTP requests for the product module.
-type API struct {
+type ProductAPI struct {
 	service product.Service
 }
 
 // NewAPI creates a new API handler for the product service.
-func NewAPI(service product.Service) *API {
-	return &API{service: service}
+func NewProductAPI(service product.Service) *ProductAPI {
+	return &ProductAPI{service: service}
 }
 
 // Register registers all product model routes to the given router group.
-func (a *API) Register(group *gin.RouterGroup) {
+func (a *ProductAPI) Register(group *gin.RouterGroup) {
 	productModels := group.Group("/product-models")
 	{
 		productModels.POST("", a.createProductModel)
@@ -42,7 +42,7 @@ func (a *API) Register(group *gin.RouterGroup) {
 	}
 }
 
-func (a *API) createProductModel(c *gin.Context) {
+func (a *ProductAPI) createProductModel(c *gin.Context) {
 	var req param.CreateProductModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
@@ -58,7 +58,7 @@ func (a *API) createProductModel(c *gin.Context) {
 	c.JSON(http.StatusCreated, resp)
 }
 
-func (a *API) listProductModels(c *gin.Context) {
+func (a *ProductAPI) listProductModels(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
@@ -79,7 +79,7 @@ func (a *API) listProductModels(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (a *API) getProductModel(c *gin.Context) {
+func (a *ProductAPI) getProductModel(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product model ID format"})
@@ -95,7 +95,7 @@ func (a *API) getProductModel(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (a *API) updateProductModel(c *gin.Context) {
+func (a *ProductAPI) updateProductModel(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product model ID format"})
@@ -117,7 +117,7 @@ func (a *API) updateProductModel(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (a *API) getAttributes(c *gin.Context) {
+func (a *ProductAPI) getAttributes(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product model ID format"})
@@ -133,7 +133,7 @@ func (a *API) getAttributes(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (a *API) updateAttributes(c *gin.Context) {
+func (a *ProductAPI) updateAttributes(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product model ID format"})
@@ -155,19 +155,19 @@ func (a *API) updateAttributes(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (a *API) activateProductModel(c *gin.Context) {
+func (a *ProductAPI) activateProductModel(c *gin.Context) {
 	a.updateStatus(c, model.StatusActive)
 }
 
-func (a *API) deactivateProductModel(c *gin.Context) {
+func (a *ProductAPI) deactivateProductModel(c *gin.Context) {
 	a.updateStatus(c, model.StatusInactive)
 }
 
-func (a *API) archiveProductModel(c *gin.Context) {
+func (a *ProductAPI) archiveProductModel(c *gin.Context) {
 	a.updateStatus(c, model.StatusArchived)
 }
 
-func (a *API) updateStatus(c *gin.Context, status string) {
+func (a *ProductAPI) updateStatus(c *gin.Context, status string) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product model ID format"})
@@ -184,7 +184,7 @@ func (a *API) updateStatus(c *gin.Context, status string) {
 }
 
 // handleError centralizes error handling for the product API.
-func (a *API) handleError(c *gin.Context, err error) {
+func (a *ProductAPI) handleError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, product.ErrProductModelNotFound), errors.Is(err, product.ErrAttributeDefinitionNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
