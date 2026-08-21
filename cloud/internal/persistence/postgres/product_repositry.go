@@ -7,27 +7,28 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/OpenIndustrial/cloud/internal/param"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
+	"github.com/boqrs/nexus/database"
 )
 
 // productRepository implements the product.Repository interface using GORM.
 type ProductRepository struct {
-	db *gorm.DB
+	db *database.DBProvider
 }
 
 // NewProductRepository creates a new GORM-based repository for product models.
-func NewProductRepository(db *gorm.DB) *ProductRepository {
+func NewProductRepository(	db *database.DBProvider) *ProductRepository {
 	return &ProductRepository{db: db}
 }
 
 func (r *ProductRepository) Create(ctx context.Context, entity *model.ProductModel) error {
-	return r.db.WithContext(ctx).Create(entity).Error
+	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
 func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.ProductModel, error) {
 	var pm model.ProductModel
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&pm).Error
+	err := r.db.Get().WithContext(ctx).Where("id = ?", id).First(&pm).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -39,7 +40,7 @@ func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.P
 
 func (r *ProductRepository) GetByResourceID(ctx context.Context, resourceID uuid.UUID) (*model.ProductModel, error) {
 	var pm model.ProductModel
-	err := r.db.WithContext(ctx).Where("resource_id = ?", resourceID).First(&pm).Error
+	err := r.db.Get().WithContext(ctx).Where("resource_id = ?", resourceID).First(&pm).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -51,7 +52,7 @@ func (r *ProductRepository) GetByResourceID(ctx context.Context, resourceID uuid
 
 func (r *ProductRepository) GetByCodeAndVersion(ctx context.Context, code string, version string) (*model.ProductModel, error) {
 	var pm model.ProductModel
-	err := r.db.WithContext(ctx).Where("code = ? AND version = ?", code, version).First(&pm).Error
+	err := r.db.Get().WithContext(ctx).Where("code = ? AND version = ?", code, version).First(&pm).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -61,11 +62,11 @@ func (r *ProductRepository) GetByCodeAndVersion(ctx context.Context, code string
 	return &pm, nil
 }
 
-func (r *ProductRepository) List(ctx context.Context, req param.ListProductModelsRequest) ([]*model.ProductModel, int64, error) {
+func (r *ProductRepository) List(ctx context.Context,req product.ListProductModelsRequest) ([]*model.ProductModel, int64, error){
 	var items []*model.ProductModel
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&model.ProductModel{})
+	query := r.db.Get().WithContext(ctx).Model(&model.ProductModel{})
 
 	// Apply filters
 	if req.Category != "" {
@@ -95,9 +96,9 @@ func (r *ProductRepository) List(ctx context.Context, req param.ListProductModel
 }
 
 func (r *ProductRepository) Update(ctx context.Context, entity *model.ProductModel) error {
-	return r.db.WithContext(ctx).Save(entity).Error
+	return r.db.Get().WithContext(ctx).Save(entity).Error
 }
 
 func (r *ProductRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.ProductModel{}).Error
+	return r.db.Get().WithContext(ctx).Where("id = ?", id).Delete(&model.ProductModel{}).Error
 }

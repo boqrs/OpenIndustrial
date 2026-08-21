@@ -1,0 +1,173 @@
+package product
+
+import (
+	"net/http"
+	"strconv"
+	"fmt"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
+	"github.com/boqrs/zeus/ginx"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
+)
+
+// API handles HTTP requests for the product module.
+type Handler struct {
+	service srv.Service
+}
+
+// NewAPI creates a new API handler for the product service.
+func NewHandler(service srv.Service) *Handler {
+	return &Handler{service: service}
+}
+
+// Register registers all product model routes to the given router group.
+func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
+	externalGroup := router.Group("/api/v1/external")
+	externalGroup.Handle(http.MethodPost, "/product-models", h.createProductModel)	
+	externalGroup.Handle(http.MethodGet, "/product-models", h.listProductModels)	
+	externalGroup.Handle(http.MethodGet, "/product-models/:id", h.getProductModel)	
+	externalGroup.Handle(http.MethodPatch, "/product-models/:id", h.updateProductModel)	
+	externalGroup.Handle(http.MethodGet, "/product-models/:id/attributes", h.getAttributes)	
+	externalGroup.Handle(http.MethodPut, "/product-models/:id/attributes", h.updateAttributes)	
+	externalGroup.Handle(http.MethodPost, "/product-models/:id/activate", h.activateProductModel)	
+	externalGroup.Handle(http.MethodPost, "/product-models/:id/deactivate", h.deactivateProductModel)	
+	externalGroup.Handle(http.MethodPost, "/product-models/:id/archive", h.archiveProductModel)	
+}
+
+func (a *Handler) createProductModel(ctx *gin.Context) ginx.Render {
+	var req srv.CreateProductModelRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	resp, err := a.service.CreateProductModel(ctx.Request.Context(), &req)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(resp)
+
+}
+
+func (a *Handler) listProductModels(ctx *gin.Context) ginx.Render {
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+
+	req := srv.ListProductModelsRequest{
+		Category: ctx.Query("category"),
+		Status:   ctx.Query("status"),
+		Code:     ctx.Query("code"),
+		Page:     page,
+		PageSize: pageSize,
+	}
+
+	resp, err := a.service.ListProductModels(ctx.Request.Context(), &req)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(resp)
+
+}
+
+func (a *Handler) getProductModel(ctx *gin.Context) ginx.Render {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		return  ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	resp, err := a.service.GetProductModel(ctx.Request.Context(), id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(resp)
+}
+
+func (a *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		return ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	var req srv.UpdateProductModelRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return ginx.Error(fmt.Errorf("invalid param json"))
+	}
+
+	resp, err := a.service.UpdateProductModel(ctx.Request.Context(), id, &req)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(resp)
+
+}
+
+func (a *Handler) getAttributes(ctx *gin.Context) ginx.Render {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		return  ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	resp, err := a.service.GetAttributeDefinitions(ctx.Request.Context(), id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(resp)
+
+}
+
+func (a *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		return  ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	var req srv.UpdateAttributeDefinitionsRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return  ginx.Error(fmt.Errorf("invalid param json"))
+	}
+
+	err = a.service.UpdateAttributeDefinitions(ctx.Request.Context(), id, &req)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(nil)
+
+}
+
+func (a *Handler) activateProductModel(ctx *gin.Context) ginx.Render {
+	a.updateStatus(ctx, model.StatusActive)
+	return ginx.Success(nil)
+}
+
+func (a *Handler) deactivateProductModel(ctx *gin.Context) ginx.Render {
+	a.updateStatus(ctx, model.StatusInactive)
+	return ginx.Success(nil)
+}
+
+func (a *Handler) archiveProductModel(ctx *gin.Context) ginx.Render {
+	a.updateStatus(ctx, model.StatusArchived)
+	return ginx.Success(nil)
+}
+
+func (a *Handler) updateStatus(c *gin.Context, status string) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return
+	}
+
+	err = a.service.UpdateProductModelStatus(c.Request.Context(), id, status)
+	if err != nil {
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
