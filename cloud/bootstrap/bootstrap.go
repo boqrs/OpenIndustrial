@@ -28,11 +28,16 @@ import (
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
 	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
+	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	ph "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
 	rh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
 	sech "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
+	woh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
+	//plh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/planning"
+
 
 	dh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
 	fh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
@@ -164,6 +169,8 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	ePb		:=  event.NewEventPubSub()
 	//plRepo :=	postgres.NewProductionPlanRepository(dbProv)
 	auth := middleware.NewAuthService(cfg.UserJwtSecret, permissionRepo)
+	woRepo := postgres.NewWorkOrderRepository(dbProv)
+	plRepo := postgres.NewProductionPlanRepository(dbProv)
 
 
 	// 业务模块初始化
@@ -173,6 +180,8 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	dSrv := dSrv.NewService(deviceRepo, reSrv,pSrv, seSrv)
 	fSrv := fSrv.NewService(reSrv, factoryRepo)
 	idtSrv :=	idtSrv.NewService(TenantRepo, usRepo, roleRepo, groupRepo, cfg.UserJwtSecret, ePb)
+	plSrv := plSrv.NewService(plRepo, pSrv, fSrv)
+	woSrv := woSrv.NewService(woRepo, plSrv)
    // plSrv := planning.NewService(plRepo, pSrv, fSrv)
 
 	// 初始化中间件，用于创建认证等中间件 需要时传入middlewareFactory
@@ -183,6 +192,9 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	fh.NewHandler(fSrv).RouterRegister(router)
 	idth.NewIdentityHandler(idtSrv, auth).RouterRegister(router)
 	pdh.NewHandler(pSrv).RouterRegister(router)
+	//plh.NewHandler(plSrv).RouterRegister(router)
+	woh.NewHandler(woSrv, auth).RouterRegister(router)
+
 
 
 	return func() error {

@@ -77,7 +77,7 @@ func (h *Handler) handleLogin(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) handleGetCurrentUser(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -97,7 +97,7 @@ func (h *Handler) handleGetCurrentUser(ctx *gin.Context) ginx.Render {
 
 // handleCreateUser creates a new user.
 func (h *Handler) handleCreateUser(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -118,7 +118,7 @@ func (h *Handler) handleCreateUser(ctx *gin.Context) ginx.Render {
 
 // handleListUsers lists all users in the tenant.
 func (h *Handler) handleListUsers(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -138,7 +138,7 @@ func (h *Handler) handleListUsers(ctx *gin.Context) ginx.Render {
 
 // handleGetUser retrieves a single user by their ID.
 func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render{
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -161,7 +161,7 @@ func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render{
 
 // handleUpdateUser updates a user.
 func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render  {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -187,7 +187,7 @@ func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render  {
 
 // handleDeleteUser deletes a user.
 func (h *Handler) handleDeleteUser(ctx *gin.Context) ginx.Render  {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -206,7 +206,7 @@ func (h *Handler) handleDeleteUser(ctx *gin.Context) ginx.Render  {
 
 // handleListRoles lists all roles.
 func (h *Handler) handleListRoles(ctx *gin.Context) ginx.Render  {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
@@ -222,7 +222,7 @@ func (h *Handler) handleListRoles(ctx *gin.Context) ginx.Render  {
 
 // handleAssignRoleToUser assigns a role to a user.
 func (h *Handler) handleAssignRoleToUser(ctx *gin.Context) ginx.Render  {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}

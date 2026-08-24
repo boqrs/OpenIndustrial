@@ -1,13 +1,14 @@
 package pkg
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/gin-gonic/gin"
 
 )
 
 
-func TenantIDFromContext(ctx *gin.Context) uuid.UUID {
+func TenantIDFromGinContext(ctx *gin.Context) uuid.UUID {
 	// In a real application, you would extract this from a JWT token or similar.
 	val := ctx.Value("tenant_id")
 	if val != nil {
@@ -29,5 +30,16 @@ func GetUserIDFromContext(ctx *gin.Context) uuid.UUID {
 		}
 	}
 	// Fallback for testing or unauthenticated contexts
+	return uuid.Nil
+}
+
+
+func TenantIDFromContext(ctx context.Context) uuid.UUID {
+	value := ctx.Value("tenant_id")
+
+	if id, ok := value.(uuid.UUID); ok {
+		return id
+	}
+
 	return uuid.Nil
 }
