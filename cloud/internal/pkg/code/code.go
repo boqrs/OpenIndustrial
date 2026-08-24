@@ -1,6 +1,6 @@
 package code
 
-import "codeup.aliyun.com/65b21d33076e069afe3d3253/zeus/ginx"
+import "github.com/boqrs/zeus/ginx"
 
 var (
 	// 通用

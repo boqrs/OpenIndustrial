@@ -3,12 +3,11 @@ module github.com/boqrs/OpenIndustrial/cloud
 go 1.26.4
 
 require (
-	//codeup.aliyun.com/65b21d33076e069afe3d3253/zeus v1.0.6
 	github.com/aws/aws-sdk-go-v2 v1.43.6
 	github.com/aws/aws-sdk-go-v2/config v1.32.37
 	github.com/aws/aws-sdk-go-v2/service/acmpca v1.50.2
 	github.com/boqrs/nexus v0.0.3
-	github.com/boqrs/zeus v0.0.5
+	github.com/boqrs/zeus v0.0.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -20,8 +19,6 @@ require (
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
 )
-
-require codeup.aliyun.com/65b21d33076e069afe3d3253/zeus v1.0.6
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
@@ -50,7 +47,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
-	github.com/gin-contrib/timeout v1.2.1 // indirect
+	github.com/gin-contrib/timeout v0.0.6 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect

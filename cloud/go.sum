@@ -1,5 +1,3 @@
-codeup.aliyun.com/65b21d33076e069afe3d3253/zeus v1.0.6 h1:gsdODbeq3WCYkJXa+NAHICLPnPuY6r4WyvGlYSGImW8=
-codeup.aliyun.com/65b21d33076e069afe3d3253/zeus v1.0.6/go.mod h1:SOvbUxDDlGZvc39/qIr7zrhk4VvHumLfBklFai0hu5U=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
 filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
@@ -48,8 +46,8 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/boqrs/nexus v0.0.3 h1:gcpgNrkaVPXZLEwwTFNNdCrw0fHjUqdPjkewykris6g=
 github.com/boqrs/nexus v0.0.3/go.mod h1:nVhahGu5tSr4dCaY78Up6pT9sotBx/YtknXPMlWyOhU=
-github.com/boqrs/zeus v0.0.5 h1:FkAHIbw+2ZIJTPwchVO7rejqMTeUHiZeqLAiGc8Kri0=
-github.com/boqrs/zeus v0.0.5/go.mod h1:43AJpQ54fI1GyFnalK6bF4Ihvli/kz23nLSP6gpz+JA=
+github.com/boqrs/zeus v0.0.7 h1:KaO+5N9/HhY7CJGEdH7HnH1QMDzOnD0a7c2nHkvTAYI=
+github.com/boqrs/zeus v0.0.7/go.mod h1:qKhzog8sGA9KvpK+GEuKPv/QMnM1A+Gy7gqxokDs8PY=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
@@ -85,8 +83,8 @@ github.com/gin-contrib/gzip v0.0.6 h1:NjcunTcGAj5CO1gn4N8jHOSIeRFHIbn51z6K+xaN4d
 github.com/gin-contrib/gzip v0.0.6/go.mod h1:QOJlmV2xmayAjkNS2Y8NQsMneuRShOU/kjovCXNuzzk=
 github.com/gin-contrib/sse v1.1.1 h1:uGYpNwTacv5R68bSGMapo62iLTRa9l5zxGCps4hK6ko=
 github.com/gin-contrib/sse v1.1.1/go.mod h1:QXzuVkA0YO7o/gun03UI1Q+FTI8ZV/n5t03kIQAI89s=
-github.com/gin-contrib/timeout v1.2.1 h1:vw+1K+rDo1M86G00A1RdQZDP9JJDcJjYj6+9ZVowjlk=
-github.com/gin-contrib/timeout v1.2.1/go.mod h1:sUImmGGy/39JoCfTRnouXWJRVuUvR0DGcdRorXn7VdE=
+github.com/gin-contrib/timeout v0.0.6 h1:hRx+DnzQvHAsM7T3SGgIPOOMmyM/Z+szE5IDqf91Mog=
+github.com/gin-contrib/timeout v0.0.6/go.mod h1:a4ovm+qCGc+PIK3oF/vm6lC03SG+zZlh+qlDz+7vpnA=
 github.com/gin-gonic/gin v1.12.0 h1:b3YAbrZtnf8N//yjKeU2+MQsh2mY5htkZidOM7O0wG8=
 github.com/gin-gonic/gin v1.12.0/go.mod h1:VxccKfsSllpKshkBWgVgRniFFAzFb9csfngsqANjnLc=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
