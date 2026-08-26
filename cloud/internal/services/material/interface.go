@@ -12,11 +12,11 @@ import (
 // MaterialRepository defines the persistence interface for Material entities.
 type Repository interface {
 	Create(ctx context.Context, material *model.Material) error
-	GetByID(ctx context.Context, tenantID, id uint) (*model.Material, error)
+	GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Material, error)
 	GetByCode(ctx context.Context, tenantID uuid.UUID, code string) (*model.Material, error)
 	List(ctx context.Context, tenantID uuid.UUID, offset int, limit int) ([]*model.Material, int64, error)
 	Update(ctx context.Context, material *model.Material) error
-	Delete(ctx context.Context, tenantID, id uint) error
+	Delete(ctx context.Context, tenantID uuid.UUID, id uint) error
 }
 
 // Service 定义了物料服务的接口。
@@ -27,7 +27,7 @@ type Service interface {
 	Create(ctx context.Context, tenantID uuid.UUID, material *model.Material) error
 
 	// GetByID 根据 ID 获取物料信息。
-	GetByID(ctx context.Context, tenantID, id uint) (*model.Material, error)
+	GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Material, error)
 
 	// GetByCode 根据物料编码获取物料信息。
 	GetByCode(ctx context.Context, tenantID uuid.UUID, code string) (*model.Material, error)
@@ -39,5 +39,5 @@ type Service interface {
 	Update(ctx context.Context, tenantID uuid.UUID, material *model.Material) error
 
 	// Delete 删除一个物料。
-	Delete(ctx context.Context, tenantID, id uint) error
+	Delete(ctx context.Context, tenantID uuid.UUID, id uint) error
 }

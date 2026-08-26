@@ -29,7 +29,7 @@ func (s *service) Create(ctx context.Context, tenantID uuid.UUID, material *mode
 }
 
 // GetByID 直接调用 repository 的同名方法来获取数据。
-func (s *service) GetByID(ctx context.Context, tenantID, id uint) (*model.Material, error) {
+func (s *service) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Material, error) {
 	return s.repo.GetByID(ctx, tenantID, id)
 }
 
@@ -51,6 +51,6 @@ func (s *service) Update(ctx context.Context, tenantID uuid.UUID, material *mode
 }
 
 // Delete 直接调用 repository 的同名方法来删除数据。
-func (s *service) Delete(ctx context.Context, tenantID, id uint) error {
+func (s *service) Delete(ctx context.Context, tenantID uuid.UUID, id uint) error {
 	return s.repo.Delete(ctx, tenantID, id)
 }
