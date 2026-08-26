@@ -10,7 +10,7 @@ import (
 // Repository defines the persistence interface for production plans.
 type Repository interface {
 	Create(ctx context.Context, entity *model.ProductionPlan) error
-	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*model.ProductionPlan, error)
+	GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionPlan, error)
 	GetByPlanNo(ctx context.Context, tenantID uuid.UUID, planNo string) (*model.ProductionPlan, error)
 	List(ctx context.Context, tenantID uuid.UUID, status *model.ProductionPlanStatus) ([]*model.ProductionPlan, error)
 	Update(ctx context.Context, entity *model.ProductionPlan) error
@@ -19,9 +19,9 @@ type Repository interface {
 // Service defines the business logic for managing production plans.
 type Service interface {
 	CreateProductionPlan(ctx context.Context, req *CreateProductionPlanRequest) (*ProductionPlanResponse, error)
-	GetProductionPlanByID(ctx context.Context, id uuid.UUID) (*ProductionPlanResponse, error)
+	GetProductionPlanByID(ctx context.Context, id uint) (*ProductionPlanResponse, error)
 	ListProductionPlans(ctx context.Context, status *model.ProductionPlanStatus) ([]*ProductionPlanResponse, error)
-	UpdateProductionPlan(ctx context.Context, id uuid.UUID, req *UpdateProductionPlanRequest) (*ProductionPlanResponse, error)
-	ReleaseProductionPlan(ctx context.Context, id uuid.UUID) error
-	CancelProductionPlan(ctx context.Context, id uuid.UUID) error
+	UpdateProductionPlan(ctx context.Context, id uint, req *UpdateProductionPlanRequest) (*ProductionPlanResponse, error)
+	ReleaseProductionPlan(ctx context.Context, id uint) error
+	CancelProductionPlan(ctx context.Context, id uint) error
 }

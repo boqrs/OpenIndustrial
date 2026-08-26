@@ -3,37 +3,26 @@ package workorder
 import (
 	"time"
 
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 )
 
+
+// CreateWorkOrderRequest defines the request body for creating a new work order.
 type CreateWorkOrderRequest struct {
-	OrderNo string `json:"order_no" binding:"required"`
-
-	ProductionPlanID uuid.UUID `json:"production_plan_id" binding:"required"`
-
-	ProductID uuid.UUID `json:"product_id" binding:"required"`
-
-	FactoryID uuid.UUID `json:"factory_id" binding:"required"`
-
-	PlannedQuantity int `json:"planned_quantity" binding:"required,gt=0"`
-
-	PlannedStartAt time.Time `json:"planned_start_at" binding:"required"`
-
-	PlannedEndAt time.Time `json:"planned_end_at" binding:"required"`
-
-	Priority int `json:"priority"`
-
-	Description string `json:"description"`
+	Code             string     `json:"code"`
+	ProductionPlanID uint       `json:"productionPlanId"`
+	ProductID        uint       `json:"productId"`
+	RoutingID        uint       `json:"routingId"`
+	PlannedQuantity  int64      `json:"plannedQuantity"`
+	DueDate          *time.Time `json:"dueDate,omitempty"`
+	Priority         int        `json:"priority"`
+	Description      string     `json:"description"`
 }
 
+// UpdateWorkOrderRequest defines the request body for updating a work order.
 type UpdateWorkOrderRequest struct {
-	PlannedQuantity *int `json:"planned_quantity"`
-
-	PlannedStartAt *time.Time `json:"planned_start_at"`
-
-	PlannedEndAt *time.Time `json:"planned_end_at"`
-
-	Priority *int `json:"priority"`
-
-	Description *string `json:"description"`
+	PlannedQuantity *int64     `json:"plannedQuantity,omitempty"`
+	DueDate         *time.Time `json:"dueDate,omitempty"`
+	Priority        *int       `json:"priority,omitempty"`
+	Description     *string    `json:"description,omitempty"`
 }

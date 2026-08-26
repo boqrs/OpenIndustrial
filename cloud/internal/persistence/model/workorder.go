@@ -4,46 +4,56 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type WorkOrderStatus string
 
 const (
 	WorkOrderStatusDraft      WorkOrderStatus = "draft"
+	WorkOrderStatusPlanned    WorkOrderStatus = "planned"
 	WorkOrderStatusReleased   WorkOrderStatus = "released"
 	WorkOrderStatusInProgress WorkOrderStatus = "in_progress"
 	WorkOrderStatusCompleted  WorkOrderStatus = "completed"
 	WorkOrderStatusCancelled  WorkOrderStatus = "cancelled"
 )
 
+// WorkOrder is a Resource-backed manufacturing entity.
+//
+// ResourceUUID is the public identity of the work order.
+// ID is only used for internal database relations.
 type WorkOrder struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ID uint `gorm:"primaryKey"`
+
+	ResourceUUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
 
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 
-	OrderNo string `gorm:"type:varchar(100);not null"`
+	ProductionPlanID uint `gorm:"not null;index"`
 
-	ProductionPlanID uuid.UUID `gorm:"type:uuid;not null;index"`
+	ProductID uint `gorm:"not null;index"`
 
-	ProductID uuid.UUID `gorm:"type:uuid;not null;index"`
+	RoutingID uint `gorm:"not null;index"`
 
-	FactoryID uuid.UUID `gorm:"type:uuid;not null;index"`
+	Code string `gorm:"type:varchar(100);not null"`
 
-	PlannedQuantity int `gorm:"not null"`
-
-	CompletedQuantity int `gorm:"not null;default:0"`
-
-	PlannedStartAt time.Time `gorm:"not null;index"`
-
-	PlannedEndAt time.Time `gorm:"not null"`
-
-	Status WorkOrderStatus `gorm:"type:varchar(32);not null;default:'draft';index"`
+	PlannedQuantity int64 `gorm:"not null;default:0"`
 
 	Priority int `gorm:"not null;default:0"`
 
-	Description string `gorm:"type:text"`
+	DueDate *time.Time
 
-	CreatedAt time.Time `gorm:"autoCreateTime"`
+	Status WorkOrderStatus `gorm:"type:varchar(50);not null;default:'draft';index"`
 
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	StartedAt *time.Time
+
+	CompletedAt *time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+func (WorkOrder) TableName() string {
+	return "work_orders"
 }

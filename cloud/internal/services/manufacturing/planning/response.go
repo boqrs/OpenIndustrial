@@ -6,18 +6,21 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/google/uuid"
 )
-// ProductionPlanResponse is the structured response for a production plan.
+
+// ProductionPlanResponse defines the response body for a production plan.
+// ProductionPlanResponse defines the response body for a production plan.
 type ProductionPlanResponse struct {
-	ID              uuid.UUID                   `json:"id"`
-	TenantID        uuid.UUID                   `json:"tenant_id"`
-	PlanNo          string                      `json:"plan_no"`
-	ProductID       uuid.UUID                   `json:"product_id"`
-	FactoryID       uuid.UUID                   `json:"factory_id"`
-	PlannedQuantity int                         `json:"planned_quantity"`
-	PlannedStartAt  time.Time                   `json:"planned_start_at"`
-	PlannedEndAt    time.Time                   `json:"planned_end_at"`
-	Status          model.ProductionPlanStatus  `json:"status"`
-	Description     string                      `json:"description"`
-	CreatedAt       time.Time                   `json:"created_at"`
-	UpdatedAt       time.Time                   `json:"updated_at"`
+	ID              uint                       `json:"id"`
+	ResourceUUID    uuid.UUID                  `json:"resourceUuid"`
+	TenantID        uuid.UUID                  `json:"tenantId"`
+	PlanNo          string                     `json:"planNo"`
+	ProductID       uint                       `json:"productId"`
+	FactoryID       uint                       `json:"factoryId"`
+	PlannedQuantity int64                      `json:"plannedQuantity"`
+	PlannedStartAt  time.Time                  `json:"plannedStartAt"`
+	PlannedEndAt    time.Time                  `json:"plannedEndAt"`
+	Status          model.ProductionPlanStatus `json:"status"`
+	Description     string                     `json:"description"`
+	CreatedAt       time.Time                  `json:"createdAt"`
+	UpdatedAt       time.Time                  `json:"updatedAt"`
 }

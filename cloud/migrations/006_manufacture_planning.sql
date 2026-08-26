@@ -1,27 +1,64 @@
-CREATE TABLE production_plans (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    plan_no VARCHAR(100) NOT NULL,
-    product_id UUID NOT NULL,
-    factory_id UUID NOT NULL,
-    planned_quantity INTEGER NOT NULL,
-    planned_start_at TIMESTAMPTZ NOT NULL,
-    planned_end_at TIMESTAMPTZ NOT NULL,
-    status VARCHAR(32) NOT NULL DEFAULT 'draft',
-    description TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+-- =============================================================================
+-- Production Plans
+-- =============================================================================
 
-    CONSTRAINT production_plans_quantity_positive
-        CHECK (planned_quantity > 0),
-    CONSTRAINT production_plans_time_valid
-        CHECK (planned_end_at > planned_start_at),
-    CONSTRAINT production_plans_plan_no_unique
-        UNIQUE (tenant_id, plan_no)
+CREATE TABLE IF NOT EXISTS production_plans (
+    id BIGSERIAL PRIMARY KEY,
+
+    resource_uuid UUID NOT NULL,
+
+    tenant_id UUID NOT NULL,
+
+    plan_no VARCHAR(100) NOT NULL,
+
+    product_id BIGINT NOT NULL,
+
+    factory_id BIGINT NOT NULL,
+
+    planned_quantity BIGINT NOT NULL,
+
+    planned_start_at TIMESTAMPTZ NOT NULL,
+
+    planned_end_at TIMESTAMPTZ NOT NULL,
+
+    status VARCHAR(32) NOT NULL DEFAULT 'draft',
+
+    description TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ NULL,
+
+    CONSTRAINT uq_production_plans_resource_uuid
+        UNIQUE (resource_uuid),
+
+    CONSTRAINT uq_production_plans_plan_no
+        UNIQUE (tenant_id, plan_no),
+
+    CONSTRAINT fk_production_plans_resource
+        FOREIGN KEY (resource_uuid)
+        REFERENCES resources(uuid),
+
+    CONSTRAINT fk_production_plans_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id),
+
+    CONSTRAINT fk_production_plans_factory
+        FOREIGN KEY (factory_id)
+        REFERENCES factories(id)
 );
 
-CREATE INDEX idx_production_plans_tenant_id ON production_plans (tenant_id);
-CREATE INDEX idx_production_plans_product_id ON production_plans (product_id);
-CREATE INDEX idx_production_plans_factory_id ON production_plans (factory_id);
-CREATE INDEX idx_production_plans_status ON production_plans (tenant_id, status);
-CREATE INDEX idx_production_plans_schedule ON production_plans (tenant_id, planned_start_at);
+CREATE INDEX IF NOT EXISTS idx_production_plans_tenant_id
+    ON production_plans(tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_production_plans_product_id
+    ON production_plans(product_id);
+
+CREATE INDEX IF NOT EXISTS idx_production_plans_factory_id
+    ON production_plans(factory_id);
+
+CREATE INDEX IF NOT EXISTS idx_production_plans_status
+    ON production_plans(status);
+
+CREATE INDEX IF NOT EXISTS idx_production_plans_planned_start_at
+    ON production_plans(planned_start_at);
