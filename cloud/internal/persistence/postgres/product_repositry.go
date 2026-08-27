@@ -26,7 +26,7 @@ func (r *ProductRepository) Create(ctx context.Context, entity *model.ProductMod
 	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
-func (r *ProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.ProductModel, error) {
+func (r *ProductRepository) GetByID(ctx context.Context, id uint) (*model.ProductModel, error) {
 	var pm model.ProductModel
 	err := r.db.Get().WithContext(ctx).Where("id = ?", id).First(&pm).Error
 	if err != nil {
@@ -99,6 +99,6 @@ func (r *ProductRepository) Update(ctx context.Context, entity *model.ProductMod
 	return r.db.Get().WithContext(ctx).Save(entity).Error
 }
 
-func (r *ProductRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *ProductRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Get().WithContext(ctx).Where("id = ?", id).Delete(&model.ProductModel{}).Error
 }

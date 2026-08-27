@@ -18,7 +18,7 @@ import (
 //
 // ProductModel stores product-domain-specific information.
 type ProductModel struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ID uint `gorm:"primaryKey;autoIncrement"`
 
 	// ResourceID references resources.uuid.
 	ResourceID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`

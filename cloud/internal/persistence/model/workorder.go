@@ -11,17 +11,25 @@ type WorkOrderStatus string
 
 const (
 	WorkOrderStatusDraft      WorkOrderStatus = "draft"
-	WorkOrderStatusPlanned    WorkOrderStatus = "planned"
 	WorkOrderStatusReleased   WorkOrderStatus = "released"
 	WorkOrderStatusInProgress WorkOrderStatus = "in_progress"
 	WorkOrderStatusCompleted  WorkOrderStatus = "completed"
 	WorkOrderStatusCancelled  WorkOrderStatus = "cancelled"
 )
 
-// WorkOrder is a Resource-backed manufacturing entity.
-//
-// ResourceUUID is the public identity of the work order.
-// ID is only used for internal database relations.
+func (s WorkOrderStatus) String() string {
+	return string(s)
+}
+
+func (s WorkOrderStatus) IsValid() bool {
+	switch s {
+	case WorkOrderStatusDraft, WorkOrderStatusReleased, WorkOrderStatusInProgress, WorkOrderStatusCompleted, WorkOrderStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
 type WorkOrder struct {
 	ID uint `gorm:"primaryKey"`
 
@@ -32,6 +40,8 @@ type WorkOrder struct {
 	ProductionPlanID uint `gorm:"not null;index"`
 
 	ProductID uint `gorm:"not null;index"`
+
+	BOMID uint `gorm:"not null;index"`
 
 	RoutingID uint `gorm:"not null;index"`
 
@@ -52,8 +62,4 @@ type WorkOrder struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
-}
-
-func (WorkOrder) TableName() string {
-	return "work_orders"
 }

@@ -85,7 +85,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 
 	// 4. Create product model domain entity
 	entity := &model.ProductModel{
-		ID:          uuid.New(),
+		//ID:          uuid.New(),
 		ResourceID:  resourceEntity.UUID,
 		Code:        code,
 		Version:     version,
@@ -125,7 +125,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 	return s.buildProductModelResponse(ctx, resourceEntity, entity)
 }
 
-func (s *serviceImpl) GetProductModel(ctx context.Context, id uuid.UUID) (*ProductModelResponse, error) {
+func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductModelResponse, error) {
 	entity, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return nil, ErrProductModelNotFound // GORM's not found is already handled in repo, this is for service layer consistency
@@ -184,7 +184,7 @@ func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductMod
 	return result, nil
 }
 
-func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uuid.UUID, req *UpdateProductModelRequest) (*ProductModelResponse, error) {
+func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *UpdateProductModelRequest) (*ProductModelResponse, error) {
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
@@ -252,7 +252,7 @@ func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uuid.UUID, req 
 	return s.buildProductModelResponse(ctx, resourceEntity, entity)
 }
 
-func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uuid.UUID, status string) error {
+func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, status string) error {
 	entity, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return ErrProductModelNotFound
@@ -300,7 +300,7 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uuid.UUID
 	return nil
 }
 
-func (s *serviceImpl) GetAttributeDefinitions(ctx context.Context, productModelID uuid.UUID) ([]AttributeDefinitionResponse, error) {
+func (s *serviceImpl) GetAttributeDefinitions(ctx context.Context, productModelID uint) ([]AttributeDefinitionResponse, error) {
 	entity, err := s.repository.GetByID(ctx, productModelID)
 	if err != nil {
 		return nil, ErrProductModelNotFound
@@ -327,7 +327,7 @@ func (s *serviceImpl) GetAttributeDefinitions(ctx context.Context, productModelI
 	return result, nil
 }
 
-func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productModelID uuid.UUID, req *UpdateAttributeDefinitionsRequest) error {
+func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productModelID uint, req *UpdateAttributeDefinitionsRequest) error {
 	if req == nil {
 		return errors.New("request is nil")
 	}

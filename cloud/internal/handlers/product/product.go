@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/boqrs/zeus/ginx"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
@@ -74,7 +73,7 @@ func (a *Handler) listProductModels(ctx *gin.Context) ginx.Render {
 }
 
 func (a *Handler) getProductModel(ctx *gin.Context) ginx.Render {
-	id, err := uuid.Parse(ctx.Param("id"))
+	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return  ginx.Error(fmt.Errorf("invalid param"))
 	}
@@ -88,9 +87,9 @@ func (a *Handler) getProductModel(ctx *gin.Context) ginx.Render {
 }
 
 func (a *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
-	id, err := uuid.Parse(ctx.Param("id"))
+	id, err := parseUintParam(ctx, "id")
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return  ginx.Error(fmt.Errorf("invalid param"))
 	}
 
 	var req srv.UpdateProductModelRequest
@@ -108,7 +107,7 @@ func (a *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
 }
 
 func (a *Handler) getAttributes(ctx *gin.Context) ginx.Render {
-	id, err := uuid.Parse(ctx.Param("id"))
+	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return  ginx.Error(fmt.Errorf("invalid param"))
 	}
@@ -123,7 +122,7 @@ func (a *Handler) getAttributes(ctx *gin.Context) ginx.Render {
 }
 
 func (a *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
-	id, err := uuid.Parse(ctx.Param("id"))
+	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return  ginx.Error(fmt.Errorf("invalid param"))
 	}
@@ -157,17 +156,27 @@ func (a *Handler) archiveProductModel(ctx *gin.Context) ginx.Render {
 	return ginx.Success(nil)
 }
 
-func (a *Handler) updateStatus(c *gin.Context, status string) {
-	id, err := uuid.Parse(c.Param("id"))
+func (a *Handler) updateStatus(ctx *gin.Context, status string) {
+	id, err := parseUintParam(ctx, "id")
+	if err != nil {
+		return  
+	}
+
+	err = a.service.UpdateProductModelStatus(ctx.Request.Context(), id, status)
 	if err != nil {
 		return
 	}
 
-	err = a.service.UpdateProductModelStatus(c.Request.Context(), id, status)
-	if err != nil {
-		return
-	}
-
-	c.Status(http.StatusNoContent)
+	ctx.Status(http.StatusNoContent)
 }
 
+
+// Helper function to parse uint from path parameter
+func parseUintParam(c *gin.Context, paramName string) (uint, error) {
+	idStr := c.Param(paramName)
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %s", paramName, idStr)
+	}
+	return uint(id), nil
+}

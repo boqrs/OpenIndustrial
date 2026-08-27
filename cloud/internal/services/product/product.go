@@ -11,12 +11,12 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context,entity *model.ProductModel) error
-	GetByID(ctx context.Context,id uuid.UUID) (*model.ProductModel, error)
+	GetByID(ctx context.Context,id uint) (*model.ProductModel, error)
 	GetByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ProductModel, error)
 	GetByCodeAndVersion(ctx context.Context,code string,version string) (*model.ProductModel, error)
 	List(ctx context.Context,req ListProductModelsRequest) ([]*model.ProductModel, int64, error)
 	Update(ctx context.Context,entity *model.ProductModel) error
-	Delete(ctx context.Context,id uuid.UUID) error
+	Delete(ctx context.Context,id uint) error
 }
 
 type Service interface {
@@ -25,17 +25,17 @@ type Service interface {
 	// =========================================================
 
 	CreateProductModel(ctx context.Context,req *CreateProductModelRequest,) (*ProductModelResponse, error)
-	GetProductModel(ctx context.Context,id uuid.UUID) (*ProductModelResponse, error)
+	GetProductModel(ctx context.Context,id uint) (*ProductModelResponse, error)
 	ListProductModels(ctx context.Context,req *ListProductModelsRequest) (*ProductModelListResponse, error)
-	UpdateProductModel(ctx context.Context,id uuid.UUID,req *UpdateProductModelRequest) (*ProductModelResponse, error)
+	UpdateProductModel(ctx context.Context,id uint,req *UpdateProductModelRequest) (*ProductModelResponse, error)
 	//TODO： 改为resource定义的状态类型
-	UpdateProductModelStatus(ctx context.Context,id uuid.UUID,status string) error
+	UpdateProductModelStatus(ctx context.Context,id uint,status string) error
 
 	// =========================================================
 	// Product Model Attribute Definition
 	// =========================================================
 
-	GetAttributeDefinitions(ctx context.Context,productModelID uuid.UUID) ([]AttributeDefinitionResponse, error)
+	GetAttributeDefinitions(ctx context.Context,productModelID uint) ([]AttributeDefinitionResponse, error)
 
-	UpdateAttributeDefinitions(ctx context.Context,productModelID uuid.UUID,req *UpdateAttributeDefinitionsRequest) error
+	UpdateAttributeDefinitions(ctx context.Context,productModelID uint,req *UpdateAttributeDefinitionsRequest) error
 }

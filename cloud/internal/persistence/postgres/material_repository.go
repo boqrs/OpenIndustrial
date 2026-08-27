@@ -5,26 +5,27 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"github.com/boqrs/nexus/database"
+
 )
 
 
 type materialRepository struct {
-	db *gorm.DB
+	db *database.DBProvider
 }
 
 // NewMaterialRepository creates a new GORM-based implementation of MaterialRepository.
-func NewMaterialRepository(db *gorm.DB) *materialRepository {
+func NewMaterialRepository(db *database.DBProvider) *materialRepository {
 	return &materialRepository{db: db}
 }
 
 func (r *materialRepository) Create(ctx context.Context, material *model.Material) error {
-	return r.db.WithContext(ctx).Create(material).Error
+	return r.db.Get().WithContext(ctx).Create(material).Error
 }
 
-func (r *materialRepository) GetByID(ctx context.Context, tenantID, id uint) (*model.Material, error) {
+func (r *materialRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Material, error) {
 	var material model.Material
-	err := r.db.WithContext(ctx).
+	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND id = ?", tenantID, id).
 		First(&material).
 		Error
@@ -33,7 +34,7 @@ func (r *materialRepository) GetByID(ctx context.Context, tenantID, id uint) (*m
 
 func (r *materialRepository) GetByCode(ctx context.Context, tenantID uuid.UUID, code string) (*model.Material, error) {
 	var material model.Material
-	err := r.db.WithContext(ctx).
+	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND code = ?", tenantID, code).
 		First(&material).
 		Error
@@ -44,7 +45,7 @@ func (r *materialRepository) List(ctx context.Context, tenantID uuid.UUID, offse
 	var materials []*model.Material
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&model.Material{}).Where("tenant_id = ?", tenantID)
+	query := r.db.Get().WithContext(ctx).Model(&model.Material{}).Where("tenant_id = ?", tenantID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -61,11 +62,11 @@ func (r *materialRepository) List(ctx context.Context, tenantID uuid.UUID, offse
 }
 
 func (r *materialRepository) Update(ctx context.Context, material *model.Material) error {
-	return r.db.WithContext(ctx).Save(material).Error
+	return r.db.Get().WithContext(ctx).Save(material).Error
 }
 
-func (r *materialRepository) Delete(ctx context.Context, tenantID, id uint) error {
-	return r.db.WithContext(ctx).
+func (r *materialRepository) Delete(ctx context.Context, tenantID uuid.UUID, id uint) error {
+	return r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND id = ?", tenantID, id).
 		Delete(&model.Material{}).
 		Error

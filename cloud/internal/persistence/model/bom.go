@@ -20,7 +20,7 @@ type BOM struct {
 
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 
-	ProductID uuid.UUID `gorm:"type:uuid;not null;index"`
+	ProductID uint `gorm:"not null;index"`
 
 	BOMNo string `gorm:"type:varchar(100);not null"`
 

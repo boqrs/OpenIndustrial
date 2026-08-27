@@ -76,8 +76,7 @@ const (
 type Device struct {
 	ID             uuid.UUID `gorm:"type:uuid;primary_key"`
 	ResourceID     uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
-	ProductModelID uuid.UUID `gorm:"type:uuid;not null;index"`
-
+	ProductID uint `gorm:"not null;index"`
 	// Identity attributes
 	SerialNumber string `gorm:"size:255;index"`
 	HardwareID   string `gorm:"size:255;index"`

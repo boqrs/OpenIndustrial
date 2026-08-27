@@ -12,7 +12,7 @@ import (
 type DeviceResponse struct {
 	ID               uuid.UUID    `json:"id"`
 	ResourceID       uuid.UUID    `json:"resource_id"`
-	ProductModelID   uuid.UUID    `json:"product_model_id"`
+	ProductID   uint   `json:"product_model_id"`
 	Name             string       `json:"name"`
 	SerialNumber     string       `json:"serial_number"`
 	HardwareID       string       `json:"hardware_id"`

@@ -1,9 +1,7 @@
 package bom
 
-import "github.com/google/uuid"
-
 type CreateRequest struct {
-	ProductID uuid.UUID `json:"product_id"`
+	ProductID uint `json:"product_id"`
 
 	BOMNo string `json:"bom_no"`
 

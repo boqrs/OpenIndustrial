@@ -41,12 +41,12 @@ func NewService(repo Repository,resourceSvc resource.Service,productSvc product.
 
 // CreateDevice orchestrates the creation of a new device.
 func (s *serviceImpl) CreateDevice(ctx context.Context, req *CreateDeviceRequest) (*BootstrapCredentialResponse, error) {
-	if req == nil || req.Name == "" || req.ProductModelID == uuid.Nil {
+	if req == nil || req.Name == "" || req.ProductID == 0 {
 		return nil, ErrInvalidCreateRequest
 	}
 
 	// 1. Validate ProductModel exists
-	if _, err := s.productSvc.GetProductModel(ctx, req.ProductModelID); err != nil {
+	if _, err := s.productSvc.GetProductModel(ctx, req.ProductID); err != nil {
 		if errors.Is(err, product.ErrProductModelNotFound) {
 			return nil, ErrProductModelNotFound
 		}
@@ -91,7 +91,7 @@ func (s *serviceImpl) CreateDevice(ctx context.Context, req *CreateDeviceRequest
 	newDevice := &model.Device{
 		ID:             uuid.New(),
 		ResourceID:     createdResource.UUID,
-		ProductModelID: req.ProductModelID,
+		ProductID:      req.ProductID,
 		SerialNumber:   req.SerialNumber,
 		HardwareID:     req.HardwareID,
 		Status:         model.DeviceStatusCreated,
@@ -236,7 +236,7 @@ func (s *serviceImpl) toDeviceResponse(d *model.Device, r *model.Resource) *Devi
 	resp := &DeviceResponse{
 		ID:               d.ID,
 		ResourceID:       d.ResourceID,
-		ProductModelID:   d.ProductModelID,
+		ProductID:        d.ProductID,
 		Name:             r.ResourceName,
 		SerialNumber:     d.SerialNumber,
 		HardwareID:       d.HardwareID,

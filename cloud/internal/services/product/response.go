@@ -18,7 +18,7 @@ type AttributeDefinitionResponse struct {
 }
 
 type ProductModelResponse struct {
-	ID          uuid.UUID                     `json:"id"`
+	ID          uint                     `json:"id"`
 	ResourceID  uuid.UUID                     `json:"resource_id"`
 	Name        string                        `json:"name"`
 	Code        string                        `json:"code"`

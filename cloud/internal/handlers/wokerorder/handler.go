@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"context"
+	"errors"
+	//"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	//"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/boqrs/zeus/ginx"
@@ -32,131 +33,176 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup := router.Group("/api/v1/external")
 	externalGroup.Use(h.auth.Authenticate())
 	{
-		externalGroup.Handle(http.MethodPost, "/work-orders", h.Create)
-		externalGroup.Handle(http.MethodGet, "/work-orders", h.List)
-		externalGroup.Handle(http.MethodGet, "/work-orders/:id", h.Get)
-		externalGroup.Handle(http.MethodPut, "/work-orders/:id", h.Update)
-		externalGroup.Handle(http.MethodPost, "/work-orders/:id/release", h.Release)
-		externalGroup.Handle(http.MethodPost, "/work-orders/:id/start", h.Start)
-		externalGroup.Handle(http.MethodPost, "/work-orders/:id/cancel", h.Cancel)
+		externalGroup.Handle(http.MethodPost, "/work-orders", h.create)
+		externalGroup.Handle(http.MethodGet, "/work-orders", h.list)
+		externalGroup.Handle(http.MethodGet, "/work-orders/:id", h.getByID)
+		externalGroup.Handle(http.MethodPut, "/work-orders/:id", h.update)
+		externalGroup.Handle(http.MethodPost, "/work-orders/:id/release", h.release)
+		externalGroup.Handle(http.MethodPost, "/work-orders/:id/start", h.start)
+		externalGroup.Handle(http.MethodPost, "/work-orders/:id/cancel", h.cancel)
 	}
 }
 
-func (h *Handler) Create(ctx *gin.Context) ginx.Render {
-	var req srv.CreateWorkOrderRequest
-	tenantID := pkg.TenantIDFromContext(ctx)
+
+func (h *Handler) create(c *gin.Context) ginx.Render {
+	var req srv.CreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return ginx.Error(err)
+	}
+
+	tenantID := pkg.TenantIDFromGinContext(c)
 	if tenantID == uuid.Nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+		return ginx.Error(errors.New("no perm"))
 	}
 
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		return ginx.Error(fmt.Errorf("invalid parm json"))
-	}
-
-	result, err := h.service.CreateWorkOrder(ctx.Request.Context(), &req)
+	resp, err := h.service.Create(c.Request.Context(), tenantID, &req)
 	if err != nil {
 		return ginx.Error(err)
 	}
-
-	return ginx.Success(result)
+	return ginx.Success(resp)
 }
 
-func (h *Handler) Get(ctx *gin.Context) ginx.Render {
-	id, err := parseUintParam(ctx, "id")
-	if err != nil {
-		return ginx.Error(err)
-	}
-
-	result, err := h.service.GetWorkOrder(ctx.Request.Context(), id)
-	if err != nil {
-		return ginx.Error(err)
-	}
-	return ginx.Success(result)
-}
-
-func (h *Handler) List(ctx *gin.Context) ginx.Render {
-	var status *model.WorkOrderStatus
-	if value := ctx.Query("status"); value != "" {
-		s := model.WorkOrderStatus(value)
-		status = &s
-	}
-
-	var productionPlanID *uint
-	if value := ctx.Query("production_plan_id"); value != "" {
-		id, err := strconv.ParseUint(value, 10, 32)
-		if err != nil {
-			return ginx.Error(fmt.Errorf("invalid production_plan_id format"))
-		}
-		uid := uint(id)
-		productionPlanID = &uid
-	}
-
-	result, err := h.service.ListWorkOrders(
-		ctx.Request.Context(),
-		status,
-		productionPlanID,
-	)
-
-	if err != nil {
-		return ginx.Error(err)
-	}
-
-	return ginx.Success(result)
-}
-
-func (h *Handler) Update(ctx *gin.Context) ginx.Render {
-	id, err := parseUintParam(ctx, "id")
-	if err != nil {
-		return ginx.Error(err)
-	}
-
-	var req srv.UpdateWorkOrderRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		return ginx.Error(err)
-	}
-
-	result, err := h.service.UpdateWorkOrder(ctx.Request.Context(), id, &req)
-	if err != nil {
-		return ginx.Error(err)
-	}
-	return ginx.Success(result)
-}
-
-func (h *Handler) Release(ctx *gin.Context) ginx.Render {
-	h.changeState(ctx, h.service.ReleaseWorkOrder)
-	return ginx.Success(nil)
-}
-
-func (h *Handler) Start(ctx *gin.Context) ginx.Render {
-	h.changeState(ctx, h.service.StartWorkOrder)
-	return ginx.Success(nil)
-}
-
-func (h *Handler) Cancel(ctx *gin.Context) ginx.Render {
-	h.changeState(ctx, h.service.CancelWorkOrder)
-	return ginx.Success(nil)
-}
-
-func (h *Handler) changeState(c *gin.Context, fn func(context.Context, uint) error) {
+func (h *Handler) getByID(c *gin.Context) ginx.Render {
 	id, err := parseUintParam(c, "id")
 	if err != nil {
-		// In a real app, you'd render an error here.
-		// For simplicity, we just return.
-		return
+		return ginx.Error(err)
 	}
 
-	if err := fn(c.Request.Context(), id); err != nil {
-		// In a real app, you'd render an error here.
-		return
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
 	}
+
+	resp, err := h.service.GetByID(c.Request.Context(), tenantID, id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	return ginx.Success(resp)
 }
 
-// parseUintParam is a helper to parse a uint64 from a URL parameter.
-func parseUintParam(ctx *gin.Context, paramName string) (uint, error) {
-	idStr := ctx.Param(paramName)
-	id, err := strconv.ParseUint(idStr, 10, 32)
+func (h *Handler) list(c *gin.Context) ginx.Render {
+	var req srv.ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		return ginx.Error(err)
+	}
+
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
+	}
+	req.TenantID = tenantID
+
+	// Assuming ProductID is a query param for filtering
+	productIDStr := c.Query("product_id")
+	if productIDStr != "" {
+		productID, err := strconv.ParseUint(productIDStr, 10 , 74)
+		if err != nil {
+			return ginx.Error(errors.New("invalid product_id format"))
+		}
+		req.ProductID = uint(productID)
+	}
+
+	resp, _, err := h.service.List(c.Request.Context(), &req)
 	if err != nil {
-		return 0, fmt.Errorf("invalid %s format: '%s'", paramName, idStr)
+		return ginx.Error(err)
+	}
+	return ginx.Success(resp)
+}
+
+func (h *Handler) update(c *gin.Context) ginx.Render {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	var req srv.UpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return ginx.Error(err)
+	}
+
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
+	}
+
+	resp, err := h.service.Update(c.Request.Context(), tenantID, id, &req)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	return ginx.Success(resp)
+}
+
+func (h *Handler) release(c *gin.Context) ginx.Render {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		return ginx.Error(err)
+	}
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
+	}
+	err = h.service.Release(c.Request.Context(), tenantID, id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	return ginx.Success(nil)
+}
+
+func (h *Handler) start(c *gin.Context) ginx.Render {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		return ginx.Error(err)
+	}
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
+	}
+	err = h.service.Start(c.Request.Context(), tenantID, id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	return ginx.Success(nil)
+}
+
+func (h *Handler) complete(c *gin.Context) ginx.Render {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		return ginx.Error(err)
+	}
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
+	}
+	err = h.service.Complete(c.Request.Context(), tenantID, id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	return ginx.Success(nil)
+}
+
+func (h *Handler) cancel(c *gin.Context) ginx.Render {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		return ginx.Error(err)
+	}
+	tenantID := pkg.TenantIDFromGinContext(c)
+	if tenantID == uuid.Nil {
+		return ginx.Error(errors.New("no perm"))
+	}
+	err = h.service.Cancel(c.Request.Context(), tenantID, id)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	return ginx.Success(nil)
+}
+
+// --- Helpers ---
+func parseUintParam(c *gin.Context, paramName string) (uint, error) {
+	idStr := c.Param(paramName)
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %s", paramName, idStr)
 	}
 	return uint(id), nil
 }
+

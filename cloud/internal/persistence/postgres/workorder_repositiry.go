@@ -2,21 +2,17 @@ package postgres
 
 import (
 	"context"
-	"errors"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	//"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type WorkOrderRepository struct {
 	db *database.DBProvider
 }
 
-// Ensure WorkOrderRepository implements the workorder.Repository interface.
-var _ workorder.Repository = (*WorkOrderRepository)(nil)
 
 func NewWorkOrderRepository(db *database.DBProvider) *WorkOrderRepository {
 	return &WorkOrderRepository{
@@ -35,9 +31,9 @@ func (r *WorkOrderRepository) GetByID(ctx context.Context, tenantID uuid.UUID, i
 		First(&entity).Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, workorder.ErrWorkOrderNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, workorder.ErrWorkOrderNotFound
+		// }
 		return nil, err
 	}
 	return &entity, nil
@@ -50,26 +46,26 @@ func (r *WorkOrderRepository) GetByCode(ctx context.Context, tenantID uuid.UUID,
 		First(&entity).Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, workorder.ErrWorkOrderNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, workorder.ErrWorkOrderNotFound
+		// }
 		return nil, err
 	}
 	return &entity, nil
 }
 
-func (r *WorkOrderRepository) List(ctx context.Context, tenantID uuid.UUID, status *model.WorkOrderStatus, productionPlanID *uint) ([]*model.WorkOrder, error) {
+func (r *WorkOrderRepository) List(ctx context.Context, tenantID uuid.UUID, productID *uint, offset, limit int) ([]*model.WorkOrder, error) {
 	var entities []*model.WorkOrder
 	query := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
 		Order("planned_start_at ASC")
 
-	if status != nil {
-		query = query.Where("status = ?", *status)
-	}
+	// if status != nil {
+	// 	query = query.Where("status = ?", *status)
+	// }
 
-	if productionPlanID != nil {
-		query = query.Where("production_plan_id = ?", *productionPlanID)
+	if productID != nil {
+		query = query.Where("production_plan_id = ?", *productID)
 	}
 
 	if err := query.Find(&entities).Error; err != nil {
@@ -103,4 +99,18 @@ func (r *WorkOrderRepository) Delete(ctx context.Context, tenantID uuid.UUID, id
 		Where("tenant_id = ?", tenantID).
 		Delete(&model.WorkOrder{}, "id = ?", id).
 		Error
+}
+
+func (r *WorkOrderRepository) Count(ctx context.Context, tenantID uuid.UUID, productID uint) (int64, error) {
+	var count int64
+	if err := r.db.Get().WithContext(ctx).
+		Model(&model.WorkOrder{}).
+		Where("tenant_id = ?", tenantID).
+		Where("product_id = ?", productID).
+		Count(&count).
+		Error; err != nil{
+			return 0, err
+		}
+
+		return count, nil
 }

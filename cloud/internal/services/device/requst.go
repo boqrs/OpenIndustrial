@@ -9,7 +9,7 @@ import (
 // CreateDeviceRequest defines the payload for creating a new device.
 type CreateDeviceRequest struct {
 	Name           string    `json:"name" binding:"required"`
-	ProductModelID uuid.UUID `json:"product_model_id" binding:"required"`
+	ProductID      uint    `json:"product_id" binding:"required"`
 	SerialNumber   string    `json:"serial_number"`
 	HardwareID     string    `json:"hardware_id"`
 	ParentResourceID *uuid.UUID `json:"parent_resource_id"` // For placing the device in the resource tree

@@ -27,17 +27,19 @@ import (
 	rSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
-	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
-	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
+	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	//mSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
+	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	ph "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
 	rh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
 	sech "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	woh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
-	//plh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/planning"
 
+	//plh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/planning"
 
 	dh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
 	fh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
@@ -171,9 +173,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	auth := middleware.NewAuthService(cfg.UserJwtSecret, permissionRepo)
 	woRepo := postgres.NewWorkOrderRepository(dbProv)
 	plRepo := postgres.NewProductionPlanRepository(dbProv)
+	bomRepo	:= postgres.NewBOMRepository(dbProv)
+	materialRepo := postgres.NewMaterialRepository(dbProv)
+	ufRepo := postgres.NewUnitOfWork(dbProv)
 
 
-	// 业务模块初始化
+	// 业务模块初始化, service层按道理只能使用srv
 	reSrv := rSrv.NewService(resourceRepo, attrDefRepo, resAttrRepo, resConnRepo)
 	seSrv := secSrv.NewService(resourceRepo, credRepo, identityRepo, certRepo, adaptedCA, &mockMQTT{}, &mockTxManager{})
 	pSrv :=	pSrv.NewService(reSrv, pRepo)
@@ -181,7 +186,9 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	fSrv := fSrv.NewService(reSrv, factoryRepo)
 	idtSrv :=	idtSrv.NewService(TenantRepo, usRepo, roleRepo, groupRepo, cfg.UserJwtSecret, ePb)
 	plSrv := plSrv.NewService(plRepo, pSrv, fSrv)
-	woSrv := woSrv.NewService(woRepo, plSrv)
+	//materialSrv := mSrv.NewService(materialRepo)
+	boSrv := bom.NewService(bomRepo, materialRepo, pSrv, ufRepo)
+	woSrv := woSrv.NewService(woRepo, plSrv, boSrv)
    // plSrv := planning.NewService(plRepo, pSrv, fSrv)
 
 	// 初始化中间件，用于创建认证等中间件 需要时传入middlewareFactory

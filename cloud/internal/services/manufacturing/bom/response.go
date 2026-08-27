@@ -13,7 +13,7 @@ type Response struct {
 
 	TenantID uuid.UUID `json:"tenant_id"`
 
-	ProductID uuid.UUID `json:"product_id"`
+	ProductID uint `json:"product_id"`
 
 	BOMNo string `json:"bom_no"`
 
