@@ -13,7 +13,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-	mSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/material"
+	mSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
 )
 
 type Handler struct {
