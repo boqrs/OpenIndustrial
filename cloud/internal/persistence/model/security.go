@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // CredentialType defines the type of a credential.
@@ -25,9 +23,9 @@ const (
 
 // ResourceCredential stores a credential used for authenticating a resource, typically for bootstrapping.
 type ResourceCredential struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ID  uint      `gorm:"primaryKey"`
 	// ResourceID is the foreign key linking this credential to its owner resource.
-	ResourceID uuid.UUID `gorm:"type:uuid;not null;index"`
+	ResourceID uint `gorm:"not null;index"`
 	Type       CredentialType   `gorm:"type:varchar(50);not null"`
 	Status     CredentialStatus `gorm:"type:varchar(50);not null"`
 	// SecretHash stores the hashed version of the secret (e.g., SHA256 of the bootstrap token).
@@ -40,10 +38,10 @@ type ResourceCredential struct {
 
 // ResourceIdentity stores the intrinsic, often hardware-based, identifiers of a resource.
 type ResourceIdentity struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ID  uint      `gorm:"primaryKey"`
 	// ResourceID is the foreign key linking this identity to its owner resource. It is unique
 	// as a resource should only have one canonical identity record.
-	ResourceID   uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	ResourceID   uint `gorm:"not null;index"`
 	HardwareID   string    `gorm:"type:varchar(255);index"`
 	SerialNumber string    `gorm:"type:varchar(255);index"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
@@ -62,10 +60,10 @@ const (
 
 // ResourceCertificate stores information about a X.509 certificate associated with a resource.
 type ResourceCertificate struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ID  uint      `gorm:"primaryKey"`
 	// ResourceID is the foreign key linking this certificate to its owner resource.
-	ResourceID              uuid.UUID         `gorm:"type:uuid;not null;index"`
-	CertificateID           string            `gorm:"type:varchar(255);not null;uniqueIndex"`
+	ResourceID              uint `gorm:"not null;index"`
+	CertificateID           uint            `gorm:"not null;index"`
 	CertificateSerialNumber string            `gorm:"type:varchar(255);index"`
 	Fingerprint             string            `gorm:"type:varchar(255);not null;uniqueIndex"`
 	Subject                 string            `gorm:"type:text"`

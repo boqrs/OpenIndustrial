@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/boqrs/zeus/ginx"
 
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
@@ -110,13 +109,13 @@ func (h *Handler) handleGetProduct(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
 
-	productID, err := uuid.Parse(ctx.Param("id"))
+	productID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		//c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID format"})
-		return ginx.Error(fmt.Errorf("invalid product id"))
+		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
 
-	product, err := h.service.GetResource(ctx.Request.Context(), tenantID, productID)
+
+	product, err := h.service.GetResource(ctx.Request.Context(), tenantID, uint(productID))
 	if err != nil {
 		
 		return ginx.Error(err)
@@ -171,12 +170,13 @@ func (h *Handler) handleGetResource(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
 
-	resourceID, err := uuid.Parse(ctx.Param("id"))
+	resourceID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid resource id"))
+		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
+	
 
-	res, err := h.service.GetResource(ctx.Request.Context(), tenantID, resourceID)
+	res, err := h.service.GetResource(ctx.Request.Context(), tenantID, uint(resourceID))
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -192,10 +192,11 @@ func (h *Handler) handleUpdateResource(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
 
-	resourceID, err := uuid.Parse(ctx.Param("id"))
+	resourceID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid resource id"))
+		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
+
 
 	var req srv.UpdateResource
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -203,7 +204,7 @@ func (h *Handler) handleUpdateResource(ctx *gin.Context) ginx.Render {
 	}
 
 	req.TenantID = tenantID
-	res, err := h.service.UpdateResource(ctx.Request.Context(), resourceID, &req)
+	res, err := h.service.UpdateResource(ctx.Request.Context(), uint(resourceID), &req)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -218,12 +219,12 @@ func (h *Handler) handleDeleteResource(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
 
-	resourceID, err := uuid.Parse(ctx.Param("id"))
+	resourceID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid resource id"))
+		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
 
-	if err := h.service.DeleteResource(ctx.Request.Context(), tenantID, resourceID); err != nil {
+	if err := h.service.DeleteResource(ctx.Request.Context(), tenantID, uint(resourceID)); err != nil {
 		return ginx.Error(err)
 	}
 

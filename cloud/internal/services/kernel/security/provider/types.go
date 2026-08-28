@@ -2,8 +2,6 @@ package provider
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // CertificateRevokeReason defines a provider-independent
@@ -37,29 +35,20 @@ const (
 // extracted from a PKCS#10 CSR.
 type ParsedCSR struct {
 	Subject string `json:"subject"`
-
 	CommonName string `json:"common_name"`
-
 	DNSNames []string `json:"dns_names"`
-
 	IPAddresses []string `json:"ip_addresses"`
-
 	URIs []string `json:"uris"`
-
 	EmailAddresses []string `json:"email_addresses"`
-
 	PublicKeyAlgorithm string `json:"public_key_algorithm"`
-
 	PublicKeySize int `json:"public_key_size"`
 }
 
 // IssueCertificateRequest contains all information required
 // by a CertificateAuthority to issue a certificate.
 type IssueCertificateRequest struct {
-	ResourceID uuid.UUID `json:"resource_id"`
-
+	ResourceID uint `json:"resource_id"`
 	CSR string `json:"csr"`
-
 	ValidityDays int `json:"validity_days"`
 }
 
@@ -69,7 +58,7 @@ type IssuedCertificate struct {
 	// CertificateID is an opaque provider-specific identifier.
 	//
 	// The upper layer MUST NOT parse this value.
-	CertificateID string `json:"certificate_id"`
+	CertificateID uint `json:"certificate_id"`
 
 	// PEM encoded end-entity certificate.
 	CertificatePEM string `json:"certificate_pem"`
@@ -93,7 +82,7 @@ type IssuedCertificate struct {
 // to revoke an issued certificate.
 type RevokeCertificateRequest struct {
 	// Opaque provider certificate identifier.
-	CertificateID string `json:"certificate_id"`
+	CertificateID uint `json:"certificate_id"`
 
 	// X.509 certificate serial number.
 	SerialNumber string `json:"serial_number"`

@@ -90,7 +90,7 @@ func (s *service) CreateProductionExecution(ctx context.Context, workOrderID uin
 
 		// 6. Build the new execution entity.
 		entity := &model.ProductionExecution{
-			ResourceUUID: uuid.New(),
+			//ResourceUUID: uuid.New(),
 			TenantID:     tenantID,
 			WorkOrderID:  workOrder.ID,
 			DeviceID:     deviceID,
@@ -157,7 +157,7 @@ func toExecutionResponse(exec *model.ProductionExecution, ops []*model.Execution
 	// This mapper now aligns with the execution.ExecutionResponse DTO
 	return &execution.ExecutionResponse{
 		ID:           exec.ID,
-		ResourceUUID: exec.ResourceUUID,
+		ResourceID: exec.ResourceID,
 		TenantID:     exec.TenantID,
 		WorkOrderID:  exec.WorkOrderID,
 		DeviceID:     exec.DeviceID,

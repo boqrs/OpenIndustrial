@@ -11,7 +11,7 @@ import (
 // ProductionPlanResponse defines the response body for a production plan.
 type ProductionPlanResponse struct {
 	ID              uint                       `json:"id"`
-	ResourceUUID    uuid.UUID                  `json:"resourceUuid"`
+	ResourceID    uint                  `json:"resourceUuid"`
 	TenantID        uuid.UUID                  `json:"tenantId"`
 	PlanNo          string                     `json:"planNo"`
 	ProductID       uint                       `json:"productId"`

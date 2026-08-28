@@ -89,8 +89,8 @@ func (s *serviceImpl) CreateDevice(ctx context.Context, req *CreateDeviceRequest
 
 	// 4. Create the device entity
 	newDevice := &model.Device{
-		ID:             uuid.New(),
-		ResourceID:     createdResource.UUID,
+	//	ID:             uuid.New(),
+		ResourceID:     createdResource.ID,
 		ProductID:      req.ProductID,
 		SerialNumber:   req.SerialNumber,
 		HardwareID:     req.HardwareID,
@@ -104,7 +104,7 @@ func (s *serviceImpl) CreateDevice(ctx context.Context, req *CreateDeviceRequest
 
 	var bootstrapCred *security.BootstrapCredentialResponse
 	cbReq := security.CreateBootstrapCredentialRequest{
-		ResourceID: createdResource.UUID,
+		ResourceID: createdResource.ID,
 	}
 	bootstrapCred, err = s.securitySvc.CreateBootstrapCredential(ctx, cbReq)
 	if err != nil {
@@ -195,7 +195,7 @@ func (s *serviceImpl) UpdateDevice(ctx context.Context, deviceID uuid.UUID, req 
 			ParentID: res.ParentID,
 		}
 
-		if _, err := s.resourceSvc.UpdateResource(ctx, res.UUID, upReq); err != nil {
+		if _, err := s.resourceSvc.UpdateResource(ctx, res.ID, upReq); err != nil {
 			return nil, err
 		}
 	}

@@ -4,16 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/google/uuid"
+	"strconv"
 )
 
 // AliyunCAConfig contains Alibaba Cloud PCA configuration.
 type AliyunCAConfig struct {
 	RegionID string `json:"region_id"`
-
 	CAInstanceID string `json:"ca_instance_id"`
-
 	ValidityDays int `json:"validity_days"`
 }
 
@@ -92,12 +89,9 @@ func (p *AliyunCA) ValidateCSR(
 
 // IssueCertificate issues an end-entity certificate
 // using Alibaba Cloud PCA.
-func (p *AliyunCA) IssueCertificate(
-	ctx context.Context,
-	req IssueCertificateRequest,
-) (*IssuedCertificate, error) {
+func (p *AliyunCA) IssueCertificate(ctx context.Context,req IssueCertificateRequest) (*IssuedCertificate, error) {
 
-	if req.ResourceID == uuid.Nil {
+	if req.ResourceID == 0 {
 		return nil, errors.New(
 			"resource_id is required",
 		)
@@ -171,8 +165,10 @@ func (p *AliyunCA) IssueCertificate(
 		)
 	}
 
+	certificateID, _ := strconv.Atoi(result.CertificateID)
+
 	return ParseIssuedCertificate(
-		result.CertificateID,
+		uint(certificateID),
 		result.CertificatePEM,
 	)
 }
@@ -196,7 +192,7 @@ func (p *AliyunCA) RevokeCertificate(
 		)
 	}
 
-	if req.CertificateID == "" {
+	if req.CertificateID == 0 {
 		return errors.New(
 			"certificate_id is required",
 		)
@@ -211,7 +207,7 @@ func (p *AliyunCA) RevokeCertificate(
 					p.config.CAInstanceID,
 
 				CertificateID:
-					req.CertificateID,
+					fmt.Sprintf("%d", req.CertificateID),
 
 				SerialNumber:
 					req.SerialNumber,

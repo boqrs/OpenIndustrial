@@ -1,8 +1,5 @@
 package factory
 
-import (
-	"github.com/google/uuid"
-)
 
 type CreateFactoryRequest struct {
 	Name     string `json:"name"`
@@ -19,16 +16,11 @@ type UpdateFactoryRequest struct {
 }
 
 type CreateTopologyNodeRequest struct {
-	FactoryID uuid.UUID `json:"factory_id"`
-
-	ParentResourceID *uuid.UUID `json:"parent_resource_id,omitempty"`
-
+	FactoryID uint `json:"factory_id"`
+	ParentResourceID *uint `json:"parent_resource_id,omitempty"`
 	Type string `json:"type"`
-
 	Name string `json:"name"`
-
 	Code string `json:"code,omitempty"`
-
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -39,6 +31,6 @@ type UpdateTopologyNodeRequest struct {
 }
 
 type MoveTopologyNodeRequest struct {
-	ResourceID       uuid.UUID `json:"resource_id"`
-	ParentResourceID *uuid.UUID `json:"parent_resource_id,omitempty"`
+	ResourceID       uint `json:"resource_id"`
+	ParentResourceID *uint `json:"parent_resource_id,omitempty"`
 }

@@ -34,7 +34,7 @@ func (r *ResourceRepository) CreateResource(ctx context.Context, res *model.Reso
 	return r.db.Get().WithContext(ctx).Create(res).Error
 }
 
-func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID, parentID uuid.UUID) ([]*model.Resource, error) {
+func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID uuid.UUID, parentID uint) ([]*model.Resource, error) {
 	var resources []*model.Resource
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND parent_id = ?", tenantID, parentID).Find(&resources).Error
 	return resources, err
@@ -42,7 +42,7 @@ func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID, paren
 
 
 // GetResourceByID retrieves a resource by its ID using GORM.
-func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID, resourceID uuid.UUID) (*model.Resource, error) {
+func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error) {
 	var res model.Resource
 	err := r.db.Get().WithContext(ctx).
 		Where("uuid = ? AND tenant_id = ?", resourceID, tenantID).
@@ -57,7 +57,7 @@ func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID, reso
 func (r *ResourceRepository) UpdateResource(ctx context.Context, res *model.Resource) error {
 	result := r.db.Get().WithContext(ctx).
 		Model(res).
-		Where("uuid = ? AND tenant_id = ? AND version = ?", res.UUID, res.TenantID, res.Version).
+		Where("id = ? AND tenant_id = ? AND version = ?", res.ID, res.TenantID, res.Version).
 		Updates(map[string]interface{}{
 			"resource_name":           res.ResourceName,
 			"code":           res.Code,
@@ -79,7 +79,7 @@ func (r *ResourceRepository) UpdateResource(ctx context.Context, res *model.Reso
 }
 
 // DeleteResource performs a soft delete on a resource using GORM.
-func (r *ResourceRepository) DeleteResource(ctx context.Context, tenantID, resourceID uuid.UUID) error {
+func (r *ResourceRepository) DeleteResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("uuid = ? AND tenant_id = ?", resourceID, tenantID).
 		Delete(&model.Resource{}).Error
@@ -97,7 +97,7 @@ func (r *ResourceRepository) ListResources(ctx context.Context, tenantID uuid.UU
 }
 
 // CheckUserInSameGroupAsResource is a placeholder.
-func (r *ResourceRepository) CheckUserInSameGroupAsResource(ctx context.Context, userID, resourceID uuid.UUID) (bool, error) {
+func (r *ResourceRepository) CheckUserInSameGroupAsResource(ctx context.Context, userID uuid.UUID, resourceID uint) (bool, error) {
 	// This is a complex query that likely involves joining resources, groups, and group_members.
 	// For now, we'll return true to allow development to proceed.
 	return true, nil // Placeholder
@@ -117,10 +117,10 @@ func (r *ResourceRepository) FindResourceByNameAndType(ctx context.Context, tena
 		First(&resource).Error
 	return &resource, err
 }
-func (r *ResourceRepository)	UpdateParent(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) error{
+func (r *ResourceRepository)	UpdateParent(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) error{
 var parentResource model.Resource
 	if err := r.db.Get().WithContext(ctx).
-		Where("uuid = ? AND tenant_id = ?", newParentID, tenantID).
+		Where("id = ? AND tenant_id = ?", newParentID, tenantID).
 		First(&parentResource).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("parent resource with ID %s not found for tenant %s", newParentID, tenantID)
@@ -130,7 +130,7 @@ var parentResource model.Resource
 
 	result := r.db.Get().WithContext(ctx).
 		Model(&model.Resource{}).
-		Where("uuid = ? AND tenant_id = ?", resourceID, tenantID).
+		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
 		Update("parent_id", &newParentID)
 
 	if result.Error != nil {
@@ -142,9 +142,9 @@ var parentResource model.Resource
 	return nil
 }
 
-func (r *ResourceRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+func (r *ResourceRepository) Exists(ctx context.Context, id uint) (bool, error) {
 	var count int64
-	err := r.db.Get().WithContext(ctx).Model(&model.Resource{}).Where("uuid = ?", id).Count(&count).Error
+	err := r.db.Get().WithContext(ctx).Model(&model.Resource{}).Where("id = ?", id).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -168,10 +168,10 @@ func (r *AttributeDefinitionRepository) CreateAttributeDefinition(ctx context.Co
 	return r.db.Get().WithContext(ctx).Create(def).Error
 }
 
-func (r *AttributeDefinitionRepository) GetAttributeDefinitionByID(ctx context.Context, tenantID, defID uuid.UUID) (*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) GetAttributeDefinitionByID(ctx context.Context, tenantID uuid.UUID, defID uint) (*model.AttributeDefinition, error) {
 	var def model.AttributeDefinition
 	err := r.db.Get().WithContext(ctx).
-		Where("uuid = ? AND tenant_id = ?", defID, tenantID).
+		Where("id = ? AND tenant_id = ?", defID, tenantID).
 		First(&def).Error
 	return &def, err
 }
@@ -199,9 +199,9 @@ func (r *AttributeDefinitionRepository) UpdateAttributeDefinition(ctx context.Co
 	return r.db.Get().WithContext(ctx).Model(def).Updates(def).Error
 }
 
-func (r *AttributeDefinitionRepository) DeleteAttributeDefinition(ctx context.Context, tenantID, defID uuid.UUID) error {
+func (r *AttributeDefinitionRepository) DeleteAttributeDefinition(ctx context.Context, tenantID uuid.UUID, defID uint) error {
 	return r.db.Get().WithContext(ctx).
-		Where("uuid = ? AND tenant_id = ?", defID, tenantID).
+		Where("id = ? AND tenant_id = ?", defID, tenantID).
 		Delete(&model.AttributeDefinition{}).Error
 }
 
@@ -215,12 +215,12 @@ func (r *AttributeDefinitionRepository) FindByName(ctx context.Context, tenantID
 }
 
 // FindByIDs retrieves multiple definitions by their primary UUIDs.
-func (r *AttributeDefinitionRepository) FindByIDs(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) ([]*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) FindByIDs(ctx context.Context, tenantID uuid.UUID, ids []uint) ([]*model.AttributeDefinition, error) {
 	if len(ids) == 0 {
 		return []*model.AttributeDefinition{}, nil
 	}
 	var definitions []*model.AttributeDefinition
-	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND uuid IN ?", tenantID, ids).Find(&definitions).Error
+	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND id IN ?", tenantID, ids).Find(&definitions).Error
 	return definitions, err
 }
 
@@ -231,7 +231,7 @@ func (r *AttributeDefinitionRepository) BatchCreateDefinitions(ctx context.Conte
 	return r.db.Get().WithContext(ctx).Create(&defs).Error
 }
 
-func ( r *AttributeDefinitionRepository)FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uuid.UUID)([]*model.AttributeDefinition, error){
+func ( r *AttributeDefinitionRepository)FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uint)([]*model.AttributeDefinition, error){
 	var results []*model.AttributeDefinition 
 	
 	if err := r.db.Get().Model(&model.AttributeDefinition{}).Where("resource_id = ?", resourceID).Find(&results).Error; err != nil{
@@ -246,7 +246,7 @@ func (r * AttributeDefinitionRepository)BatchCreateAttributeDefinition(ctx conte
 }
 
 
-func (r * AttributeDefinitionRepository)ReplaceAttributeDefinitions(ctx context.Context, resourceID uuid.UUID, definitions []*model.AttributeDefinition) error {
+func (r * AttributeDefinitionRepository)ReplaceAttributeDefinitions(ctx context.Context, resourceID uint, definitions []*model.AttributeDefinition) error {
 	return r.db.Get().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. Delete all existing definitions associated with the resource ID.
 		if err := tx.Where("resource_id = ?", resourceID).Delete(&model.AttributeDefinition{}).Error; err != nil {
@@ -304,7 +304,7 @@ func (r *ResourceAttributeRepository) SetAttributes(ctx context.Context, attrs [
 	})
 }
 
-func (r *ResourceAttributeRepository) GetAttribute(ctx context.Context, resourceID, attributeID uuid.UUID) (*model.ResourceAttribute, error) {
+func (r *ResourceAttributeRepository) GetAttribute(ctx context.Context, resourceID, attributeID uint) (*model.ResourceAttribute, error) {
 	var attr model.ResourceAttribute
 	err := r.db.Get().WithContext(ctx).
 		Where("resource_id = ? AND attribute_id = ?", resourceID, attributeID).
@@ -312,7 +312,7 @@ func (r *ResourceAttributeRepository) GetAttribute(ctx context.Context, resource
 	return &attr, err
 }
 
-func (r *ResourceAttributeRepository) GetAttributesByResourceID(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceAttribute, error) {
+func (r *ResourceAttributeRepository) GetAttributesByResourceID(ctx context.Context, resourceID uint) ([]*model.ResourceAttribute, error) {
 	var attrs []*model.ResourceAttribute
 	err := r.db.Get().WithContext(ctx).
 		Where("resource_id = ?", resourceID).
@@ -320,14 +320,14 @@ func (r *ResourceAttributeRepository) GetAttributesByResourceID(ctx context.Cont
 	return attrs, err
 }
 
-func (r *ResourceAttributeRepository) DeleteAttribute(ctx context.Context, resourceID, attributeID uuid.UUID) error {
+func (r *ResourceAttributeRepository) DeleteAttribute(ctx context.Context, resourceID, attributeID uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("resource_id = ? AND attribute_id = ?", resourceID, attributeID).
 		Delete(&model.ResourceAttribute{}).Error
 }
 
 // GetForResource retrieves all attributes for a given resource and returns them as a map.
-func (r *ResourceAttributeRepository) GetForResource(ctx context.Context, resourceID uuid.UUID) (map[string]interface{}, error) {
+func (r *ResourceAttributeRepository) GetForResource(ctx context.Context, resourceID uint) (map[string]interface{}, error) {
 	var results []struct {
 		Key           string `gorm:"column:key"`
 		ValueString   *string
@@ -378,7 +378,7 @@ func (r *ResourceAttributeRepository) GetForResource(ctx context.Context, resour
 }
 
 // UpsertForResource creates or updates a batch of attributes for a specific resource.
-func (r *ResourceAttributeRepository) UpsertForResource(ctx context.Context, tenantID, resourceID uuid.UUID, attrs map[string]interface{}) error {
+func (r *ResourceAttributeRepository) UpsertForResource(ctx context.Context, tenantID uuid.UUID, resourceID uint, attrs map[string]interface{}) error {
 	return r.db.Get().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for key, value := range attrs {
 			// 1. Find the attribute definition to get its UUID.
@@ -438,13 +438,13 @@ func (r *ResourceAttributeRepository) DeleteConnection(ctx context.Context, conn
 }
 
 
-func (r *ResourceAttributeRepository) ListConnectionsByResourceID(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceConnection, error) {
+func (r *ResourceAttributeRepository) ListConnectionsByResourceID(ctx context.Context, resourceID uint) ([]*model.ResourceConnection, error) {
 	var conns []*model.ResourceConnection
 	err := r.db.Get().WithContext(ctx).Where("source_resource_id = ? OR target_resource_id = ?", resourceID, resourceID).Find(&conns).Error
 	return conns, err
 }
 
-func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Context, tenantID, resourceID uuid.UUID) (map[string]interface{}, error) {
+func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) (map[string]interface{}, error) {
 	var results []struct {
 		Name  string
 		Value json.RawMessage

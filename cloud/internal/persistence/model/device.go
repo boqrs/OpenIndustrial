@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 /*
 // DeviceTypeCategory defines the general category of a device type.
@@ -74,8 +72,8 @@ const (
 // Device represents a physical device instance in the real world.
 // It is an instantiation of a static ProductModel.
 type Device struct {
-	ID             uuid.UUID `gorm:"type:uuid;primary_key"`
-	ResourceID     uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	ID uint `gorm:"primaryKey"`
+	ResourceID     uint `gorm:"not null;index"`
 	ProductID uint `gorm:"not null;index"`
 	// Identity attributes
 	SerialNumber string `gorm:"size:255;index"`

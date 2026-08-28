@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acmpca"
 	"github.com/aws/aws-sdk-go-v2/service/acmpca/types"
-	"github.com/google/uuid"
 )
 
 // AWSCAConfig contains AWS Private CA configuration.
@@ -71,7 +71,7 @@ func (p *AWSCA) IssueCertificate(
 	req IssueCertificateRequest,
 ) (*IssuedCertificate, error) {
 
-	if req.ResourceID == uuid.Nil {
+	if req.ResourceID == 0 {
 		return nil, errors.New(
 			"resource_id is required",
 		)
@@ -164,8 +164,10 @@ func (p *AWSCA) IssueCertificate(
 		return nil, err
 	}
 
+	certificateIDUint, _ := strconv.Atoi(certificateID)
+
 	return ParseIssuedCertificate(
-		certificateID,
+		uint(certificateIDUint),
 		certificatePEM,
 	)
 }
@@ -235,7 +237,7 @@ func (p *AWSCA) RevokeCertificate(
 	req RevokeCertificateRequest,
 ) error {
 
-	if req.CertificateID == "" {
+	if req.CertificateID == 0 {
 		return errors.New(
 			"certificate_id is required",
 		)

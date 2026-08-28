@@ -8,6 +8,7 @@ import(
 	"strings"
 	"errors"
 	"context"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -79,7 +80,7 @@ func generateSecret(
 
 func validateCSRForResource(
 	csr *ParsedCSR,
-	resourceID uuid.UUID,
+	resourceID uint,
 ) error {
 
 	if csr == nil {
@@ -90,7 +91,7 @@ func validateCSRForResource(
 
 	expectedURI :=
 		"urn:openindustrial:resource:" +
-			resourceID.String()
+			strconv.Itoa(int(resourceID))
 
 	for _, uri := range csr.URIs {
 

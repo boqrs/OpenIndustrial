@@ -2,41 +2,29 @@ package security
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 
 type CertificateResponse struct {
-	ID uuid.UUID `json:"id"`
-
-	ResourceID uuid.UUID `json:"resource_id"`
-
-	CertificateID string `json:"certificate_id"`
-
+	ID uint `json:"id"`
+	ResourceID uint `json:"resource_id"`
+	CertificateID uint `json:"certificate_id"`
 	Fingerprint string `json:"fingerprint"`
-
 	Status string `json:"status"`
-
 	NotBefore time.Time `json:"not_before"`
-
 	NotAfter time.Time `json:"not_after"`
-
 	CreatedAt time.Time `json:"created_at"`
-
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 }
 
 type DeviceAuthenticationResponse struct {
 	Authenticated bool `json:"authenticated"`
-
-	ResourceID uuid.UUID `json:"resource_id"`
-
-	CertificateID string `json:"certificate_id"`
+	ResourceID uint `json:"resource_id"`
+	CertificateID uint `json:"certificate_id"`
 }
 
 type ProvisionDeviceResponse struct {
-	ResourceID uuid.UUID `json:"resource_id"`
+	ResourceID uint `json:"resource_id"`
 
 	Certificate CertificateResponse `json:"certificate"`
 
@@ -56,7 +44,7 @@ type MQTTConnectionInfo struct {
 }
 
 type ResourceIdentityResponse struct {
-	ResourceID uuid.UUID `json:"resource_id"`
+	ResourceID uint `json:"resource_id"`
 
 	IdentityType string `json:"identity_type"`
 
@@ -68,8 +56,8 @@ type ResourceIdentityResponse struct {
 }
 
 type BootstrapCredentialResponse struct {
-	ResourceID   uuid.UUID `json:"resource_id"`
-	CredentialID uuid.UUID `json:"credential_id"`
+	ResourceID  uint `json:"resource_id"`
+	CredentialID uint `json:"credential_id"`
 
 	// 明文 Token 只返回一次。
 	// 数据库绝对不保存这个值。

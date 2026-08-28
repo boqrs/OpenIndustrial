@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +22,7 @@ const (
 type Routing struct {
 	ID uint `gorm:"primaryKey"`
 
-	ResourceUUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	ResourceID uint `gorm:"not null;index"`
 
 	ProductID uint `gorm:"not null;index"`
 

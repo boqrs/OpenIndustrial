@@ -2,13 +2,11 @@ package product
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 
 type AttributeDefinitionResponse struct {
-	ID          uuid.UUID `json:"id"`
+	ID          uint `json:"id"`
 	Name        string    `json:"name"`
 	Label       string    `json:"label,omitempty"`
 	Description string    `json:"description,omitempty"`
@@ -19,7 +17,7 @@ type AttributeDefinitionResponse struct {
 
 type ProductModelResponse struct {
 	ID          uint                     `json:"id"`
-	ResourceID  uuid.UUID                     `json:"resource_id"`
+	ResourceID  uint                     `json:"resource_id"`
 	Name        string                        `json:"name"`
 	Code        string                        `json:"code"`
 	Version     string                        `json:"version"`

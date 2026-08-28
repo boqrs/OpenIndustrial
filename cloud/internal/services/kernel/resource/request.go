@@ -35,7 +35,7 @@ type CreateResource struct {
 	// Status must be one of the predefined resource statuses.
 	Status       string                 `json:"status" binding:"required,oneof=active inactive archived pending PROVISIONED ONBOARDED OFFLINE DECOMMISSIONED"`
 	Metadata     []byte                 `json:"metadata,omitempty"`
-	ParentID     *uuid.UUID             `json:"parent_id,omitempty"`
+	ParentID     *uint             `json:"parent_id,omitempty"`
 	OwnerGroupID *uuid.UUID             `json:"owner_group_id,omitempty"`
 	//Attributes   map[string]interface{} `json:"attributes,omitempty"`
 	TenantID     uuid.UUID              `json:"-"`
@@ -50,7 +50,7 @@ type UpdateResource struct {
 	Status   string `json:"status" binding:"required,oneof=active inactive archived pending"`
 	Metadata []byte `json:"metadata,omitempty"`
 	Version  int    `json:"version" binding:"required,gt=0"`
-	ParentID uuid.UUID `json:"parent_id,omitempty"`
+	ParentID uint `json:"parent_id,omitempty"`
 
 	// Populated by the handler from the URL and context.
 	TenantID   uuid.UUID `json:"-"`

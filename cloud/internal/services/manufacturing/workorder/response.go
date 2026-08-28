@@ -9,7 +9,7 @@ import (
 
 type Response struct {
 	ID               uint                    `json:"id"`
-	ResourceUUID     uuid.UUID               `json:"resource_uuid"`
+	ResourceID     uint               `json:"resource_uuid"`
 	TenantID         uuid.UUID               `json:"tenant_id"`
 	ProductionPlanID uint                    `json:"production_plan_id"`
 	ProductID        uint                    `json:"product_id"`
@@ -32,7 +32,7 @@ func ToResponse(wo *model.WorkOrder) *Response {
 	}
 	return &Response{
 		ID:               wo.ID,
-		ResourceUUID:     wo.ResourceUUID,
+		ResourceID:     wo.ResourceID,
 		TenantID:         wo.TenantID,
 		ProductionPlanID: wo.ProductionPlanID,
 		ProductID:        wo.ProductID,

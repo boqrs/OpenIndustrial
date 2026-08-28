@@ -33,7 +33,7 @@ func (s WorkOrderStatus) IsValid() bool {
 type WorkOrder struct {
 	ID uint `gorm:"primaryKey"`
 
-	ResourceUUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	ResourceID uint `gorm:"not null;index"`
 
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 

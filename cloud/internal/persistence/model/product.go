@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 )
 
 // ProductModel describes the static definition of a product/device model.
@@ -21,7 +20,7 @@ type ProductModel struct {
 	ID uint `gorm:"primaryKey;autoIncrement"`
 
 	// ResourceID references resources.uuid.
-	ResourceID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	ResourceID uint `gorm:"not null;index"`
 
 	// Code identifies the product model family.
 	// Version distinguishes immutable model definitions.

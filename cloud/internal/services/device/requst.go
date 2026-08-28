@@ -12,13 +12,13 @@ type CreateDeviceRequest struct {
 	ProductID      uint    `json:"product_id" binding:"required"`
 	SerialNumber   string    `json:"serial_number"`
 	HardwareID     string    `json:"hardware_id"`
-	ParentResourceID *uuid.UUID `json:"parent_resource_id"` // For placing the device in the resource tree
+	ParentResourceID *uint `json:"parent_resource_id"` // For placing the device in the resource tree
 }
 
 // UpdateDeviceRequest defines the payload for updating an existing device.
 type UpdateDeviceRequest struct {
 	Name             *string    `json:"name"`
-	ParentResourceID *uuid.UUID `json:"parent_resource_id"`
+	ParentResourceID *uint `json:"parent_resource_id"`
 }
 
 // ListDevicesRequest defines the filters and pagination for listing devices.

@@ -11,48 +11,21 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+
 )
 
 var (
-	ErrFactoryNotFound = errors.New(
-		"factory not found",
-	)
-
-	ErrFactoryCodeExists = errors.New(
-		"factory code already exists",
-	)
-
-	ErrResourceNotFound = errors.New(
-		"resource not found",
-	)
-
-	ErrResourceTypeMismatch = errors.New(
-		"resource type mismatch",
-	)
-
-	ErrInvalidTopologyType = errors.New(
-		"invalid topology resource type",
-	)
-
-	ErrInvalidParent = errors.New(
-		"invalid topology parent",
-	)
-
-	ErrTopologyCycle = errors.New(
-		"topology operation would create a cycle",
-	)
-
-	ErrCannotDeleteFactoryWithChildren = errors.New(
-		"cannot delete factory with children",
-	)
-
-	ErrCannotDeleteNodeWithChildren = errors.New(
-		"cannot delete topology node with children",
-	)
-
-	ErrNodeNotFound = errors.New(
-		"topology node not found",
-	)
+	ErrFactoryNotFound = errors.New("factory not found")
+	ErrFactoryCodeExists = errors.New("factory code already exists")
+	ErrResourceNotFound = errors.New("resource not found")
+	ErrResourceTypeMismatch = errors.New("resource type mismatch")
+	ErrInvalidTopologyType = errors.New("invalid topology resource type")
+	ErrInvalidParent = errors.New("invalid topology parent")
+	ErrTopologyCycle = errors.New("topology operation would create a cycle")
+	ErrCannotDeleteFactoryWithChildren = errors.New("cannot delete factory with children")
+	ErrCannotDeleteNodeWithChildren = errors.New("cannot delete topology node with children")
+	ErrNodeNotFound = errors.New("topology node not found")
 )
 
 // topologyTypes defines the allowed resource types for topology nodes in this first phase.
@@ -119,8 +92,7 @@ func (s *serviceImpl) CreateFactory(ctx context.Context, req *CreateFactoryReque
 	}
 
 	entity := &model.Factory{
-		UUID:       uuid.New(), // Generate new business UUID
-		ResourceID: resourceEntity.UUID,
+		ResourceID: resourceEntity.ID,
 		Code:       code,
 		Address:    req.Address,
 		Timezone:   timezone,
@@ -128,15 +100,15 @@ func (s *serviceImpl) CreateFactory(ctx context.Context, req *CreateFactoryReque
 
 	if err := s.repository.Create(ctx, entity); err != nil {
 		// Rollback resource creation
-		_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.UUID)
+		_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.ID)
 		return nil, fmt.Errorf("create factory in repository: %w", err)
 	}
 
 	return s.factoryResponse(resourceEntity, entity), nil
 }
 
-func (s *serviceImpl) GetFactory(ctx context.Context, factoryID uuid.UUID) (*FactoryResponse, error) {
-	factory, err := s.repository.GetByUUID(ctx, factoryID)
+func (s *serviceImpl) GetFactory(ctx context.Context, factoryID uint) (*FactoryResponse, error) {
+	factory, err := s.repository.GetByID(ctx, factoryID)
 	if err != nil {
 		return nil, ErrFactoryNotFound
 	}
@@ -156,20 +128,20 @@ func (s *serviceImpl) GetFactory(ctx context.Context, factoryID uuid.UUID) (*Fac
 	return s.factoryResponse(resourceEntity, factory), nil
 }
 
-func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uuid.UUID, req *UpdateFactoryRequest) (*FactoryResponse, error) {
+func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uint, req *UpdateFactoryRequest) (*FactoryResponse, error) {
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
 
-	tid := tenantIDFromContext(ctx)
+	//tid := tenantIDFromContext(ctx)
 
-	factory, err := s.repository.GetByUUID(ctx, factoryID)
+	factory, err := s.repository.GetByID(ctx, factoryID)
 	if err != nil {
 		return nil, ErrFactoryNotFound
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := uuid.Nil // Placeholder
+	tenantID := pkg.TenantIDFromContext(ctx) // Placeholder
 
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
@@ -196,7 +168,7 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uuid.UUID, re
 		}
 		if code != factory.Code {
 			existing, lookupErr := s.repository.GetByCode(ctx, code)
-			if lookupErr == nil && existing != nil && existing.UUID != factory.UUID {
+			if lookupErr == nil && existing != nil && existing.ID != factory.ID {
 				return nil, ErrFactoryCodeExists
 			}
 			factory.Code = code
@@ -229,7 +201,7 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uuid.UUID, re
 			Version: resourceEntity.Version,
 			ParentID: resourceEntity.ParentID,
 		}
-		if _, err := s.resourceSvc.UpdateResource(ctx, tid, req); err != nil {
+		if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
 			return nil, fmt.Errorf("update factory resource: %w", err)
 		}
 	}
@@ -243,8 +215,8 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uuid.UUID, re
 	return s.factoryResponse(resourceEntity, factory), nil
 }
 
-func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uuid.UUID) error {
-	factory, err := s.repository.GetByUUID(ctx, factoryID)
+func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uint) error {
+	factory, err := s.repository.GetByID(ctx, factoryID)
 	if err != nil {
 		return ErrFactoryNotFound
 	}
@@ -257,7 +229,7 @@ func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uuid.UUID) er
 		return ErrCannotDeleteFactoryWithChildren
 	}
 
-	if err := s.repository.Delete(ctx, factory.UUID); err != nil {
+	if err := s.repository.Delete(ctx, factory.ID); err != nil {
 		return fmt.Errorf("delete factory from repository: %w", err)
 	}
 
@@ -276,7 +248,7 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
-	if req.FactoryID == uuid.Nil {
+	if req.FactoryID == 0 {
 		return nil, errors.New("factory_id is required")
 	}
 	if _, ok := topologyTypes[resource.ResourceType(req.Type)]; !ok {
@@ -287,7 +259,7 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 		return nil, errors.New("name is required")
 	}
 
-	factory, err := s.repository.GetByUUID(ctx, req.FactoryID)
+	factory, err := s.repository.GetByID(ctx, req.FactoryID)
 	if err != nil {
 		return nil, ErrFactoryNotFound
 	}
@@ -328,7 +300,7 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 	return s.topologyNodeResponse(resourceEntity), nil
 }
 
-func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uuid.UUID, req *UpdateTopologyNodeRequest) (*TopologyNodeResponse, error) {
+func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uint, req *UpdateTopologyNodeRequest) (*TopologyNodeResponse, error) {
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
@@ -378,7 +350,7 @@ func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uuid.UU
 			Version: entity.Version,
 			ParentID: entity.ParentID,
 		}
-		if _, err := s.resourceSvc.UpdateResource(ctx, entity.TenantID, req); err != nil {
+		if _, err := s.resourceSvc.UpdateResource(ctx, entity.ID, req); err != nil {
 			return nil, fmt.Errorf("update topology node resource: %w", err)
 		}
 	}
@@ -423,9 +395,9 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 	return s.resourceSvc.UpdateParent(ctx, tenantID, req.ResourceID, *req.ParentResourceID)
 }
 
-func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uuid.UUID) error {
+func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uint) error {
 	// TODO: tenantID should be properly extracted from context
-	tenantID := uuid.Nil // Placeholder
+	tenantID := pkg.TenantIDFromContext(ctx) // Placeholder
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
@@ -450,8 +422,8 @@ func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uuid.UU
 	return nil
 }
 
-func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uuid.UUID) (*FactoryTopologyResponse, error) {
-	factory, err := s.repository.GetByUUID(ctx, factoryID)
+func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uint) (*FactoryTopologyResponse, error) {
+	factory, err := s.repository.GetByID(ctx, factoryID)
 	if err != nil {
 		return nil, ErrFactoryNotFound
 	}
@@ -477,13 +449,13 @@ func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uuid.UUID) (*Fa
 
 // --- Helper Functions ---
 
-func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID, factoryResourceID, parentResourceID uuid.UUID, childType resource.ResourceType) error {
+func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uuid.UUID, factoryResourceID, parentResourceID uint, childType resource.ResourceType) error {
 	parent, err := s.resourceSvc.GetResourceByID(ctx, tenantID, parentResourceID)
 	if err != nil {
 		return ErrInvalidParent
 	}
 
-	isUnder, err := s.isResourceUnderFactory(ctx, tenantID, parent.UUID, factoryResourceID)
+	isUnder, err := s.isResourceUnderFactory(ctx, tenantID, parent.ID, factoryResourceID)
 	if err != nil {
 		return fmt.Errorf("checking parent ancestry: %w", err)
 	}
@@ -514,7 +486,7 @@ func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID, fact
 	return nil
 }
 
-func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID, resourceID, factoryResourceID uuid.UUID) (bool, error) {
+func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID uuid.UUID, resourceID, factoryResourceID uint) (bool, error) {
 	currentID := resourceID
 	for {
 		if currentID == factoryResourceID {
@@ -524,31 +496,31 @@ func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID, reso
 		if err != nil {
 			return false, err
 		}
-		if current.ParentID == uuid.Nil {
+		if current.ParentID == 0 {
 			return false, nil
 		}
 		currentID = current.ParentID
 	}
 }
 
-func (s *serviceImpl) findFactoryResourceID(ctx context.Context, tenantID, resourceID uuid.UUID) (uuid.UUID, error) {
+func (s *serviceImpl) findFactoryResourceID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (uint, error) {
 	currentID := resourceID
 	for {
 		current, err := s.resourceSvc.GetResourceByID(ctx, tenantID, currentID)
 		if err != nil {
-			return uuid.Nil, err
+			return 0, err
 		}
 		if resource.ResourceType(current.ResourceType) == resource.ResourceTypeFactory {
-			return current.UUID, nil
+			return current.ID, nil
 		}
-		if current.ParentID == uuid.Nil {
-			return uuid.Nil, ErrFactoryNotFound
+		if current.ParentID == 0 {
+			return 0, ErrFactoryNotFound
 		}
 		currentID = current.ParentID
 	}
 }
 
-func (s *serviceImpl) createsCycle(ctx context.Context, tenantID, resourceID, newParentID uuid.UUID) bool {
+func (s *serviceImpl) createsCycle(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) bool {
 	currentID := newParentID
 	for {
 		if currentID == resourceID {
@@ -558,14 +530,14 @@ func (s *serviceImpl) createsCycle(ctx context.Context, tenantID, resourceID, ne
 		if err != nil {
 			return true // Fail safe
 		}
-		if current.ParentID == uuid.Nil {
+		if current.ParentID == 0 {
 			return false
 		}
 		currentID = current.ParentID
 	}
 }
 
-func (s *serviceImpl) collectTopology(ctx context.Context, tenantID, parentID uuid.UUID) ([]TopologyNodeResponse, error) {
+func (s *serviceImpl) collectTopology(ctx context.Context, tenantID uuid.UUID, parentID uint) ([]TopologyNodeResponse, error) {
 	children, err := s.resourceSvc.GetChildren(ctx, parentID)
 	if err != nil {
 		return nil, fmt.Errorf("get resource children: %w", err)
@@ -574,7 +546,7 @@ func (s *serviceImpl) collectTopology(ctx context.Context, tenantID, parentID uu
 	var result []TopologyNodeResponse
 	for _, child := range children {
 		result = append(result, *s.topologyNodeResponse(child))
-		descendants, err := s.collectTopology(ctx, tenantID, child.UUID)
+		descendants, err := s.collectTopology(ctx, tenantID, child.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -585,7 +557,7 @@ func (s *serviceImpl) collectTopology(ctx context.Context, tenantID, parentID uu
 
 func (s *serviceImpl) factoryResponse(resourceEntity *model.Resource, factory *model.Factory) *FactoryResponse {
 	return &FactoryResponse{
-		ID:         factory.UUID,
+		ID:         factory.ID,
 		ResourceID: factory.ResourceID,
 		Name:       resourceEntity.ResourceName,
 		Code:       factory.Code,
@@ -599,7 +571,7 @@ func (s *serviceImpl) factoryResponse(resourceEntity *model.Resource, factory *m
 
 func (s *serviceImpl) topologyNodeResponse(resourceEntity *model.Resource) *TopologyNodeResponse {
 	return &TopologyNodeResponse{
-		ResourceID:       resourceEntity.UUID,
+		ResourceID:       resourceEntity.ID,
 		Type:             string(resourceEntity.ResourceType),
 		Name:             resourceEntity.ResourceName,
 		Status:           string(resourceEntity.ResourceStatus),

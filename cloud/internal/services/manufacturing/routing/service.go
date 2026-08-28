@@ -67,7 +67,7 @@ func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingReque
 	}
 
 	entity := &model.Routing{
-		ResourceUUID: uuid.New(),
+		//ResourceUUID: uuid.New(),
 		//TenantID:     tenantID,
 		ProductID:    req.ProductID,
 		Name:         name,
@@ -310,7 +310,7 @@ func toRoutingResponse(entity *model.Routing) *RoutingResponse {
 	}
 	return &RoutingResponse{
 		ID:           entity.ID,
-		ResourceUUID: entity.ResourceUUID,
+		ResourceID: entity.ResourceID,
 		//TenantID:     entity.TenantID,
 		ProductID:    entity.ProductID,
 		Name:         entity.Name,

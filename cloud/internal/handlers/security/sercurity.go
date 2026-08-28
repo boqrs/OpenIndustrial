@@ -2,9 +2,9 @@ package api
 
 import (
 	"fmt"
+	"strconv"
 	"net/http"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/boqrs/zeus/ginx"
 
@@ -81,12 +81,12 @@ func (h *Handler) createBootstrapCredential(ctx *gin.Context) ginx.Render{
 }
 
 func (h *Handler) revokeCredential(ctx *gin.Context) ginx.Render{
-	credID, err := uuid.Parse(ctx.Param("id"))
+	credID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
 
-	if err := h.service.RevokeBootstrapCredential(ctx.Request.Context(), credID); err != nil {
+	if err := h.service.RevokeBootstrapCredential(ctx.Request.Context(), uint(credID)); err != nil {
 		return ginx.Error(err)
 	}
 	return ginx.Success(nil)
@@ -108,12 +108,12 @@ func (h *Handler) getCertificate(ctx *gin.Context) ginx.Render{
 }
 
 func (h *Handler) listCertificates(ctx *gin.Context) ginx.Render{
-	resID, err := uuid.Parse(ctx.Param("id"))
+	resID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
 
-	resp, err := h.service.ListCertificates(ctx.Request.Context(), resID)
+	resp, err := h.service.ListCertificates(ctx.Request.Context(), uint(resID))
 	if err != nil {
 		return ginx.Error(err)
 	}

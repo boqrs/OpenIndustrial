@@ -2,14 +2,12 @@ package factory
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type FactoryResponse struct {
-	ID uuid.UUID `json:"id"`
+	ID uint `json:"id"`
 
-	ResourceID uuid.UUID `json:"resource_id"`
+	ResourceID uint `json:"resource_id"`
 
 	Name string `json:"name"`
 
@@ -27,16 +25,11 @@ type FactoryResponse struct {
 }
 
 type TopologyNodeResponse struct {
-	ResourceID uuid.UUID `json:"resource_id"`
-
+	ResourceID uint `json:"resource_id"`
 	Type string `json:"type"`
-
 	Name string `json:"name"`
-
 	Status string `json:"status"`
-
-	ParentResourceID *uuid.UUID `json:"parent_resource_id,omitempty"`
-
+	ParentResourceID *uint `json:"parent_resource_id,omitempty"`
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 

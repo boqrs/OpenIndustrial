@@ -92,7 +92,7 @@ func (a *CertificateAuthorityAdapter) IssueCertificate(ctx context.Context, req 
 
 // RevokeCertificate implements the correct interface signature required by security.CertificateAuthority.
 // It takes certificateID and reason as strings and converts them into a provider.RevokeCertificateRequest.
-func (a *CertificateAuthorityAdapter) RevokeCertificate(ctx context.Context, certificateID string, reason string) error {
+func (a *CertificateAuthorityAdapter) RevokeCertificate(ctx context.Context, certificateID uint, reason string) error {
 	// Convert the string reason to the provider's typed reason.
 	// We will perform a simple mapping here.
 	var providerReason provider.CertificateRevokeReason

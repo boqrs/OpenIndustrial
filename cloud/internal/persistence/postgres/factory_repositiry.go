@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
@@ -29,7 +28,7 @@ func (r *factoryRepository) Create(ctx context.Context, entity *model.Factory) e
 }
 
 // GetByUUID retrieves a factory by its business UUID.
-func (r *factoryRepository) GetByUUID(ctx context.Context, id uuid.UUID) (*model.Factory, error) {
+func (r *factoryRepository) GetByID(ctx context.Context, id uint) (*model.Factory, error) {
 	var f model.Factory
 	err := r.db.Get().WithContext(ctx).Where("uuid = ?", id).First(&f).Error
 	if err != nil {
@@ -42,7 +41,7 @@ func (r *factoryRepository) GetByUUID(ctx context.Context, id uuid.UUID) (*model
 }
 
 // GetByResourceID retrieves a factory by its associated resource ID.
-func (r *factoryRepository) GetByResourceID(ctx context.Context, resourceID uuid.UUID) (*model.Factory, error) {
+func (r *factoryRepository) GetByResourceID(ctx context.Context, resourceID uint) (*model.Factory, error) {
 	var f model.Factory
 	err := r.db.Get().WithContext(ctx).Where("resource_id = ?", resourceID).First(&f).Error
 	if err != nil {
@@ -74,6 +73,6 @@ func (r *factoryRepository) Update(ctx context.Context, entity *model.Factory) e
 }
 
 // Delete removes a factory record from the database by its business UUID.
-func (r *factoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *factoryRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.Get().WithContext(ctx).Where("uuid = ?", id).Delete(&model.Factory{}).Error
 }

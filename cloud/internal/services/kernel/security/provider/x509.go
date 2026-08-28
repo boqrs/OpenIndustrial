@@ -170,10 +170,7 @@ func ParseCSRDER(
 
 // ParseIssuedCertificate parses an issued certificate
 // and converts it to the provider-independent model.
-func ParseIssuedCertificate(
-	certificateID string,
-	certificatePEM string,
-) (*IssuedCertificate, error) {
+func ParseIssuedCertificate(certificateID uint,certificatePEM string) (*IssuedCertificate, error) {
 
 	if certificatePEM == "" {
 		return nil, errors.New(

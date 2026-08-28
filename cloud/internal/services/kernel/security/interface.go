@@ -11,74 +11,65 @@ import (
 
 type CertificateRepository interface {
     Create(ctx context.Context,certificate *model.ResourceCertificate) error
-    GetActiveByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ResourceCertificate, error)
-    GetByCertificateID(ctx context.Context,certificateID string) (*model.ResourceCertificate, error)
-    ListByResourceID(ctx context.Context,resourceID uuid.UUID) ([]model.ResourceCertificate, error)
-    Activate(ctx context.Context,id uuid.UUID,activatedAt time.Time) error
-    Revoke(ctx context.Context,id uuid.UUID,revokedAt time.Time) error
+    GetActiveByResourceID(ctx context.Context,resourceID uint) (*model.ResourceCertificate, error)
+    GetByCertificateID(ctx context.Context,certificateID uint) (*model.ResourceCertificate, error)
+    ListByResourceID(ctx context.Context,resourceID uint) ([]model.ResourceCertificate, error)
+    Activate(ctx context.Context,id uint,activatedAt time.Time) error
+    Revoke(ctx context.Context,id uint,revokedAt time.Time) error
 	GetByFingerprint(ctx context.Context, fingerprint string) (*model.ResourceCertificate, error)
 	Update(ctx context.Context, cert *model.ResourceCertificate) error
 
 }
 
 type IdentityRepository interface {
-    GetByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ResourceIdentity, error)
+    GetByResourceID(ctx context.Context,resourceID uint) (*model.ResourceIdentity, error)
     Create(ctx context.Context,identity *model.ResourceIdentity) error
     CreateOrUpdate(ctx context.Context,identity *model.ResourceIdentity) error
-    HardwareIDExists(ctx context.Context,hardwareID string,excludeResourceID *uuid.UUID) (bool, error)
-    SerialNumberExists(ctx context.Context,tenantID uuid.UUID,serialNumber string,excludeResourceID *uuid.UUID) (bool, error)
+    HardwareIDExists(ctx context.Context,hardwareID string,excludeResourceID *uint) (bool, error)
+    SerialNumberExists(ctx context.Context,tenantID uuid.UUID,serialNumber string,excludeResourceID *uint) (bool, error)
 }
 
 type CredentialRepository interface {
     Create(ctx context.Context,credential *model.ResourceCredential) error
-    GetActive(ctx context.Context,resourceID uuid.UUID,credentialType model.CredentialType) (*model.ResourceCredential, error)
-    GetByID(ctx context.Context,id uuid.UUID) (*model.ResourceCredential, error)
-    Consume(ctx context.Context,id uuid.UUID,consumedAt time.Time) error
-    Revoke(ctx context.Context,id uuid.UUID) error
+    GetActive(ctx context.Context,resourceID uint,credentialType model.CredentialType) (*model.ResourceCredential, error)
+    GetByID(ctx context.Context,id uint) (*model.ResourceCredential, error)
+    Consume(ctx context.Context,id uint,consumedAt time.Time) error
+    Revoke(ctx context.Context,id uint) error
 	// GetForUpdate obtains a row with SELECT ... FOR UPDATE.
 	//
 	// This is important for bootstrap credential consumption,
 	// because two devices must not be able to consume the same
 	// credential concurrently.
-	GetForUpdate(ctx context.Context,id uuid.UUID) (*model.ResourceCredential, error)
+	GetForUpdate(ctx context.Context, id uint) (*model.ResourceCredential, error)
 	Update(ctx context.Context, cred *model.ResourceCredential) error
 }
 
 type CertificateAuthority interface {
 	ValidateCSR(csrPEM string) (*ParsedCSR, error)
 	IssueCertificate(ctx context.Context,req IssueCertificateRequest) (*IssuedCertificate, error)
-	RevokeCertificate(ctx context.Context,certificateID string,reason string) error
+	RevokeCertificate(ctx context.Context,certificateID uint,reason string) error
 }
+
 
 type ParsedCSR struct {
 	Subject string
-
 	URIs []string
-
 	DNSNames []string
 }
 
 type IssueCertificateRequest struct {
-	ResourceID uuid.UUID
-
+	ResourceID uint
 	CSR string
 }
 
 type IssuedCertificate struct {
-	CertificateID string
-
+	CertificateID uint
 	CertificatePEM string
-
 	SerialNumber string
-
 	Fingerprint string
-
 	Subject string
-
 	Issuer string
-
 	NotBefore time.Time
-
 	NotAfter time.Time
 }
 
@@ -143,13 +134,15 @@ type TransactionManager interface {
 */
 /***************************************************************/
 
+/***************************************************************/
+
 type Service interface {
 	// =========================================================
 	// Bootstrap Credential
 	// =========================================================
 
 	CreateBootstrapCredential(ctx context.Context,req CreateBootstrapCredentialRequest) (*BootstrapCredentialResponse, error)
-	RevokeBootstrapCredential(ctx context.Context,resourceID uuid.UUID) error
+	RevokeBootstrapCredential(ctx context.Context,resourceID uint) error
 
 	// =========================================================
 	// Resource Identity
@@ -171,7 +164,7 @@ type Service interface {
 	// =========================================================
 
 	GetCertificate(ctx context.Context, req CertificateReq) (*model.ResourceCertificate, error)
-	ListCertificates(ctx context.Context,resourceID uuid.UUID) ([]model.ResourceCertificate, error)
+	ListCertificates(ctx context.Context,resourceID uint) ([]model.ResourceCertificate, error)
 	RenewCertificate(ctx context.Context,req RenewCertificateRequest) (*model.ResourceCertificate, error)
 	RevokeCertificate(ctx context.Context,req RevokeCertificateRequest) error
 }

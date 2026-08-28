@@ -86,14 +86,14 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 	// 4. Create product model domain entity
 	entity := &model.ProductModel{
 		//ID:          uuid.New(),
-		ResourceID:  resourceEntity.UUID,
+		ResourceID:  resourceEntity.ID,
 		Code:        code,
 		Version:     version,
 		Category:    category,
 		Description: req.Description,
 	}
 	if err := s.repository.Create(ctx, entity); err != nil {
-		_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.UUID) // Rollback
+		_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.ID) // Rollback
 		return nil, fmt.Errorf("create product model: %w", err)
 	}
 
@@ -102,8 +102,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 		definitions := make([]*model.AttributeDefinition, 0, len(req.Attributes))
 		for attrName, attribute := range req.Attributes {
 			definitions = append(definitions, &model.AttributeDefinition{
-				UUID:        uuid.New(),
-				ResourceID:  resourceEntity.UUID,
+				ResourceID:  resourceEntity.ID,
 				Name:        strings.TrimSpace(attrName),
 				Label:       attribute.Label,
 				Description: attribute.Description,
@@ -116,7 +115,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 		if err := s.resourceSvc.BatchCreateAttributeDefinition(ctx, definitions); err != nil {
 			// Full rollback
 			_ = s.repository.Delete(ctx, entity.ID)
-			_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.UUID)
+			_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.ID)
 			return nil, fmt.Errorf("create product model attribute definitions: %w", err)
 		}
 	}
@@ -238,7 +237,7 @@ func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *Upda
 			Version: resourceEntity.Version,
 			ParentID: resourceEntity.ParentID,
 		}
-		if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.UUID, req); err != nil {
+		if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
 			return nil, fmt.Errorf("update product model resource: %w", err)
 		}
 	}
@@ -293,7 +292,7 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, sta
 			ParentID: resourceEntity.ParentID,
 	}
 
-	if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.UUID, req); err != nil {
+	if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
 		return fmt.Errorf("update product model status: %w", err)
 	}
 
@@ -314,7 +313,7 @@ func (s *serviceImpl) GetAttributeDefinitions(ctx context.Context, productModelI
 	result := make([]AttributeDefinitionResponse, 0, len(definitions))
 	for _, definition := range definitions {
 		result = append(result, AttributeDefinitionResponse{
-			ID:          definition.UUID,
+			ID:          definition.ID,
 			Name:        definition.Name,
 			Label:       definition.Label,
 			Description: definition.Description,
@@ -353,7 +352,7 @@ func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productMod
 	definitions := make([]*model.AttributeDefinition, 0, len(req.Attributes))
 	for name, attribute := range req.Attributes {
 		definitions = append(definitions, &model.AttributeDefinition{
-			UUID:        uuid.New(), // New UUIDs for replacement
+		//	UUID:        uuid.New(), // New UUIDs for replacement
 			ResourceID:  entity.ResourceID,
 			Name:        strings.TrimSpace(name),
 			Label:       attribute.Label,
@@ -379,7 +378,7 @@ func (s *serviceImpl) buildProductModelResponse(ctx context.Context, resourceEnt
 	attributes := make([]AttributeDefinitionResponse, 0, len(definitions))
 	for _, definition := range definitions {
 		attributes = append(attributes, AttributeDefinitionResponse{
-			ID:          definition.UUID,
+			ID:          definition.ID,
 			Name:        definition.Name,
 			Label:       definition.Label,
 			Description: definition.Description,

@@ -65,7 +65,7 @@ func (s *serviceImpl) CreateProductionPlan(ctx context.Context, req *CreateProdu
 	*/
 
 	entity := &model.ProductionPlan{
-		ResourceUUID:    uuid.New(),
+		//ResourceUUID:    uuid.New(),
 		TenantID:        tenantID,
 		PlanNo:          req.PlanNo,
 		ProductID:       req.ProductID,
@@ -181,7 +181,7 @@ func toResponse(entity *model.ProductionPlan) *ProductionPlanResponse {
 	}
 	return &ProductionPlanResponse{
 		ID:              entity.ID,
-		ResourceUUID:    entity.ResourceUUID,
+		ResourceID:    entity.ResourceID,
 		TenantID:        entity.TenantID,
 		PlanNo:          entity.PlanNo,
 		ProductID:       entity.ProductID,

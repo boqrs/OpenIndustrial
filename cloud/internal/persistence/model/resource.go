@@ -37,9 +37,6 @@ type Resource struct {
 	// ID is the internal, auto-incrementing primary key.
 	ID uint `gorm:"primaryKey"`
 
-	// UUID is the external-facing, unique business identifier.
-	UUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex;default:uuid_generate_v4()"`
-
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 
 	// Renamed fields to avoid SQL keyword conflicts, with explicit column mapping.
@@ -52,7 +49,7 @@ type Resource struct {
 	Version  int     `gorm:"column:record_version;not null;default:1"`
 
 	// ParentID is a nullable foreign key to the internal 'ID' field.
-	ParentID uuid.UUID `gorm:"index"`
+	ParentID uint `gorm:"index"`
 
 	// OwnerGroupID references the UUID of a group.
 	OwnerGroupID *uuid.UUID `gorm:"type:uuid;index"`
@@ -96,10 +93,10 @@ const (
 type ResourceConnection struct {
 	ID       uint      `gorm:"primaryKey"`
 	// SourceResourceID is the resource where the connection originates (e.g., a Device).
-	SourceResourceID uuid.UUID `gorm:"type:uuid;not null;index:idx_connection_unique,priority:1"`
+	SourceResourceID uint `gorm:"not null;index"`
 	SourceResource   Resource  `gorm:"foreignKey:SourceResourceID;references:UUID"`
 	// TargetResourceID is the resource where the connection terminates (e.g., a Gateway).
-	TargetResourceID uuid.UUID `gorm:"type:uuid;not null;index:idx_connection_unique,priority:2"`
+	TargetResourceID uint `gorm:"not null;index"`
 	TargetResource   Resource  `gorm:"foreignKey:TargetResourceID;references:UUID"`
 	// ConnectionType defines the semantics of the technical binding (e.g., "connected_through").
 	ConnectionType ConnectionType `gorm:"type:varchar(100);not null;index:idx_connection_unique,priority:3"`
@@ -122,18 +119,12 @@ func (ResourceConnection) TableName() string {
 // Following the new architecture decision, all foreign keys are now UUIDs.
 type ResourceAttribute struct {
     ID uint `gorm:"primaryKey"`
-
-    ResourceID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_resource_attr_def"`
-
-    AttributeDefinitionID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_resource_attr_def"`
-
+    ResourceID uint `gorm:"not null;index"`
+    AttributeDefinitionID uint `gorm:"not null;index"`
     Value []byte `gorm:"type:jsonb;not null"`
-
     CreatedAt time.Time
     UpdatedAt time.Time
-
     Resource Resource `gorm:"foreignKey:ResourceID;references:UUID"`
-
     AttributeDefinition AttributeDefinition `gorm:"foreignKey:AttributeDefinitionID;references:ID"`
 }
 
@@ -183,14 +174,10 @@ const (
 type AttributeDefinition struct {
 	// ID is the internal, auto-incrementing primary key.
 	ID uint `gorm:"primaryKey"`
-
-	// UUID is the public-facing, unique identifier for the attribute definition.
-	UUID uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();uniqueIndex"`
-
 	// ProductModelID is a foreign key linking this attribute definition to a specific
 	// product model (which is a type of Resource). This creates a "blueprint" of
 	// attributes for all device instances of that model.
-	ResourceID uuid.UUID `gorm:"type:uuid;not null;index"`
+	ResourceID uint `gorm:"not null;index"`
 	// Name is the machine-readable key for the attribute (e.g., "motor_speed").
 	// It should be unique per product model.
 	Name string `gorm:"type:varchar(255);not null;uniqueIndex:idx_attr_def_model_name"`

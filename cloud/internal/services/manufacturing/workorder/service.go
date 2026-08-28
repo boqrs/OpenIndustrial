@@ -1,5 +1,6 @@
 package workorder
 
+//TODO：所有和keranl resource相关的逻辑都需要重新review
 import (
 	"context"
 	"fmt"
@@ -100,7 +101,7 @@ func (s *serviceImpl) Create(ctx context.Context, tenantID uuid.UUID, req *Creat
 
 	// --- Entity Creation ---
 	entity := &model.WorkOrder{
-		ResourceUUID:     uuid.New(),
+		//ResourceUUID:     uuid.New(),
 		TenantID:         tenantID,
 		ProductionPlanID: req.ProductionPlanID,
 		ProductID:        req.ProductID,

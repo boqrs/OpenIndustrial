@@ -3,9 +3,10 @@ package factory
 import (
 	"net/http"
 	"fmt"
+	"strconv"
+
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/boqrs/zeus/ginx"
 	srv"github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 
@@ -51,12 +52,12 @@ func (a *Handler) createFactory(ctx *gin.Context)ginx.Render {
 }
 
 func (a *Handler) getFactory(ctx *gin.Context)ginx.Render  {
-	factoryID, err := uuid.Parse(ctx.PostForm("factory_id"))
+	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return ginx.Error(fmt.Errorf("invalid param format"))
 	}
 
-	resp, err := a.service.GetFactory(ctx.Request.Context(), factoryID)
+	resp, err := a.service.GetFactory(ctx.Request.Context(), uint(factoryID))
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -65,9 +66,9 @@ func (a *Handler) getFactory(ctx *gin.Context)ginx.Render  {
 }
 
 func (a *Handler) updateFactory(ctx *gin.Context)ginx.Render  {
-	factoryID, err := uuid.Parse(ctx.Param("factory_id"))
+	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return ginx.Error(fmt.Errorf("invalid param format"))
 	}
 
 	var req srv.UpdateFactoryRequest
@@ -75,7 +76,7 @@ func (a *Handler) updateFactory(ctx *gin.Context)ginx.Render  {
 		return  ginx.Error(fmt.Errorf("invalid param json"))
 	}
 
-	resp, err := a.service.UpdateFactory(ctx.Request.Context(), factoryID, &req)
+	resp, err := a.service.UpdateFactory(ctx.Request.Context(), uint(factoryID), &req)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -84,12 +85,12 @@ func (a *Handler) updateFactory(ctx *gin.Context)ginx.Render  {
 }
 
 func (a *Handler) deleteFactory(ctx *gin.Context)ginx.Render  {
-	factoryID, err := uuid.Parse(ctx.Param("factory_id"))
+	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return ginx.Error(fmt.Errorf("invalid param format"))
 	}
 
-	if err := a.service.DeleteFactory(ctx.Request.Context(), factoryID); err != nil {
+	if err := a.service.DeleteFactory(ctx.Request.Context(), uint(factoryID)); err != nil {
 		return ginx.Error(err)
 	}
 
@@ -115,9 +116,9 @@ func (a *Handler) createTopologyNode(ctx *gin.Context)ginx.Render  {
 }
 
 func (a *Handler) updateTopologyNode(ctx *gin.Context)ginx.Render  {
-	resourceID, err := uuid.Parse(ctx.Param("resource_id"))
+	resourceID, err := strconv.Atoi(ctx.Param("resource_id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return ginx.Error(fmt.Errorf("invalid param format"))
 	}
 
 	var req srv.UpdateTopologyNodeRequest
@@ -125,7 +126,7 @@ func (a *Handler) updateTopologyNode(ctx *gin.Context)ginx.Render  {
 		return ginx.Error(fmt.Errorf("invalid param json"))
 	}
 
-	resp, err := a.service.UpdateTopologyNode(ctx.Request.Context(), resourceID, &req)
+	resp, err := a.service.UpdateTopologyNode(ctx.Request.Context(), uint(resourceID), &req)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -150,13 +151,13 @@ func (a *Handler) moveTopologyNode(ctx *gin.Context)ginx.Render  {
 }
 
 func (a *Handler) deleteTopologyNode(ctx *gin.Context)ginx.Render  {
-	resourceID, err := uuid.Parse(ctx.Param("resource_id"))
+	resourceID, err := strconv.Atoi(ctx.Param("resource_id"))
 	if err != nil {
 		//c.JSON(http.StatusBadRequest, gin.H{"error": "invalid resource_id format"})
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
-	if err := a.service.DeleteTopologyNode(ctx.Request.Context(), resourceID); err != nil {
+	if err := a.service.DeleteTopologyNode(ctx.Request.Context(), uint(resourceID)); err != nil {
 		//a.handleError(c, err)
 		return ginx.Error(err)
 	}
@@ -166,12 +167,12 @@ func (a *Handler) deleteTopologyNode(ctx *gin.Context)ginx.Render  {
 }
 
 func (a *Handler) getTopology(ctx *gin.Context)ginx.Render  {
-	factoryID, err := uuid.Parse(ctx.Param("factory_id"))
+	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return ginx.Error(fmt.Errorf("invalid param format"))
 	}
 
-	resp, err := a.service.GetTopology(ctx.Request.Context(), factoryID)
+	resp, err := a.service.GetTopology(ctx.Request.Context(), uint(factoryID))
 	if err != nil {
 		return ginx.Error(err)
 	}

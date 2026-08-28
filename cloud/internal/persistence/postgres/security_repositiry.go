@@ -36,7 +36,7 @@ func (r *CertificateRepository) FindBySecretHash(ctx context.Context, hash strin
 	return &cred, nil
 }
 
-func (r *CertificateRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status model.CredentialStatus, consumedAt *time.Time, revokedAt *time.Time) error {
+func (r *CertificateRepository) UpdateStatus(ctx context.Context, id uint, status model.CredentialStatus, consumedAt *time.Time, revokedAt *time.Time) error {
 	return r.db.Get().WithContext(ctx).Model(&model.ResourceCredential{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":      status,
 		"consumed_at": consumedAt,
@@ -56,24 +56,23 @@ func (r *CertificateRepository) GetByFingerprint(ctx context.Context, fingerprin
 func (r *CertificateRepository) Update(ctx context.Context, cert *model.ResourceCertificate) error {
 	return r.db.Get().WithContext(ctx).Save(cert).Error
 }
-func(r *CertificateRepository) GetActiveByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ResourceCertificate, error){
+func(r *CertificateRepository) GetActiveByResourceID(ctx context.Context,resourceID uint) (*model.ResourceCertificate, error){
 	return nil, nil
 }
 
-func ( r *CertificateRepository)    GetByCertificateID(ctx context.Context,certificateID string) (*model.ResourceCertificate, error){
+func ( r *CertificateRepository)    GetByCertificateID(ctx context.Context,certificateID uint) (*model.ResourceCertificate, error){
 	return nil, nil
 }
 
-func (CertificateRepository)  ListByResourceID(ctx context.Context,resourceID uuid.UUID) ([]model.ResourceCertificate, error){
+func (CertificateRepository)  ListByResourceID(ctx context.Context,resourceID uint) ([]model.ResourceCertificate, error){
 	return nil, nil
 }
 
-
-func ( r *CertificateRepository)    Activate(ctx context.Context,id uuid.UUID,activatedAt time.Time) error{
+func ( r *CertificateRepository)    Activate(ctx context.Context,id uint,activatedAt time.Time) error{
 	return nil
 }
 
-func (r *CertificateRepository)    Revoke(ctx context.Context,id uuid.UUID,revokedAt time.Time) error{
+func (r *CertificateRepository)    Revoke(ctx context.Context,id uint,revokedAt time.Time) error{
 	return nil
 }
 
@@ -103,7 +102,7 @@ func (r *IdentityRepository) Create(ctx context.Context, identity *model.Resourc
 	return r.db.Get().WithContext(ctx).Create(identity).Error
 }
 
-func (r *IdentityRepository) FindByResourceID(ctx context.Context, resourceID uuid.UUID) (*model.ResourceIdentity, error) {
+func (r *IdentityRepository) FindByResourceID(ctx context.Context, resourceID uint) (*model.ResourceIdentity, error) {
 	var identity model.ResourceIdentity
 	err := r.db.Get().WithContext(ctx).Where("resource_id = ?", resourceID).First(&identity).Error
 	if err != nil {
@@ -130,7 +129,7 @@ func (r *IdentityRepository) FindBySerialNumber(ctx context.Context, serialNumbe
 	return &identity, nil
 }
 
-func (r *IdentityRepository)    GetByResourceID(ctx context.Context,resourceID uuid.UUID) (*model.ResourceIdentity, error){
+func (r *IdentityRepository)    GetByResourceID(ctx context.Context,resourceID uint) (*model.ResourceIdentity, error){
 	return nil, nil
 }
 
@@ -138,11 +137,11 @@ func (r *IdentityRepository)    CreateOrUpdate(ctx context.Context,identity *mod
 	return nil
 }
 
-func (r *IdentityRepository)    HardwareIDExists(ctx context.Context,hardwareID string,excludeResourceID *uuid.UUID) (bool, error){
+func (r *IdentityRepository)    HardwareIDExists(ctx context.Context,hardwareID string,excludeResourceID *uint) (bool, error){
 	return false, nil
 }
 
-func (r *IdentityRepository)    SerialNumberExists(ctx context.Context,tenantID uuid.UUID,serialNumber string,excludeResourceID *uuid.UUID) (bool, error){
+func (r *IdentityRepository)    SerialNumberExists(ctx context.Context,tenantID uuid.UUID,serialNumber string,excludeResourceID *uint) (bool, error){
 	return false, nil
 }
 
@@ -159,7 +158,7 @@ type CredentialRepository struct {
 func NewCertificateRepository(db *database.DBProvider) *CertificateRepository {
 	return &CertificateRepository{db: db}
 }
-func(r *CredentialRepository)    Consume(ctx context.Context,id uuid.UUID,consumedAt time.Time) error{
+func(r *CredentialRepository)    Consume(ctx context.Context,id uint,consumedAt time.Time) error{
 	return nil
 }
 // Compile-time check to ensure certificateRepository implements the interface.
@@ -168,7 +167,7 @@ func (r *CredentialRepository) Create(ctx context.Context, cert *model.ResourceC
 	return r.db.Get().WithContext(ctx).Create(cert).Error
 }
 
-func (r *CredentialRepository) ListByResourceID(ctx context.Context, resourceID uuid.UUID) ([]*model.ResourceCertificate, error) {
+func (r *CredentialRepository) ListByResourceID(ctx context.Context, resourceID uint) ([]*model.ResourceCertificate, error) {
 	var certs []*model.ResourceCertificate
 	err := r.db.Get().WithContext(ctx).Where("resource_id = ?", resourceID).Find(&certs).Error
 	return certs, err
@@ -192,7 +191,7 @@ func (r *CredentialRepository) FindByFingerprint(ctx context.Context, fingerprin
 	return &cert, nil
 }
 
-func (r *CredentialRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status model.CertificateStatus, activatedAt *time.Time, revokedAt *time.Time) error {
+func (r *CredentialRepository) UpdateStatus(ctx context.Context, id uint, status model.CertificateStatus, activatedAt *time.Time, revokedAt *time.Time) error {
 	return r.db.Get().WithContext(ctx).Model(&model.ResourceCertificate{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":       status,
 		"activated_at": activatedAt,
@@ -200,7 +199,7 @@ func (r *CredentialRepository) UpdateStatus(ctx context.Context, id uuid.UUID, s
 	}).Error
 }
 
-func (r *CredentialRepository) GetForUpdate(ctx context.Context, id uuid.UUID) (*model.ResourceCredential, error) {
+func (r *CredentialRepository) GetForUpdate(ctx context.Context, id uint) (*model.ResourceCredential, error) {
 	var cred model.ResourceCredential
 	// Use pessimistic locking to prevent race conditions on the credential record.
 	err := r.db.Get().WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&cred, "id = ?", id).Error
@@ -210,7 +209,7 @@ func (r *CredentialRepository) GetForUpdate(ctx context.Context, id uuid.UUID) (
 	return &cred, nil
 }
 
-func (r *CredentialRepository) Revoke(ctx context.Context, id uuid.UUID) error {
+func (r *CredentialRepository) Revoke(ctx context.Context, id uint) error {
 	now := time.Now()
 	return r.db.Get().WithContext(ctx).Model(&model.ResourceCredential{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":     model.CredentialStatusRevoked,
@@ -222,10 +221,10 @@ func (r *CredentialRepository) Update(ctx context.Context, cred *model.ResourceC
 	return r.db.Get().WithContext(ctx).Save(cred).Error
 }
 
-func (r *CredentialRepository)    GetActive(ctx context.Context,resourceID uuid.UUID,credentialType model.CredentialType) (*model.ResourceCredential, error){
+func (r *CredentialRepository)    GetActive(ctx context.Context,resourceID uint,credentialType model.CredentialType) (*model.ResourceCredential, error){
 	return nil, nil
 }
 
-func (r *CredentialRepository)    GetByID(ctx context.Context,id uuid.UUID) (*model.ResourceCredential, error){
+func (r *CredentialRepository)    GetByID(ctx context.Context,id uint) (*model.ResourceCredential, error){
 	return nil, nil
 }

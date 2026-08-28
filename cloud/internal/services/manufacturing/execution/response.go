@@ -9,7 +9,7 @@ import (
 
 type ExecutionResponse struct {
 	ID           uint                            `json:"id"`
-	ResourceUUID uuid.UUID                       `json:"resourceUuid"`
+	ResourceID uint                       `json:"resourceUuid"`
 	TenantID     uuid.UUID                       `json:"tenantId"`
 	WorkOrderID  uint                            `json:"workOrderId"`
 	DeviceID     *uint                           `json:"deviceId,omitempty"`

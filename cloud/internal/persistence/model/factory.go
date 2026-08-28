@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Factory represents the factory entity in the database.
@@ -13,11 +11,9 @@ type Factory struct {
 	// ID is the internal auto-incrementing primary key.
 	ID uint `gorm:"primaryKey"`
 
-	// UUID is the public-facing unique identifier for business operations.
-	UUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex;default:uuid_generate_v4()"`
 
 	// ResourceID points to the corresponding entry in the resources table.
-	ResourceID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	ResourceID uint `gorm:"not null;index"`
 
 	// Code is a user-defined unique code for the factory.
 	Code string `gorm:"type:varchar(100);not null;uniqueIndex"`
