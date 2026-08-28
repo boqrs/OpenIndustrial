@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS production_plans (
     id BIGSERIAL PRIMARY KEY,
 
-    resource_uuid UUID NOT NULL,
+    resource_id BIGINT NOT NULL,
 
     tenant_id UUID NOT NULL,
 

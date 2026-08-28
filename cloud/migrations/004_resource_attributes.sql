@@ -10,7 +10,7 @@ CREATE TYPE attribute_value_type AS ENUM (
 );
 
 CREATE TABLE attribute_definitions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     tenant_id UUID NOT NULL,
     key VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -22,8 +22,8 @@ CREATE TABLE attribute_definitions (
 );
 
 CREATE TABLE resource_attributes (
-    resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
-    attribute_id UUID NOT NULL REFERENCES attribute_definitions(id) ON DELETE CASCADE,
+    resource_id BIGINT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+    attribute_id BIGINT NOT NULL REFERENCES attribute_definitions(id) ON DELETE CASCADE,
     value_string VARCHAR(255),
     value_text TEXT,
     value_integer BIGINT,

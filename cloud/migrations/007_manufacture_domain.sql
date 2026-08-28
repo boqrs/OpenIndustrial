@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS production_plans (
     id BIGSERIAL PRIMARY KEY,
-    resource_uuid UUID NOT NULL,
+    resource_id BIGINT NOT NULL,
     tenant_id UUID NOT NULL,
     plan_no VARCHAR(100) NOT NULL,
     product_id BIGINT NOT NULL,
@@ -36,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_production_plans_planned_start_at ON production_p
 
 CREATE TABLE IF NOT EXISTS routings (
     id BIGSERIAL PRIMARY KEY,
-    resource_uuid UUID NOT NULL,
+    resource_id  BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
     code VARCHAR(100) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -87,7 +87,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_routing_operations_sequence ON routing_oper
 
 CREATE TABLE IF NOT EXISTS work_orders (
     id BIGSERIAL PRIMARY KEY,
-    resource_uuid UUID NOT NULL,
+    resource_id BIGSERIAL NOT NULL,
     tenant_id UUID NOT NULL,
     production_plan_id BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
@@ -123,7 +123,7 @@ CREATE INDEX IF NOT EXISTS idx_work_orders_due_date ON work_orders(due_date);
 
 CREATE TABLE IF NOT EXISTS production_executions (
     id BIGSERIAL PRIMARY KEY,
-    resource_uuid UUID NOT NULL,
+    resource_id BIGSERIAL NOT NULL,
     tenant_id UUID NOT NULL,
     work_order_id BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
@@ -157,7 +157,6 @@ CREATE INDEX IF NOT EXISTS idx_production_executions_status ON production_execut
 
 CREATE TABLE IF NOT EXISTS execution_operations (
     id BIGSERIAL PRIMARY KEY,
-    uuid UUID NOT NULL DEFAULT gen_random_uuid(),
     execution_id BIGINT NOT NULL,
     routing_operation_id BIGINT NULL,
     sequence INTEGER NOT NULL,

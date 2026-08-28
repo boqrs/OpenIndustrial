@@ -41,7 +41,6 @@ END$$;
 -- 3. Resources Table
 CREATE TABLE IF NOT EXISTS resources (
     id BIGSERIAL PRIMARY KEY,
-    uuid UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     type VARCHAR(100) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -61,8 +60,8 @@ CREATE INDEX IF NOT EXISTS idx_resources_deleted_at ON resources(deleted_at);
 
 -- 4. Attribute Definitions Table
 CREATE TABLE IF NOT EXISTS attribute_definitions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resource_id UUID NOT NULL, -- Points to a "model" or "template" resource
+    id BIGSERIAL PRIMARY KEY,
+    resource_id BIGINT NOT NULL, -- Points to a "model" or "template" resource
     name VARCHAR(255) NOT NULL,
     label VARCHAR(255),
     description TEXT,
@@ -87,8 +86,8 @@ CREATE INDEX IF NOT EXISTS idx_attribute_definitions_deleted_at ON attribute_def
 -- 5. Resource Attributes Table
 CREATE TABLE IF NOT EXISTS resource_attributes (
     id BIGSERIAL PRIMARY KEY,
-    resource_id UUID NOT NULL,
-    attribute_definition_id UUID NOT NULL,
+    resource_id BIGINT NOT NULL,
+    attribute_definition_id BIGINT NOT NULL,
     value JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -112,8 +111,8 @@ CREATE INDEX IF NOT EXISTS idx_resource_attributes_tenant_id ON resource_attribu
 -- 6. Resource Connections Table
 CREATE TABLE IF NOT EXISTS resource_connections (
     id BIGSERIAL PRIMARY KEY,
-    source_resource_id UUID NOT NULL,
-    target_resource_id UUID NOT NULL,
+    source_resource_id BIGINT NOT NULL,
+    target_resource_id BIGINT NOT NULL,
     connection_type VARCHAR(100) NOT NULL,
     metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
