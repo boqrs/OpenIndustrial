@@ -10,7 +10,6 @@ import (
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Handler manages the routing endpoints.
@@ -172,7 +171,7 @@ func (h *Handler) UpdateOperation(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	operationID, err := uuid.Parse(ctx.Param("op_id"))
+	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
 	}
@@ -197,7 +196,7 @@ func (h *Handler) DeleteOperation(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	operationID, err := uuid.Parse(ctx.Param("op_id"))
+	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
 	}

@@ -9,6 +9,8 @@ import (
 	bomSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	"github.com/google/uuid"
+	routingSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
+
 )
 
 var (
@@ -19,23 +21,24 @@ var (
 	ErrQuantityExceedsPlan   = errors.New("work order quantity exceeds remaining quantity of the production plan")
 	ErrBOMProductMismatch    = errors.New("bom does not belong to the specified product")
 	ErrBOMNotReleased        = errors.New("bom is not in released status")
+	ErrRoutingProductMismatch = errors.New("routing does not belong to the specified product")
+	ErrRoutingNotActive = errors.New("routing is not active")
 )
+
 
 type serviceImpl struct {
 	repository Repository
 	psrv       planning.Service
 	bsrv       bomSrv.Service
+	rsrv       routingSrv.Service
 }
 
-func NewService(
-	repository Repository,
-	productionPlanService planning.Service,
-	bomService bomSrv.Service,
-) Service {
+func NewService(repository Repository,productionPlanService planning.Service,bomService bomSrv.Service,routingService routingSrv.Service) Service {
 	return &serviceImpl{
 		repository: repository,
 		psrv:       productionPlanService,
 		bsrv:       bomService,
+		rsrv:       routingService,
 	}
 }
 
@@ -65,6 +68,30 @@ func (s *serviceImpl) Create(ctx context.Context, tenantID uuid.UUID, req *Creat
 	if bom.ProductID != req.ProductID {
 		return nil, ErrBOMProductMismatch
 	}
+
+	// --------------------------------------------------
+	// 3. Validate Routing
+	// --------------------------------------------------
+
+	routing, err := s.rsrv.GetRouting(
+		ctx,
+		req.RoutingID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get routing: %w",
+			err,
+		)
+	}
+
+	if routing.ProductID != req.ProductID {
+		return nil, ErrRoutingProductMismatch
+	}
+
+	if routing.Status != "active" {
+		return nil, ErrRoutingNotActive
+	}
+
 	// Correctly use the constant from the BOM domain itself, assuming bom package exposes it.
 	// This avoids reaching into the shared model package and helps prevent circular dependencies.
 	if bom.Status != "released" { // Assuming bom.Status is a string like "released"
@@ -129,7 +156,25 @@ func (s *serviceImpl) Release(ctx context.Context, tenantID uuid.UUID, id uint) 
 		return ErrBOMNotReleased
 	}
 
-	// 3. TODO: Re-validate Routing (once Routing service is integrated)
+	// 3. Re-validate Routing
+	routing, err := s.rsrv.GetRouting(
+		ctx,
+		entity.RoutingID,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to re-validate routing: %w",
+			err,
+		)
+	}
+
+	if routing.ProductID != entity.ProductID {
+		return ErrRoutingProductMismatch
+	}
+
+	if routing.Status != "active" {
+		return ErrRoutingNotActive
+	}
 
 	entity.Status = model.WorkOrderStatusReleased
 	if err := s.repository.Update(ctx, entity); err != nil {

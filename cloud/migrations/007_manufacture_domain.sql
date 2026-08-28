@@ -61,7 +61,6 @@ CREATE INDEX IF NOT EXISTS idx_routings_product_version ON routings(product_id, 
 
 CREATE TABLE IF NOT EXISTS routing_operations (
     id BIGSERIAL PRIMARY KEY,
-    uuid UUID NOT NULL DEFAULT gen_random_uuid(),
     routing_id BIGINT NOT NULL,
     sequence INTEGER NOT NULL,
     code VARCHAR(100) NOT NULL,

@@ -49,7 +49,7 @@ func (Routing) TableName() string {
 type RoutingOperation struct {
 	ID uint `gorm:"primaryKey"`
 
-	UUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex;default:gen_random_uuid()"`
+	//UUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex;default:gen_random_uuid()"`
 
 	RoutingID uint `gorm:"not null;index"`
 

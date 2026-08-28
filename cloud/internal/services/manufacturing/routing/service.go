@@ -240,7 +240,7 @@ func (s *serviceImpl) ListOperations(ctx context.Context, routingID uint) ([]*Op
 	return responses, nil
 }
 
-func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, operationID uuid.UUID, req *UpdateOperationRequest) (*OperationResponse, error) {
+func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, operationID uint, req *UpdateOperationRequest) (*OperationResponse, error) {
 	tenantID := tenantIDFromContext(ctx)
 
 	routing, err := s.repository.GetRoutingByID(ctx, tenantID, routingID)
@@ -288,7 +288,7 @@ func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, opera
 	return toOperationResponse(entity), nil
 }
 
-func (s *serviceImpl) DeleteOperation(ctx context.Context, routingID uint, operationID uuid.UUID) error {
+func (s *serviceImpl) DeleteOperation(ctx context.Context, routingID uint, operationID uint) error {
 	tenantID := tenantIDFromContext(ctx)
 
 	routing, err := s.repository.GetRoutingByID(ctx, tenantID, routingID)

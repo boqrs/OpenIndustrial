@@ -20,12 +20,12 @@ type Repository interface {
 
 	// Operation methods
 	CreateOperation(ctx context.Context, entity *model.RoutingOperation) error
-	GetOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uuid.UUID) (*model.RoutingOperation, error)
+	GetOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uint) (*model.RoutingOperation, error)
 	GetOperationByCode(ctx context.Context, tenantID uuid.UUID, routingID uint, code string) (*model.RoutingOperation, error)
 	GetOperationBySequence(ctx context.Context, tenantID uuid.UUID, routingID uint, sequence int) (*model.RoutingOperation, error)
 	ListOperations(ctx context.Context, tenantID uuid.UUID, routingID uint) ([]*model.RoutingOperation, error)
 	UpdateOperation(ctx context.Context, entity *model.RoutingOperation) error
-	DeleteOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uuid.UUID) error
+	DeleteOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uint) error
 }
 
 
@@ -42,6 +42,6 @@ type Service interface {
 	// Operation methods
 	AddOperation(ctx context.Context, routingID uint, req *CreateOperationRequest) (*OperationResponse, error)
 	ListOperations(ctx context.Context, routingID uint) ([]*OperationResponse, error)
-	UpdateOperation(ctx context.Context, routingID uint, operationID uuid.UUID, req *UpdateOperationRequest) (*OperationResponse, error)
-	DeleteOperation(ctx context.Context, routingID uint, operationID uuid.UUID) error
+	UpdateOperation(ctx context.Context, routingID uint, operationID uint, req *UpdateOperationRequest) (*OperationResponse, error)
+	DeleteOperation(ctx context.Context, routingID, operationID uint) error
 }
