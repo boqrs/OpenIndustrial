@@ -17,7 +17,7 @@ type Repository interface {
 	CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error)
 
 	// Operation methods
-	GetOperation(ctx context.Context, tenantID uuid.UUID, executionID uint, operationID uuid.UUID) (*model.ExecutionOperation, error)
+	GetOperation(ctx context.Context, tenantID uuid.UUID, executionID, operationID uint) (*model.ExecutionOperation, error)
 	ListOperations(ctx context.Context, tenantID uuid.UUID, executionID uint) ([]*model.ExecutionOperation, error)
 	UpdateOperation(ctx context.Context, operation *model.ExecutionOperation) error
 	GetCurrentOperation(ctx context.Context, tenantID uuid.UUID, executionID uint) (*model.ExecutionOperation, error)
@@ -33,8 +33,8 @@ type Service interface {
 	CancelExecution(ctx context.Context, id uint) error
 
 	// Operation methods
-	StartOperation(ctx context.Context, executionID uint, operationID uuid.UUID) error
-	CompleteOperation(ctx context.Context, executionID uint, operationID uuid.UUID, result map[string]any) error
-	FailOperation(ctx context.Context, executionID uint, operationID uuid.UUID, result map[string]any) error
+	StartOperation(ctx context.Context, executionID uint, operationID uint) error
+	CompleteOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
+	FailOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
 	ListOperations(ctx context.Context, executionID uint) ([]*OperationResponse, error)
 }

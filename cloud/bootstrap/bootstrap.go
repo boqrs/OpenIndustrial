@@ -30,10 +30,13 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
+
 	//mSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
 	routSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	ph "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
 	rh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
@@ -178,6 +181,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	materialRepo := postgres.NewMaterialRepository(dbProv)
 	ufRepo := postgres.NewUnitOfWork(dbProv)
 	routingRepo := postgres.NewRoutingRepository(dbProv)
+	execRepo :=	 postgres.NewExecutionRepository(dbProv)
 
 
 	// 业务模块初始化, service层按道理只能使用srv
@@ -192,6 +196,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	routSrv := routSrv.NewService(routingRepo)
 	boSrv := bom.NewService(bomRepo, materialRepo, pSrv, ufRepo)
 	woSrv := woSrv.NewService(woRepo, plSrv, boSrv, routSrv)
+	execSrv := execSrv.NewService(execRepo, woSrv, routSrv)
    // plSrv := planning.NewService(plRepo, pSrv, fSrv)
 
 	// 初始化中间件，用于创建认证等中间件 需要时传入middlewareFactory
@@ -204,8 +209,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	pdh.NewHandler(pSrv).RouterRegister(router)
 	//plh.NewHandler(plSrv).RouterRegister(router)
 	woh.NewHandler(woSrv, auth).RouterRegister(router)
-
-
+	execution.NewHandler(execSrv, auth).RouterRegister(router)
 
 	return func() error {
 		var errs []error

@@ -2,98 +2,196 @@ package execution
 
 import (
 	"context"
-	//"encoding/json"
 	"errors"
 	"fmt"
-	//"strings"
 	"time"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/google/uuid"
 )
 
 // --- Errors ---
 var (
-	ErrExecutionNotFound    = errors.New("execution not found")
-	ErrOperationNotFound    = errors.New("execution operation not found")
-	ErrInvalidExecutionState = errors.New("operation not allowed in current execution state")
-	ErrWorkOrderNotFound    = errors.New("associated work order not found")
-	ErrWorkOrderMismatch    = errors.New("work order details do not match")
-	ErrInvalidOperationState = errors.New("invalid operation state transition")
+	ErrExecutionNotFound        = errors.New("execution not found")
+	ErrOperationNotFound        = errors.New("execution operation not found")
+	ErrInvalidExecutionState    = errors.New("operation not allowed in current execution state")
+	ErrWorkOrderNotFound        = errors.New("associated work order not found")
+	ErrWorkOrderMismatch        = errors.New("work order details do not match")
+	ErrInvalidOperationState    = errors.New("invalid operation state transition")
 	ErrPriorOperationIncomplete = errors.New("prior operation is not yet complete")
 )
 
 // --- Service Implementation ---
 
 type serviceImpl struct {
-	repository    Repository
+	repository   Repository
 	workOrderSvc workorder.Service
-	// routingSvc routing.Service // Needed to get operations for a work order's routing
+	routingSvc   routing.Service
 }
 
-func NewService(repository Repository, workOrderSvc workorder.Service) Service {
+func NewService(repository Repository,workOrderSvc workorder.Service,routingService routing.Service) Service {
 	return &serviceImpl{
-		repository:    repository,
+		repository:   repository,
 		workOrderSvc: workOrderSvc,
+		routingSvc:   routingService,
 	}
 }
 
 // --- Execution Methods ---
 
-func (s *serviceImpl) CreateExecution(ctx context.Context, req *CreateExecutionRequest) (*ExecutionResponse, error) {
+func (s *serviceImpl) CreateExecution(ctx context.Context,req *CreateExecutionRequest) (*ExecutionResponse, error) {
+
 	tenantID := tenantIDFromContext(ctx)
-	if req.WorkOrderID == 0 || req.Quantity <= 0 {
-		return nil, fmt.Errorf("work order ID and a positive quantity are required")
+
+	if req == nil {
+		return nil, ErrInvalidExecutionState
 	}
 
-	// --- Temporarily commented out to allow independent compilation ---
-	/*
-	wo, err := s.workOrderSvc.GetWorkOrder(ctx, req.WorkOrderID)
+	if req.WorkOrderID == 0 || req.Quantity <= 0 {
+		return nil, fmt.Errorf(
+			"work order ID and a positive quantity are required",
+		)
+	}
+
+	// --------------------------------------------------
+	// 1. Load WorkOrder
+	// --------------------------------------------------
+
+	wo, err := s.workOrderSvc.GetByID(
+		ctx,
+		tenantID,
+		req.WorkOrderID,
+	)
 	if err != nil {
 		return nil, ErrWorkOrderNotFound
 	}
 
-	// Validate work order status, etc.
-	if wo.Status != model.WorkOrderStatusReleased && wo.Status != model.WorkOrderStatusInProgress {
-		return nil, fmt.Errorf("work order is not in a state that allows execution")
+	// --------------------------------------------------
+	// 2. Validate WorkOrder
+	// --------------------------------------------------
+
+	if wo.Status != model.WorkOrderStatusReleased &&
+		wo.Status != model.WorkOrderStatusInProgress {
+
+		return nil, fmt.Errorf(
+			"work order is not available for execution",
+		)
 	}
 
-	// TODO: Fetch operations from the work order's routing
-	// routingOps, err := s.routingSvc.ListOperations(ctx, wo.RoutingID)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get routing operations: %w", err)
-	// }
-	// if len(routingOps) == 0 {
-	// 	return nil, fmt.Errorf("cannot create execution for a routing with no operations")
-	// }
-	*/
+	if req.Quantity > int64(wo.PlannedQuantity) {
+		return nil, fmt.Errorf(
+			"execution quantity exceeds work order planned quantity",
+		)
+	}
+
+	// --------------------------------------------------
+	// 3. Load Routing
+	// --------------------------------------------------
+
+	routing, err := s.routingSvc.GetRouting(
+		ctx,
+		wo.RoutingID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get routing: %w",
+			err,
+		)
+	}
+
+	if routing.Status != "active" {
+		return nil, fmt.Errorf(
+			"work order routing is not active",
+		)
+	}
+
+	// --------------------------------------------------
+	// 4. Validate Product
+	// --------------------------------------------------
+
+	if routing.ProductID != wo.ProductID {
+		return nil, ErrWorkOrderMismatch
+	}
+
+	// --------------------------------------------------
+	// 5. Load Routing Operations
+	// --------------------------------------------------
+
+	routingOperations, err := s.routingSvc.ListOperations(
+		ctx,
+		wo.RoutingID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get routing operations: %w",
+			err,
+		)
+	}
+
+	if len(routingOperations) == 0 {
+		return nil, fmt.Errorf(
+			"cannot create execution for routing without operations",
+		)
+	}
+
+	// --------------------------------------------------
+	// 6. Create Execution
+	// --------------------------------------------------
 
 	entity := &model.ProductionExecution{
-		ResourceUUID: uuid.New(),
-		TenantID:     tenantID,
-		WorkOrderID:  req.WorkOrderID,
-		DeviceID:     req.DeviceID,
-		//Quantity:     req.Quantity,
-		Status:       model.ProductionExecutionStatusPending,
+		ResourceUUID:   uuid.New(),
+		TenantID:       tenantID,
+		WorkOrderID:    wo.ID,
+		ProductID:      wo.ProductID,
+		RoutingID:      wo.RoutingID,
+		RoutingVersion: routing.Version,
+		DeviceID:       req.DeviceID,
+		Status:         model.ProductionExecutionStatusPending,
 	}
 
-	// --- This part needs the routing operations ---
-	// var execOps []*model.ExecutionOperation
-	// for _, op := range routingOps {
-	// 	execOps = append(execOps, &model.ExecutionOperation{
-	// 		ID:           uuid.New(),
-	// 		TenantID:     tenantID,
-	// 		ExecutionID:  entity.ID, // This will be set by the DB
-	// 		Sequence:     op.Sequence,
-	// 		WorkCenterID: op.WorkCenterID,
-	// 		Status:       model.ExecutionOperationStatusPending,
-	// 	})
-	// }
+	// --------------------------------------------------
+	// 7. Build Execution Operations
+	// --------------------------------------------------
 
-	// For now, create without operations to allow compilation
-	if err := s.repository.CreateExecution(ctx, entity, nil); err != nil {
-		return nil, fmt.Errorf("failed to create execution: %w", err)
+	operations := make(
+		[]*model.ExecutionOperation,
+		0,
+		len(routingOperations),
+	)
+
+	for _, op := range routingOperations {
+		operations = append(
+			operations,
+			&model.ExecutionOperation{
+			//	ID:                 uuid.New(), // Assign a new UUID for the snapshot
+			//	TenantID:           tenantID,
+				ExecutionID:        entity.ID,
+				RoutingOperationID: &op.ID,
+				Sequence:           op.Sequence,
+				Code:               op.Code,
+				Name:               op.Name,
+				Description:        op.Description,
+				//:      op.WorkstationID,
+				Status:             model.ExecutionOperationStatusPending,
+			},
+		)
+	}
+
+	// --------------------------------------------------
+	// 8. Persist
+	// --------------------------------------------------
+
+	if err := s.repository.CreateExecution(
+		ctx,
+		entity,
+		operations,
+	); err != nil {
+		return nil, fmt.Errorf(
+			"failed to create execution: %w",
+			err,
+		)
 	}
 
 	return toExecutionResponse(entity), nil
@@ -121,9 +219,15 @@ func (s *serviceImpl) ListExecutions(ctx context.Context, workOrderID *uint, dev
 	return responses, nil
 }
 
-func (s *serviceImpl) StartExecution(ctx context.Context, id uint) error {
+func (s *serviceImpl) StartExecution(ctx context.Context,id uint) error {
+
 	tenantID := tenantIDFromContext(ctx)
-	exec, err := s.repository.GetExecutionByID(ctx, tenantID, id)
+
+	exec, err := s.repository.GetExecutionByID(
+		ctx,
+		tenantID,
+		id,
+	)
 	if err != nil {
 		return err
 	}
@@ -132,11 +236,43 @@ func (s *serviceImpl) StartExecution(ctx context.Context, id uint) error {
 		return ErrInvalidExecutionState
 	}
 
+	wo, err := s.workOrderSvc.GetByID(
+		ctx,
+		tenantID,
+		exec.WorkOrderID,
+	)
+	if err != nil {
+		return ErrWorkOrderNotFound
+	}
+
+	if wo.Status != model.WorkOrderStatusReleased &&
+		wo.Status != model.WorkOrderStatusInProgress {
+
+		return fmt.Errorf(
+			"work order is not available for execution",
+		)
+	}
+
+	// If WorkOrder is just 'Released', start it.
+	if wo.Status == model.WorkOrderStatusReleased {
+		if err := s.workOrderSvc.Start(
+			ctx,
+			tenantID,
+			exec.WorkOrderID,
+		); err != nil {
+			return fmt.Errorf("failed to start associated work order: %w", err)
+		}
+	}
+
 	now := time.Now()
+
 	exec.Status = model.ProductionExecutionStatusInProgress
 	exec.StartedAt = &now
 
-	return s.repository.UpdateExecution(ctx, exec)
+	return s.repository.UpdateExecution(
+		ctx,
+		exec,
+	)
 }
 
 func (s *serviceImpl) CancelExecution(ctx context.Context, id uint) error {
@@ -156,8 +292,18 @@ func (s *serviceImpl) CancelExecution(ctx context.Context, id uint) error {
 
 // --- Operation Methods ---
 
-func (s *serviceImpl) StartOperation(ctx context.Context, executionID uint, operationID uuid.UUID) error {
+func (s *serviceImpl) StartOperation(ctx context.Context, executionID uint, operationID uint) error {
 	tenantID := tenantIDFromContext(ctx)
+
+	exec, err := s.repository.GetExecutionByID(ctx, tenantID, executionID)
+	if err != nil {
+		return err
+	}
+
+	if exec.Status != model.ProductionExecutionStatusInProgress {
+		return ErrInvalidExecutionState
+	}
+
 	op, err := s.repository.GetOperation(ctx, tenantID, executionID, operationID)
 	if err != nil {
 		return err
@@ -175,7 +321,7 @@ func (s *serviceImpl) StartOperation(ctx context.Context, executionID uint, oper
 		}
 		for _, prevOp := range ops {
 			if prevOp.Sequence == op.Sequence-1 {
-				if prevOp.Status != model.ExecutionOperationStatusCompleted {
+				if prevOp.Status != model.ExecutionOperationStatusCompleted && prevOp.Status != model.ExecutionOperationStatusSkipped {
 					return ErrPriorOperationIncomplete
 				}
 				break
@@ -190,9 +336,16 @@ func (s *serviceImpl) StartOperation(ctx context.Context, executionID uint, oper
 	return s.repository.UpdateOperation(ctx, op)
 }
 
-func (s *serviceImpl) CompleteOperation(ctx context.Context, executionID uint, operationID uuid.UUID, result map[string]any) error {
+func (s *serviceImpl) CompleteOperation(ctx context.Context,executionID uint,operationID uint,result map[string]any) error {
+
 	tenantID := tenantIDFromContext(ctx)
-	op, err := s.repository.GetOperation(ctx, tenantID, executionID, operationID)
+
+	op, err := s.repository.GetOperation(
+		ctx,
+		tenantID,
+		executionID,
+		operationID,
+	)
 	if err != nil {
 		return err
 	}
@@ -202,14 +355,21 @@ func (s *serviceImpl) CompleteOperation(ctx context.Context, executionID uint, o
 	}
 
 	now := time.Now()
+
 	op.Status = model.ExecutionOperationStatusCompleted
 	op.CompletedAt = &now
-	//op.Result = result
 
-	return s.repository.UpdateOperation(ctx, op)
+	if err := s.repository.UpdateOperation(ctx, op); err != nil {
+		return err
+	}
+
+	return s.tryCompleteExecution(
+		ctx,
+		executionID,
+	)
 }
 
-func (s *serviceImpl) FailOperation(ctx context.Context, executionID uint, operationID uuid.UUID, result map[string]any) error {
+func (s *serviceImpl) FailOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error {
 	tenantID := tenantIDFromContext(ctx)
 	op, err := s.repository.GetOperation(ctx, tenantID, executionID, operationID)
 	if err != nil {
@@ -241,6 +401,58 @@ func (s *serviceImpl) ListOperations(ctx context.Context, executionID uint) ([]*
 	return responses, nil
 }
 
+func (s *serviceImpl) tryCompleteExecution(
+	ctx context.Context,
+	executionID uint,
+) error {
+
+	tenantID := tenantIDFromContext(ctx)
+
+	exec, err := s.repository.GetExecutionByID(
+		ctx,
+		tenantID,
+		executionID,
+	)
+	if err != nil {
+		return err
+	}
+
+	if exec.Status != model.ProductionExecutionStatusInProgress {
+		return nil
+	}
+
+	operations, err := s.repository.ListOperations(
+		ctx,
+		tenantID,
+		executionID,
+	)
+	if err != nil {
+		return err
+	}
+
+	if len(operations) == 0 {
+		return nil
+	}
+
+	for _, op := range operations {
+		if op.Status != model.ExecutionOperationStatusCompleted &&
+			op.Status != model.ExecutionOperationStatusSkipped {
+
+			return nil
+		}
+	}
+
+	now := time.Now()
+
+	exec.Status = model.ProductionExecutionStatusCompleted
+	exec.CompletedAt = &now
+
+	return s.repository.UpdateExecution(
+		ctx,
+		exec,
+	)
+}
+
 // --- Mappers ---
 
 func toExecutionResponse(entity *model.ProductionExecution) *ExecutionResponse {
@@ -248,17 +460,19 @@ func toExecutionResponse(entity *model.ProductionExecution) *ExecutionResponse {
 		return nil
 	}
 	return &ExecutionResponse{
-		ID:           entity.ID,
-		ResourceUUID: entity.ResourceUUID,
-		TenantID:     entity.TenantID,
-		WorkOrderID:  entity.WorkOrderID,
-		DeviceID:     entity.DeviceID,
-		//Quantity:     entity.Quantity,
-		Status:       entity.Status,
-		StartedAt:    entity.StartedAt,
-		CompletedAt:  entity.CompletedAt,
-		CreatedAt:    entity.CreatedAt,
-		UpdatedAt:    entity.UpdatedAt,
+		ID:             entity.ID,
+		ResourceUUID:   entity.ResourceUUID,
+		TenantID:       entity.TenantID,
+		WorkOrderID:    entity.WorkOrderID,
+		DeviceID:       entity.DeviceID,
+		Status:         entity.Status,
+		StartedAt:      entity.StartedAt,
+		CompletedAt:    entity.CompletedAt,
+		CreatedAt:      entity.CreatedAt,
+		UpdatedAt:      entity.UpdatedAt,
+		ProductID:      entity.ProductID,
+		RoutingID:      entity.RoutingID,
+		RoutingVersion: entity.RoutingVersion,
 	}
 }
 
@@ -267,16 +481,19 @@ func toOperationResponse(entity *model.ExecutionOperation) *OperationResponse {
 		return nil
 	}
 	return &OperationResponse{
-		ID:           entity.ID,
-		ExecutionID:  entity.ExecutionID,
-		Sequence:     entity.Sequence,
-		//WorkCenterID: entity.WorkCenterID,
-		Status:       entity.Status,
-		//Result:       entity.Result,
-		StartedAt:    entity.StartedAt,
-		CompletedAt:  entity.CompletedAt,
-		CreatedAt:    entity.CreatedAt,
-		UpdatedAt:    entity.UpdatedAt,
+		ID:                 entity.ID,
+		ExecutionID:        entity.ExecutionID,
+		Sequence:           entity.Sequence,
+		Status:             entity.Status,
+		StartedAt:          entity.StartedAt,
+		CompletedAt:        entity.CompletedAt,
+		CreatedAt:          entity.CreatedAt,
+		UpdatedAt:          entity.UpdatedAt,
+		Code:               entity.Code,
+		Name:               entity.Name,
+		Description:        entity.Description,
+		WorkstationID:      *entity.WorkstationID,
+		RoutingOperationID: *entity.RoutingOperationID,
 	}
 }
 

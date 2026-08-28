@@ -12,17 +12,17 @@ import (
 
 )
 
-type ExecutionRepository struct {
+type executionRepository struct {
 	db *database.DBProvider
 }
 
-func NewExecutionRepository(db	*database.DBProvider) *ExecutionRepository {
-	return &ExecutionRepository{
+func NewExecutionRepository(db	*database.DBProvider) *executionRepository {
+	return &executionRepository{
 		db: db,
 	}
 }
 
-func (r *ExecutionRepository) CreateExecution(ctx context.Context,entity *model.ProductionExecution,operations []*model.ExecutionOperation) error {
+func (r *executionRepository) CreateExecution(ctx context.Context,entity *model.ProductionExecution,operations []*model.ExecutionOperation) error {
 	return r.db.Get().WithContext(ctx).
 		Transaction(func(tx *gorm.DB) error {
 			if err := tx.Create(entity).Error; err != nil {
@@ -43,7 +43,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context,entity *model.
 		})
 }
 
-func (r *ExecutionRepository) GetExecution(ctx context.Context,tenantID uuid.UUID,id uuid.UUID) (*model.ProductionExecution, error) {
+func (r *executionRepository) GetExecutionByID(ctx context.Context,tenantID uuid.UUID,id uint) (*model.ProductionExecution, error) {
 	var entity model.ProductionExecution
 
 	err := r.db.Get().WithContext(ctx).
@@ -69,7 +69,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context,tenantID uuid.UUI
 	return &entity, nil
 }
 
-func (r *ExecutionRepository) ListExecutions(ctx context.Context,tenantID uuid.UUID,workOrderID *uuid.UUID,deviceID *uuid.UUID,status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error) {
+func (r *executionRepository) ListExecutions(ctx context.Context,tenantID uuid.UUID,workOrderID *uint,deviceID *uint,status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error) {
 	var entities []*model.ProductionExecution
 
 	query := r.db.Get().WithContext(ctx).
@@ -111,18 +111,13 @@ func (r *ExecutionRepository) ListExecutions(ctx context.Context,tenantID uuid.U
 	return entities, nil
 }
 
-func (r *ExecutionRepository) UpdateExecution(ctx context.Context,entity *model.ProductionExecution) error {
+func (r *executionRepository) UpdateExecution(ctx context.Context,entity *model.ProductionExecution) error {
 	return r.db.Get().WithContext(ctx).
 		Save(entity).
 		Error
 }
 
-func (r *ExecutionRepository) GetOperation(
-	ctx context.Context,
-	tenantID uuid.UUID,
-	executionID uuid.UUID,
-	operationID uuid.UUID,
-) (*model.ExecutionOperation, error) {
+func (r *executionRepository) GetOperation(ctx context.Context,tenantID uuid.UUID,executionID,operationID uint) (*model.ExecutionOperation, error) {
 	var entity model.ExecutionOperation
 
 	err := r.db.Get().WithContext(ctx).
@@ -149,7 +144,7 @@ func (r *ExecutionRepository) GetOperation(
 	return &entity, nil
 }
 
-func (r *ExecutionRepository) ListOperations(ctx context.Context,tenantID uuid.UUID,executionID uuid.UUID) ([]*model.ExecutionOperation, error) {
+func (r *executionRepository) ListOperations(ctx context.Context,tenantID uuid.UUID,executionID uint) ([]*model.ExecutionOperation, error) {
 	var entities []*model.ExecutionOperation
 
 	err := r.db.Get().WithContext(ctx).
@@ -169,13 +164,13 @@ func (r *ExecutionRepository) ListOperations(ctx context.Context,tenantID uuid.U
 	return entities, nil
 }
 
-func (r *ExecutionRepository) UpdateOperation(ctx context.Context,entity *model.ExecutionOperation) error {
+func (r *executionRepository) UpdateOperation(ctx context.Context,entity *model.ExecutionOperation) error {
 	return r.db.Get().WithContext(ctx).
 		Save(entity).
 		Error
 }
 
-func (r *ExecutionRepository) CountExecutions(ctx context.Context,tenantID uuid.UUID,workOrderID uuid.UUID) (int64, error) {
+func (r *executionRepository) CountExecutions(ctx context.Context,tenantID uuid.UUID,workOrderID uint) (int64, error) {
 	var count int64
 
 	err := r.db.Get().WithContext(ctx).
@@ -193,7 +188,7 @@ func (r *ExecutionRepository) CountExecutions(ctx context.Context,tenantID uuid.
 	return count, err
 }
 
-func (r *ExecutionRepository) GetCurrentOperation(ctx context.Context,tenantID uuid.UUID,executionID uuid.UUID) (*model.ExecutionOperation, error) {
+func (r *executionRepository) GetCurrentOperation(ctx context.Context,tenantID uuid.UUID,executionID uint) (*model.ExecutionOperation, error) {
 	var entity model.ExecutionOperation
 
 	err := r.db.Get().WithContext(ctx).
@@ -226,7 +221,7 @@ func (r *ExecutionRepository) GetCurrentOperation(ctx context.Context,tenantID u
 
 // Create implements execution.Repository.
 // It creates the ProductionExecution and its associated ExecutionOperations in a single transaction.
-func (r *ExecutionRepository) Create(ctx context.Context, tx *gorm.DB, exec *model.ProductionExecution) error {
+func (r *executionRepository) Create(ctx context.Context, tx *gorm.DB, exec *model.ProductionExecution) error {
 	// Use the provided transaction 'tx' to ensure atomicity.
 	db := tx.WithContext(ctx)
 

@@ -17,6 +17,9 @@ type ExecutionResponse struct {
 	Status       model.ProductionExecutionStatus `json:"status"`
 	StartedAt    *time.Time                      `json:"startedAt,omitempty"`
 	CompletedAt  *time.Time                      `json:"completedAt,omitempty"`
+	ProductID    uint                            `json:"productId"`
+	RoutingID    uint                            `json:"routingId"`
+	RoutingVersion int                             `json:"routingVersion"`
 	CreatedAt    time.Time                       `json:"createdAt"`
 	UpdatedAt    time.Time                       `json:"updatedAt"`
 }
@@ -32,6 +35,11 @@ type OperationResponse struct {
 	Result         map[string]any                  `json:"result,omitempty"`
 	StartedAt      *time.Time                      `json:"startedAt,omitempty"`
 	CompletedAt    *time.Time                      `json:"completedAt,omitempty"`
+	Code           string                          `json:"code"`
+	Name           string                          `json:"name"`
+	Description    string                          `json:"description"`
+	WorkstationID  uint                            `json:"workstationId"`
+	RoutingOperationID uint                            `json:"routingOperationId"`
 	CreatedAt      time.Time                       `json:"createdAt"`
 	UpdatedAt      time.Time                       `json:"updatedAt"`
 }

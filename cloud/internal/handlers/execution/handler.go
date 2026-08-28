@@ -10,7 +10,6 @@ import (
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Handler manages the execution endpoints.
@@ -124,7 +123,7 @@ func (h *Handler) StartOperation(ctx *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	operationID, err := uuid.Parse(ctx.Param("op_id"))
+	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
 	}
@@ -145,7 +144,7 @@ func (h *Handler) CompleteOperation(ctx *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	operationID, err := uuid.Parse(ctx.Param("op_id"))
+	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
 	}
@@ -170,7 +169,7 @@ func (h *Handler) FailOperation(ctx *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	operationID, err := uuid.Parse(ctx.Param("op_id"))
+	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
 	}
@@ -197,3 +196,4 @@ func parseUintParam(ctx *gin.Context, paramName string) (uint, error) {
 	}
 	return uint(id), nil
 }
+
