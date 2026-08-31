@@ -70,8 +70,6 @@ const (
 type ExecutionOperation struct {
 	ID uint `gorm:"primaryKey"`
 
-	UUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex;default:gen_random_uuid()"`
-
 	ExecutionID uint `gorm:"not null;index"`
 
 	RoutingOperationID *uint `gorm:"index"`
