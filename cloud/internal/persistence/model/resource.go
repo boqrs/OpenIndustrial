@@ -94,10 +94,10 @@ type ResourceConnection struct {
 	ID       uint      `gorm:"primaryKey"`
 	// SourceResourceID is the resource where the connection originates (e.g., a Device).
 	SourceResourceID uint `gorm:"not null;index"`
-	SourceResource   Resource  `gorm:"foreignKey:SourceResourceID;references:UUID"`
+	SourceResource   Resource  `gorm:"foreignKey:SourceResourceID;references:ID"`
 	// TargetResourceID is the resource where the connection terminates (e.g., a Gateway).
 	TargetResourceID uint `gorm:"not null;index"`
-	TargetResource   Resource  `gorm:"foreignKey:TargetResourceID;references:UUID"`
+	TargetResource   Resource  `gorm:"foreignKey:TargetResourceID;references:ID"`
 	// ConnectionType defines the semantics of the technical binding (e.g., "connected_through").
 	ConnectionType ConnectionType `gorm:"type:varchar(100);not null;index:idx_connection_unique,priority:3"`
 	// Metadata can store additional context about the connection itself.
@@ -124,7 +124,7 @@ type ResourceAttribute struct {
     Value []byte `gorm:"type:jsonb;not null"`
     CreatedAt time.Time
     UpdatedAt time.Time
-    Resource Resource `gorm:"foreignKey:ResourceID;references:UUID"`
+    Resource Resource `gorm:"foreignKey:ResourceID;references:ID"`
     AttributeDefinition AttributeDefinition `gorm:"foreignKey:AttributeDefinitionID;references:ID"`
 }
 
@@ -201,7 +201,7 @@ type AttributeDefinition struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// GORM relationship for preloading.
-	Resource Resource `gorm:"references:UUID;foreignKey:ProductModelID"`
+	Resource Resource `gorm:"references:ID;foreignKey:ResourceID"`
 }
 
 // TableName specifies the table name for the AttributeDefinition model.
