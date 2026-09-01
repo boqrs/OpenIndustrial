@@ -87,7 +87,7 @@ func (r *ProductRepository) List(ctx context.Context,req product.ListProductMode
 	}
 
 	// Apply pagination
-	offset := (req.Page - 1) * req.PageSize
+	offset := (req.CurrentPage - 1) * req.PageSize
 	if err := query.Offset(offset).Limit(req.PageSize).Find(&items).Error; err != nil {
 		return nil, 0, err
 	}

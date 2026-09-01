@@ -24,10 +24,10 @@ type Service interface {
 	// Product Model
 	// =========================================================
 
-	CreateProductModel(ctx context.Context,req *CreateProductModelRequest,) (*ProductModelResponse, error)
-	GetProductModel(ctx context.Context,id uint) (*ProductModelResponse, error)
+	CreateProductModel(ctx context.Context,req *CreateProductModelRequest,) (*CreateProductModelResponse, error)
+	GetProductModel(ctx context.Context,id uint) (*ProductDetailResponse, error)
 	ListProductModels(ctx context.Context,req *ListProductModelsRequest) (*ProductModelListResponse, error)
-	UpdateProductModel(ctx context.Context,id uint,req *UpdateProductModelRequest) (*ProductModelResponse, error)
+	UpdateProductModel(ctx context.Context,id uint,req *UpdateProductModelRequest) (*UpdateProductModelResponse, error)
 	//TODO： 改为resource定义的状态类型
 	UpdateProductModelStatus(ctx context.Context,id uint,status string) error
 
@@ -35,7 +35,7 @@ type Service interface {
 	// Product Model Attribute Definition
 	// =========================================================
 
-	GetAttributeDefinitions(ctx context.Context,productModelID uint) ([]AttributeDefinitionResponse, error)
+	GetAttributeDefinitions(ctx context.Context, productModelID uint) ([]AttributeDefinitionResponse, error)
 
 	UpdateAttributeDefinitions(ctx context.Context,productModelID uint,req *UpdateAttributeDefinitionsRequest) error
 }

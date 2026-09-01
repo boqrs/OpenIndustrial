@@ -471,3 +471,24 @@ func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Conte
 
 	return attrs, nil
 }
+
+func (r *ResourceAttributeRepository) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error) {
+	var attributes []model.ResourceAttribute
+	if len(resourceIDs) == 0 {
+		return attributes, nil
+	}
+
+	// We join with resources to filter by tenant_id, and Preload to efficiently fetch both associated Resource and AttributeDefinition objects.
+	err := r.db.Get().WithContext(ctx).
+		Preload("Resource").
+		Preload("AttributeDefinition").
+		Joins("JOIN resources ON resources.id = resource_attributes.resource_id").
+		Where("resource_attributes.resource_id IN ?", resourceIDs).
+		Where("resources.tenant_id = ?", tenantID).
+		Find(&attributes).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return attributes, nil
+}

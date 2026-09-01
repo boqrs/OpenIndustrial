@@ -1,10 +1,10 @@
 package product
 
-import (
-	//"time"
+import "github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 
-	//"github.com/google/uuid"
-)
+//"time"
+
+//"github.com/google/uuid"
 
 type AttributeDefinitionRequest struct {
 	Label       string `json:"label,omitempty"`
@@ -37,6 +37,7 @@ type ListProductModelsRequest struct {
 	Category string `json:"category,omitempty"`
 	Status   string `json:"status,omitempty"`
 	Code     string `json:"code,omitempty"`
-	Page     int    `json:"page,omitempty"`
-	PageSize int    `json:"page_size,omitempty"`
+	// Page     int    `json:"page,omitempty"`
+	// PageSize int    `json:"page_size,omitempty"`
+	pkg.BasePageReq
 }

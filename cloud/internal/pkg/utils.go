@@ -43,3 +43,13 @@ func TenantIDFromContext(ctx context.Context) uuid.UUID {
 
 	return uuid.Nil
 }
+
+type BasePageReq struct {
+	CurrentPage int `form:"currentPage" json:"currentPage"`
+	PageSize    int `form:"pageSize" json:"pageSize"`
+}
+
+type PageBaseResp struct {
+	Total int64 `json:"total"`
+	Next  bool  `json:"next"`
+}

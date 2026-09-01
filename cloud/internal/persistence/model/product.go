@@ -5,17 +5,6 @@ import (
 
 )
 
-// ProductModel describes the static definition of a product/device model.
-//
-// Resource stores the common identity:
-//   - UUID
-//   - TenantID
-//   - Name
-//   - Type
-//   - Status
-//   - Metadata
-//
-// ProductModel stores product-domain-specific information.
 type ProductModel struct {
 	ID uint `gorm:"primaryKey;autoIncrement"`
 

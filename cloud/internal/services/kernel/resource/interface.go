@@ -54,7 +54,7 @@ type ResourceAttributeRepository interface {
 	UpsertForResource(ctx context.Context, tenantID uuid.UUID, resourceID uint, attributes map[string]interface{}) error
 	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error
     GetAttributesForResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) (map[string]interface{}, error)
-
+	GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error)
 }
 
 type ResourceConnectionsRepository interface {
@@ -117,4 +117,6 @@ type Service interface{
 	GetChildren(ctx context.Context, resourceID uint) ([]*model.Resource, error)
 	ListConnections(ctx context.Context, resourceID uint) ([]*model.ResourceConnection, error)
 	ReplaceAttributeDefinitions(ctx context.Context, resourceID uint, definitions []*model.AttributeDefinition) error 
+	GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error)
+	GetAttributesByResourceID(ctx context.Context, resourceID uint) ([]*model.ResourceAttribute, error)
 }

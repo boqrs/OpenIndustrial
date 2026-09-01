@@ -232,6 +232,9 @@ func (s *service)	BatchCreateResourceAttributes(ctx context.Context, attr []*mod
 	return s.resAttrRepo.BatchCreateResourceAttributes(ctx, attr)
 }
 
+func (s *service) GetAttributesByResourceID(ctx context.Context, resourceID uint) ([]*model.ResourceAttribute, error) {
+	return s.resAttrRepo.GetAttributesByResourceID(ctx, resourceID)
+}
 
 	// UpdateParent changes the hierarchical parent of a given resource.
 func (s *service)UpdateParent(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) error{
@@ -284,6 +287,12 @@ func (s *service) ReplaceAttributeDefinitions(ctx context.Context, resourceID ui
 	return s.attrDefRepo.ReplaceAttributeDefinitions(ctx, resourceID, definitions)
 }
 // CreateConnection establishes a new technical connection between two resources.
+
+func(s *service)	GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error){
+	return s.resAttrRepo.GetResourcesAndAttributesByIDs(ctx, tenantID, resourceIDs)
+} 
+
+
 
 /*
 NOTE ON ListUserGroups:

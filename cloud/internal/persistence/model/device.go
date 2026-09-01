@@ -30,14 +30,11 @@ type Device struct {
 	// Identity attributes
 	SerialNumber string `gorm:"size:255;index"`
 	HardwareID   string `gorm:"size:255;index"`
-
 	// Runtime state
 	Status DeviceStatus `gorm:"size:50;not null"`
-
 	// Lifecycle timestamps
 	ActivatedAt  *time.Time
 	LastOnlineAt *time.Time
-
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

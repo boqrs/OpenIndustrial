@@ -52,15 +52,10 @@ func (a *Handler) createProductModel(ctx *gin.Context) ginx.Render {
 }
 
 func (a *Handler) listProductModels(ctx *gin.Context) ginx.Render {
-	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	req := srv.ListProductModelsRequest{}
 
-	req := srv.ListProductModelsRequest{
-		Category: ctx.Query("category"),
-		Status:   ctx.Query("status"),
-		Code:     ctx.Query("code"),
-		Page:     page,
-		PageSize: pageSize,
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
 	resp, err := a.service.ListProductModels(ctx.Request.Context(), &req)

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 )
 
 var (
@@ -45,7 +46,7 @@ func tenantIDFromContext(ctx context.Context) uuid.UUID {
 	return uuid.Nil
 }
 
-func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProductModelRequest) (*ProductModelResponse, error) {
+func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProductModelRequest) (*CreateProductModelResponse, error) {
 	// 1. Validate request
 	if req == nil {
 		return nil, errors.New("request is nil")
@@ -98,8 +99,8 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 	}
 
 	// 5. Create attribute definitions
+	definitions := make([]*model.AttributeDefinition, 0, len(req.Attributes))
 	if len(req.Attributes) > 0 {
-		definitions := make([]*model.AttributeDefinition, 0, len(req.Attributes))
 		for attrName, attribute := range req.Attributes {
 			definitions = append(definitions, &model.AttributeDefinition{
 				ResourceID:  resourceEntity.ID,
@@ -121,15 +122,46 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 	}
 
 	// 6. Build and return response
-	return s.buildProductModelResponse(ctx, resourceEntity, entity)
+	return s.buildCreateProductModelResponse(resourceEntity, entity, definitions), nil
 }
 
-func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductModelResponse, error) {
+func (s *serviceImpl) buildCreateProductModelResponse(resourceEntity *model.Resource, entity *model.ProductModel, ad []*model.AttributeDefinition) *CreateProductModelResponse {
+	
+	atts := make([]AttributeDefinitionResponse, len(ad))	
+	for _, def := range ad {
+		atts = append(atts, AttributeDefinitionResponse{
+			Name:        def.Name,
+			Label:       def.Label,
+			Description: def.Description,
+			DataType:    string(def.DataType),
+			Unit:        def.Unit})
+	}	
+	
+	return &CreateProductModelResponse{
+		ID:          entity.ID,
+		ResourceID:  entity.ResourceID,
+		Name:        resourceEntity.ResourceName,
+		Code:        entity.Code,
+		Version:     entity.Version,
+		Category:    entity.Category,
+		Description: entity.Description,
+		Status:      resourceEntity.ResourceStatus,
+		Attributes:  atts,
+		CreatedAt:   entity.CreatedAt,
+		UpdatedAt:   entity.UpdatedAt,
+	}
+}
+
+// GetProductModel retrieves the full detail of a product model, including all its
+// attribute definitions and any attribute values set at the model level.
+func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductDetailResponse, error) {
+	// 1. Get ProductModel
 	entity, err := s.repository.GetByID(ctx, id)
 	if err != nil {
-		return nil, ErrProductModelNotFound // GORM's not found is already handled in repo, this is for service layer consistency
+		return nil, ErrProductModelNotFound
 	}
 
+	// 2. Get associated Resource
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantIDFromContext(ctx), entity.ResourceID)
 	if err != nil {
 		return nil, ErrProductModelNotFound
@@ -139,51 +171,112 @@ func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductMod
 		return nil, ErrProductModelNotFound
 	}
 
-	return s.buildProductModelResponse(ctx, resourceEntity, entity)
+	// 3. Get all Attribute Definitions for the model
+	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(ctx, entity.ResourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attribute definitions for resource %d: %w", entity.ResourceID, err)
+	}
+
+	// 4. Get all Attribute Values for the model
+	attributes, err := s.resourceSvc.GetAttributesByResourceID(ctx, entity.ResourceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attributes for resource %d: %w", entity.ResourceID, err)
+	}
+
+	// 5. Construct the detailed response
+	response := &ProductDetailResponse{
+		ID:                  entity.ID,
+		ResourceID:          entity.ResourceID,
+		Name:                resourceEntity.ResourceName,
+		Code:                entity.Code,
+		Version:             entity.Version,
+		Category:            entity.Category,
+		Description:         entity.Description,
+		Status:              string(resourceEntity.ResourceStatus),
+		CreatedAt:           entity.CreatedAt,
+		UpdatedAt:           entity.UpdatedAt,
+		Attribute:           attributes,
+		AttributeDefinition: definitions,
+	}
+
+	return response, nil
 }
+
+//TODO: 这里是获取单个产品的详细信息包括产品 资源和属性
+
+
 
 func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductModelsRequest) (*ProductModelListResponse, error) {
 	if req == nil {
 		req = &ListProductModelsRequest{}
 	}
-	if req.Page <= 0 {
-		req.Page = 1
+
+	if req.CurrentPage <= 0 {
+		req.CurrentPage	 = 1
 	}
+
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	if req.PageSize > 100 {
-		req.PageSize = 100
-	}
 
-	items, total, err := s.repository.List(ctx, *req)
+	var offset = (req.CurrentPage - 1) * req.PageSize
+	products, total, err := s.repository.List(ctx, *req)
 	if err != nil {
 		return nil, fmt.Errorf("list product models: %w", err)
 	}
 
-	result := &ProductModelListResponse{
-		Items:    make([]*ProductModelResponse, 0, len(items)),
-		Page:     req.Page,
-		PageSize: req.PageSize,
-		Total:    total,
+	if len(products) == 0 {
+		return &ProductModelListResponse{
+			Items:    []*ProductModelResponse{},
+			PageBaseResp: pkg.PageBaseResp{
+				Total:       total,
+				Next: false,
+},
+		}, nil
 	}
 
-	for _, item := range items {
-		resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantIDFromContext(ctx), item.ResourceID)
-		if err != nil {
-			return nil, fmt.Errorf("get product model resource %s: %w", item.ID, err)
+	// Collect resource IDs
+	resourceIDs := make([]uint, len(products))
+	for i, item := range products {
+		resourceIDs[i] = item.ResourceID
+	}
+
+	// Batch fetch resources
+	resources, err := s.resourceSvc.GetResourcesAndAttributesByIDs(ctx, tenantIDFromContext(ctx), resourceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resources by ids: %w", err)
+	}
+	 resourceMap := make(map[uint][]model.ResourceAttribute, len(resources))
+	for _, r := range products {
+		resourceMap[r.ID] = make([]model.ResourceAttribute, 0)
+		for _, rs := range resources {
+			if rs.ResourceID == r.ResourceID{
+				resourceMap[r.ID] = append(resourceMap[r.ID], rs)
+			}
 		}
-		response, err := s.buildProductModelResponse(ctx, resourceEntity, item)
-		if err != nil {
-			return nil, fmt.Errorf("build response for model %s: %w", item.ID, err)
-		}
+	}
+	
+	// Build responses
+	result := &ProductModelListResponse{
+		Items:    []*ProductModelResponse{},
+		PageBaseResp: pkg.PageBaseResp{
+			Total:       total,
+			Next: false,
+		},
+	}
+
+	for _, product := range products {
+		response := s.buildProductModelResponse(resourceMap, product)
 		result.Items = append(result.Items, response)
+	}
+
+	if int64(offset+req.PageSize) < total {
+		result.PageBaseResp.Next = true
 	}
 
 	return result, nil
 }
-
-func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *UpdateProductModelRequest) (*ProductModelResponse, error) {
+func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *UpdateProductModelRequest) (*UpdateProductModelResponse, error) {
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
@@ -248,7 +341,16 @@ func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *Upda
 		}
 	}
 
-	return s.buildProductModelResponse(ctx, resourceEntity, entity)
+	return &UpdateProductModelResponse{
+		ID:          entity.ID,
+		ResourceID:  entity.ResourceID,
+		Name:        resourceEntity.ResourceName,
+		Code:        *resourceEntity.Code,
+		Description: entity.Description,
+		Status:      resourceEntity.ResourceStatus,
+		CreatedAt:   entity.CreatedAt,
+		UpdatedAt:   entity.UpdatedAt,
+	}, nil
 }
 
 func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, status string) error {
@@ -352,56 +454,55 @@ func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productMod
 	definitions := make([]*model.AttributeDefinition, 0, len(req.Attributes))
 	for name, attribute := range req.Attributes {
 		definitions = append(definitions, &model.AttributeDefinition{
-		//	UUID:        uuid.New(), // New UUIDs for replacement
 			ResourceID:  entity.ResourceID,
 			Name:        strings.TrimSpace(name),
 			Label:       attribute.Label,
 			Description: attribute.Description,
 			DataType:    model.AttributeValueType(attribute.DataType),
 			Unit:        attribute.Unit,
-			//Required:    attribute.Required,
 		})
 	}
 
-	// Per your design, this relies on a Replace/Sync capability in the Resource Kernel.
 	return s.resourceSvc.ReplaceAttributeDefinitions(ctx, entity.ResourceID, definitions)
 }
 
 // --- Helper Functions ---
 
-func (s *serviceImpl) buildProductModelResponse(ctx context.Context, resourceEntity *model.Resource, entity *model.ProductModel) (*ProductModelResponse, error) {
-	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(ctx, entity.ResourceID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find attribute definitions: %w", err)
-	}
-
-	attributes := make([]AttributeDefinitionResponse, 0, len(definitions))
-	for _, definition := range definitions {
-		attributes = append(attributes, AttributeDefinitionResponse{
-			ID:          definition.ID,
-			Name:        definition.Name,
-			Label:       definition.Label,
-			Description: definition.Description,
-			DataType:    string(definition.DataType),
-			Unit:        definition.Unit,
-			//Required:    definition.Required,
-		})
-	}
-
-	return &ProductModelResponse{
+func (s *serviceImpl) buildProductModelResponse(dataM map[uint][]model.ResourceAttribute, entity *model.ProductModel) *ProductModelResponse {
+	prs := &ProductModelResponse{
 		ID:          entity.ID,
 		ResourceID:  entity.ResourceID,
-		Name:        resourceEntity.ResourceName,
 		Code:        entity.Code,
 		Version:     entity.Version,
 		Category:    entity.Category,
 		Description: entity.Description,
-		Status:      string(resourceEntity.ResourceStatus),
-		Attributes:  attributes,
 		CreatedAt:   entity.CreatedAt,
 		UpdatedAt:   entity.UpdatedAt,
-	}, nil
+	}
+	
+	if  v, has:= dataM[prs.ID]; has{
+		prs.Attributes = make([]AttributeResponse, 0, len(v))
+		for _, attr := range v {
+			prs.Attributes = append(prs.Attributes, AttributeResponse{
+				ID:          attr.ID,
+				Name:        attr.AttributeDefinition.Name,
+				Label:       attr.AttributeDefinition.Label,
+				Description: attr.AttributeDefinition.Description,
+				DataType:    string(attr.AttributeDefinition.DataType),
+				Unit:        attr.AttributeDefinition.Unit,
+			})
+			prs.Name = attr.Resource.ResourceName
+			prs.Status = string(attr.Resource.ResourceStatus)
+		}
+	}
+
+	return prs
 }
+
+type UpdateProductResponse struct {
+
+}
+
 
 func validateAttributeDefinitions(attributes map[string]AttributeDefinitionRequest) error {
 	seen := make(map[string]struct{}, len(attributes))
