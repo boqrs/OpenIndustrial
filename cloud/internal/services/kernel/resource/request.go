@@ -36,7 +36,7 @@ type CreateResource struct {
 	Status       string                 `json:"status" binding:"required,oneof=active inactive archived pending PROVISIONED ONBOARDED OFFLINE DECOMMISSIONED"`
 	Metadata     []byte                 `json:"metadata,omitempty"`
 	ParentID     *uint             `json:"parent_id,omitempty"`
-	OwnerGroupID *uuid.UUID             `json:"owner_group_id,omitempty"`
+	OwnerGroupID *uuid.UUID             `json:"owner_group_id,omitempty"`//TODO: 这个字段是什么
 	//Attributes   map[string]interface{} `json:"attributes,omitempty"`
 	TenantID     uuid.UUID              `json:"-"`
 }

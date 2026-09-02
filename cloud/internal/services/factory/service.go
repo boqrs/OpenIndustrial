@@ -357,9 +357,7 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 		return errors.New("request is nil")
 	}
 
-	// TODO: tenantID should be properly extracted from context
-	tenantID := uuid.Nil // Placeholder
-
+	tenantID := pkg.TenantIDFromContext(ctx) 
 	node, err := s.resourceSvc.GetResourceByID(ctx, tenantID, req.ResourceID)
 	if err != nil {
 		return ErrNodeNotFound
@@ -390,8 +388,7 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 }
 
 func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uint) error {
-	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDFromContext(ctx) // Placeholder
+	tenantID := pkg.TenantIDFromContext(ctx) 
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
@@ -422,8 +419,7 @@ func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uint) (*Factory
 		return nil, ErrFactoryNotFound
 	}
 
-	// TODO: tenantID should be properly extracted from context
-	tenantID := uuid.Nil // Placeholder
+	tenantID := pkg.TenantIDFromContext(ctx)
 
 	factoryResource, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
