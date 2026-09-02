@@ -78,22 +78,21 @@ func (r *WorkOrderRepository) Update(ctx context.Context, entity *model.WorkOrde
 	return r.db.Get().WithContext(ctx).Save(entity).Error
 }
 
-func (r *WorkOrderRepository) SumPlannedQuantityByPlanID(ctx context.Context, tenantID uuid.UUID, productionPlanID uint) (int64, error) {
-	var total int64
+// SumQuantityByPlanID calculates the total planned quantity of all work orders for a given production plan.
+// This is a P0 fix to ensure work order quantity does not exceed the production plan's total quantity.
+func (r *WorkOrderRepository) SumQuantityByPlanID(ctx context.Context, tenantID uuid.UUID, productionPlanID uint) (int64, error) {
+	var totalQuantity int64
 	err := r.db.Get().WithContext(ctx).
 		Model(&model.WorkOrder{}).
 		Where("tenant_id = ? AND production_plan_id = ?", tenantID, productionPlanID).
-		Where("status <> ?", model.WorkOrderStatusCancelled).
 		Select("COALESCE(SUM(planned_quantity), 0)").
-		Scan(&total).
-		Error
-
+		Row().
+		Scan(&totalQuantity)
 	if err != nil {
 		return 0, err
 	}
-	return total, nil
+	return totalQuantity, nil
 }
-
 func (r *WorkOrderRepository) Delete(ctx context.Context, tenantID uuid.UUID, id uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
