@@ -77,9 +77,7 @@ func (s *serviceImpl) CreateFactory(ctx context.Context, req *CreateFactoryReque
 		return nil, fmt.Errorf("check factory code: %w", err)
 	}
 
-	// TODO: tenantID should be properly extracted from context
-	tenantID := uuid.Nil // Placeholder
-
+	tenantID := pkg.TenantIDFromContext(ctx) 
 	resourceEntity, err := s.resourceSvc.CreateResource(ctx, &resource.CreateResource{
 		TenantID: tenantID,
 		Type:     string(resource.ResourceTypeFactory),
@@ -113,8 +111,7 @@ func (s *serviceImpl) GetFactory(ctx context.Context, factoryID uint) (*FactoryR
 		return nil, ErrFactoryNotFound
 	}
 
-	// TODO: tenantID should be properly extracted from context
-	tenantID := uuid.Nil // Placeholder
+	tenantID := pkg.TenantIDFromContext(ctx) // Placeholder
 
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
@@ -132,9 +129,6 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uint, req *Up
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
-
-	//tid := tenantIDFromContext(ctx)
-
 	factory, err := s.repository.GetByID(ctx, factoryID)
 	if err != nil {
 		return nil, ErrFactoryNotFound
@@ -234,7 +228,7 @@ func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uint) error {
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromContext(ctx)
 	if err := s.resourceSvc.DeleteResource(ctx, tenantID, factory.ResourceID); err != nil {
 		// Note: The factory entry is already deleted, this could lead to orphaned resources.
 		// A transaction would be ideal here.
@@ -265,7 +259,7 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromContext(ctx)
 	parentResourceID := factory.ResourceID // Default parent is the factory itself
 	if req.ParentResourceID != nil {
 		parentResourceID = *req.ParentResourceID
@@ -306,7 +300,7 @@ func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uint, r
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromContext(ctx)
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
 		return nil, ErrNodeNotFound
@@ -597,18 +591,4 @@ func decodeMetadata(value []byte) map[string]interface{} {
 		return nil // Should probably log this error
 	}
 	return result
-}
-
-// tenantIDFromContext is a placeholder for getting the tenant ID from the context.
-// This should be replaced with the actual implementation from your auth/context logic.
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-	// In a real application, you would extract this from a JWT token or similar.
-	val := ctx.Value("tenant_id")
-	if val != nil {
-		if id, ok := val.(uuid.UUID); ok {
-			return id
-		}
-	}
-	// Fallback for testing or unauthenticated contexts
-	return uuid.Nil
 }
