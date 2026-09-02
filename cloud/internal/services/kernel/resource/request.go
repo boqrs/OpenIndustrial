@@ -10,10 +10,8 @@ type ResourceType string
 const (
 	// Factory-related resource types
 	ResourceTypeFactory        ResourceType = "FACTORY"
-	ResourceTypeWorkshop       ResourceType = "WORKSHOP"
 	ResourceTypeProductionLine ResourceType = "PRODUCTION_LINE"
-	ResourceTypeProductionCell ResourceType = "PRODUCTION_CELL"
-	ResourceTypeWorkCenter     ResourceType = "WORK_CENTER"
+	ResourceTypeWorkStation     ResourceType = "WORK_STATION"
 
 	// Device-related resource types
 	ResourceTypeDevice     ResourceType = "DEVICE"

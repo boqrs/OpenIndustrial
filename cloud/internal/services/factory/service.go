@@ -30,10 +30,8 @@ var (
 
 // topologyTypes defines the allowed resource types for topology nodes in this first phase.
 var topologyTypes = map[resource.ResourceType]struct{}{
-	resource.ResourceTypeWorkshop:       {},
 	resource.ResourceTypeProductionLine: {},
-	resource.ResourceTypeProductionCell: {},
-	resource.ResourceTypeWorkCenter:     {},
+	resource.ResourceTypeWorkStation:     {},
 }
 
 // serviceImpl implements the Service interface.
@@ -455,23 +453,16 @@ func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uuid.
 
 	// Parent validation rules
 	switch childType {
-	case resource.ResourceTypeWorkshop:
-		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeFactory {
+	case resource.ResourceTypeWorkStation:
+		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeProductionLine {
 			return ErrInvalidParent
 		}
 	case resource.ResourceTypeProductionLine:
-		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeWorkshop {
-			return ErrInvalidParent
-		}
-	case resource.ResourceTypeProductionCell:
-		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeWorkshop && parent.ResourceType != string(resource.ResourceTypeProductionLine) {
-			return ErrInvalidParent
-		}
-	case resource.ResourceTypeWorkCenter:
-		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeProductionLine && parent.ResourceType != string(resource.ResourceTypeProductionCell) {
+		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeWorkStation {
 			return ErrInvalidParent
 		}
 	}
+
 
 	return nil
 }
