@@ -2,13 +2,15 @@ package execution
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 	"sort"
+	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution/executors"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/google/uuid"
@@ -76,6 +78,7 @@ type serviceImpl struct {
 	repository   Repository
 	workOrderSvc workorder.Service
 	routingSvc   routing.Service
+	executorRegistry *executors.OperationExecutorRegistry
 }
 
 // NewService creates the production execution service.
@@ -83,11 +86,14 @@ func NewService(
 	repository Repository,
 	workOrderSvc workorder.Service,
 	routingService routing.Service,
+	executorRegistry *executors.OperationExecutorRegistry,
 ) Service {
+
 	return &serviceImpl{
 		repository:   repository,
 		workOrderSvc: workOrderSvc,
 		routingSvc:   routingService,
+		executorRegistry: executorRegistry,
 	}
 }
 
@@ -218,6 +224,8 @@ func (s *serviceImpl) CreateExecution(
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
+				//WorkstationID:      op.WorkstationID, // 快照 WorkstationID
+				//Parameters:         op.Parameters,   // 快照 Parameters
 				///Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},
@@ -573,15 +581,66 @@ func (s *serviceImpl) StartOperation(
 		previousOperation := operations[currentIndex-1]
 
 		// A required preceding operation must be completed or skipped.
-		if //previousOperation.Required &&
-			previousOperation.Status != model.ExecutionOperationStatusCompleted &&
+		if previousOperation.Status != model.ExecutionOperationStatusCompleted &&
 			previousOperation.Status != model.ExecutionOperationStatusSkipped {
-			return ErrPriorOperationIncomplete
+			return fmt.Errorf(
+				"previous operation %d is not completed or skipped",
+				previousOperation.ID,
+			)
 		}
 	} else if currentIndex == -1 {
 		// This should not happen if the operation was loaded correctly before.
 		return fmt.Errorf("consistency error: current operation ID %d not found in its own execution %d", op.ID, executionID)
 	}
+
+		// -------------------------------------------------------------------------
+	// 5. Resolve Executor
+	// -------------------------------------------------------------------------
+
+	executor, ok := s.executorRegistry.Get(op.Code)
+	if !ok {
+		return fmt.Errorf(
+			"executor not found for operation code: %s",
+			op.Code,
+		)
+	}
+
+	// -------------------------------------------------------------------------
+	// 6. Build OperationInput
+	// -------------------------------------------------------------------------
+	
+	var parameters map[string]any
+	if len(op.Parameters) > 0 {
+		if err := json.Unmarshal(op.Parameters, &parameters); err != nil {
+			return fmt.Errorf(
+				"invalid operation parameters for operation %d: %w",
+				op.ID,
+				err,
+			)
+		}
+	}
+
+	input := &executors.OperationInput{
+		ExecutionID:          exec.ID,
+		ExecutionOperationID: op.ID,
+		WorkOrderID:          exec.WorkOrderID,
+		ProductID:            exec.ProductID,
+		DeviceID:             exec.DeviceID,
+		Parameters:           parameters,
+	}
+
+	// -------------------------------------------------------------------------
+	// 7. Validate Operation with Executor
+	// -------------------------------------------------------------------------
+
+	if err := executor.Validate(ctx, input); err != nil {
+		return fmt.Errorf(
+			"operation %d validation failed: %w",
+			op.ID,
+			err,
+		)
+	}
+
 
 	// -------------------------------------------------------------------------
 	// 5. Start Operation
@@ -678,7 +737,12 @@ func (s *serviceImpl) CompleteOperation(
 	// The current model/repository does not currently expose a guaranteed
 	// Result persistence field in this service contract. Keep the result at
 	// the application boundary until that capability is intentionally added.
-	_ = result
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("marshal operation result: %w", err)
+	}
+	op.Result = resultJSON
+
 
 	if err := s.repository.UpdateOperation(
 		ctx,
@@ -758,7 +822,11 @@ func (s *serviceImpl) FailOperation(
 	op.Status = model.ExecutionOperationStatusFailed
 	op.CompletedAt = &now
 
-	_ = result
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("marshal operation result: %w", err)
+	}
+	op.Result = resultJSON
 
 	if err := s.repository.UpdateOperation(
 		ctx,
