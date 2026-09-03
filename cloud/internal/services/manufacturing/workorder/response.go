@@ -4,13 +4,14 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
+// Response defines the standard structure for a work order API response.
 type Response struct {
 	ID               uint                    `json:"id"`
-	ResourceID     uint               `json:"resource_uuid"`
-	TenantID         uuid.UUID               `json:"tenant_id"`
+	TenantID         string                  `json:"tenant_id"`
+	FactoryID        uint                    `json:"factory_id"`
+	ProductionLineID uint                    `json:"production_line_id"`
 	ProductionPlanID uint                    `json:"production_plan_id"`
 	ProductID        uint                    `json:"product_id"`
 	BOMID            uint                    `json:"bom_id"`
@@ -18,7 +19,7 @@ type Response struct {
 	Code             string                  `json:"code"`
 	PlannedQuantity  int64                   `json:"planned_quantity"`
 	Priority         int                     `json:"priority"`
-	DueDate          *time.Time              `json:"due_date"`
+	DueDate          *time.Time              `json:"due_date,omitempty"`
 	Status           model.WorkOrderStatus   `json:"status"`
 	StartedAt        *time.Time              `json:"started_at,omitempty"`
 	CompletedAt      *time.Time              `json:"completed_at,omitempty"`
@@ -26,14 +27,16 @@ type Response struct {
 	UpdatedAt        time.Time               `json:"updated_at"`
 }
 
+// ToResponse converts a model.WorkOrder entity to a Response DTO.
 func ToResponse(wo *model.WorkOrder) *Response {
 	if wo == nil {
 		return nil
 	}
 	return &Response{
 		ID:               wo.ID,
-		ResourceID:     wo.ResourceID,
-		TenantID:         wo.TenantID,
+		TenantID:         wo.TenantID.String(),
+		FactoryID:        wo.FactoryID,
+		ProductionLineID: wo.ProductionLineID,
 		ProductionPlanID: wo.ProductionPlanID,
 		ProductID:        wo.ProductID,
 		BOMID:            wo.BOMID,
@@ -50,10 +53,14 @@ func ToResponse(wo *model.WorkOrder) *Response {
 	}
 }
 
-func ToResponses(wos []*model.WorkOrder) []*Response {
-	responses := make([]*Response, 0, len(wos))
-	for _, wo := range wos {
-		responses = append(responses, ToResponse(wo))
+// ToListResponse converts a slice of model.WorkOrder entities to a slice of Response DTOs.
+func ToListResponse(wos []*model.WorkOrder) []*Response {
+	if wos == nil {
+		return nil
 	}
-	return responses
+	res := make([]*Response, 0, len(wos))
+	for _, wo := range wos {
+		res = append(res, ToResponse(wo))
+	}
+	return res
 }

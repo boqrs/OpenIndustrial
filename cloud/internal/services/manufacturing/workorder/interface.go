@@ -14,6 +14,7 @@ type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID, productID *uint, offset, limit int) ([]*model.WorkOrder, error)
 	Count(ctx context.Context, tenantID uuid.UUID, productID uint) (int64, error)
 	Update(ctx context.Context, workOrder *model.WorkOrder) error
+	SumQuantityByPlanID(ctx context.Context, tenantID uuid.UUID, productionPlanID uint) (int64, error)
 }
 type Service interface {
 	Create(ctx context.Context, tenantID uuid.UUID, req *CreateRequest) (*Response, error)
