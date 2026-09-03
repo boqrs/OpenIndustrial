@@ -102,7 +102,7 @@ func (h *Handler) list(c *gin.Context) ginx.Render {
 		req.ProductID = uint(productID)
 	}
 
-	resp, _, err := h.service.List(c.Request.Context(), &req)
+	resp, err := h.service.List(c.Request.Context(), &req)
 	if err != nil {
 		return ginx.Error(err)
 	}

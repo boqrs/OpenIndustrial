@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 )
 
 // Response defines the standard structure for a work order API response.
@@ -26,6 +27,13 @@ type Response struct {
 	CreatedAt        time.Time               `json:"created_at"`
 	UpdatedAt        time.Time               `json:"updated_at"`
 }
+
+type ListResp struct{
+ Detail []*Response `json:"detail"`
+ pkg.PageBaseResp
+}
+
+
 
 // ToResponse converts a model.WorkOrder entity to a Response DTO.
 func ToResponse(wo *model.WorkOrder) *Response {
@@ -53,14 +61,14 @@ func ToResponse(wo *model.WorkOrder) *Response {
 	}
 }
 
-// ToListResponse converts a slice of model.WorkOrder entities to a slice of Response DTOs.
-func ToListResponse(wos []*model.WorkOrder) []*Response {
-	if wos == nil {
-		return nil
-	}
-	res := make([]*Response, 0, len(wos))
-	for _, wo := range wos {
-		res = append(res, ToResponse(wo))
-	}
-	return res
-}
+// // ToListResponse converts a slice of model.WorkOrder entities to a slice of Response DTOs.
+// func ToListResponse(wos []*model.WorkOrder) []*Response {
+// 	if wos == nil {
+// 		return nil
+// 	}
+// 	res := make([]*Response, 0, len(wos))
+// 	for _, wo := range wos {
+// 		res = append(res, ToResponse(wo))
+// 	}
+// 	return res
+// }

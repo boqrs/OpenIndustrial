@@ -165,19 +165,31 @@ func (s *serviceImpl) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) 
 	return ToResponse(entity), nil
 }
 
-func (s *serviceImpl) List(ctx context.Context, req *ListRequest) ([]*Response, int64, error) {
-	offset := (req.Page - 1) * req.PageSize
+func (s *serviceImpl) List(ctx context.Context, req *ListRequest) (*ListResp, error) {
+	offset := (req.CurrentPage - 1) * req.PageSize
 	entities, err := s.repository.List(ctx, req.TenantID, &req.ProductID, offset, req.PageSize)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to list work orders: %w", err)
+		return nil, fmt.Errorf("failed to list work orders: %w", err)
 	}
 
 	total, err := s.repository.Count(ctx, req.TenantID, req.ProductID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count work orders: %w", err)
+		return nil, fmt.Errorf("failed to count work orders: %w", err)
 	}
 
-	return ToListResponse(entities), total, nil
+	res := make([]*Response, 0, len(entities))
+	for _, wo := range entities {
+		res = append(res, ToResponse(wo))
+	}
+	var resp ListResp
+	resp.Detail = res
+	resp.Total = total
+
+	if (int(total) > (offset+len(entities))){
+		resp.Next = true
+	}
+
+	return &resp, nil
 }
 
 func (s *serviceImpl) Update(ctx context.Context, tenantID uuid.UUID, id uint, req *UpdateRequest) (*Response, error) {

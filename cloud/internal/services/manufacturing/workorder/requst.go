@@ -3,6 +3,7 @@ package workorder
 import (
 	"time"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/google/uuid"
 )
 
@@ -32,6 +33,5 @@ type UpdateRequest struct {
 type ListRequest struct {
 	TenantID  uuid.UUID `json:"-"`
 	ProductID uint `json:"product_id"`
-	Page      int       `json:"page"`
-	PageSize  int       `json:"page_size"`
+	pkg.BasePageReq
 }

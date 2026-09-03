@@ -19,7 +19,7 @@ type Repository interface {
 type Service interface {
 	Create(ctx context.Context, tenantID uuid.UUID, req *CreateRequest) (*Response, error)
 	GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*Response, error)
-	List(ctx context.Context, req *ListRequest) ([]*Response, int64, error)
+	List(ctx context.Context, req *ListRequest) (*ListResp, error)
 	Update(ctx context.Context, tenantID uuid.UUID, id uint, req *UpdateRequest) (*Response, error)
 	Release(ctx context.Context, tenantID uuid.UUID, id uint) error
 	Start(ctx context.Context, tenantID uuid.UUID, id uint) error
