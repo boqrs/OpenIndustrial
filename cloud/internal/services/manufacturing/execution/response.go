@@ -29,7 +29,6 @@ type OperationResponse struct {
 	ID             uint                       `json:"id"`
 	ExecutionID    uint                            `json:"executionId"`
 	Sequence       int                             `json:"sequence"`
-	WorkCenterID   uint                            `json:"workCenterId"`
 	Status         model.ExecutionOperationStatus  `json:"status"`
 	Result         map[string]any                  `json:"result,omitempty"`
 	StartedAt      *time.Time                      `json:"startedAt,omitempty"`

@@ -66,6 +66,11 @@ type ExecutionOperation struct {
 	Description string `gorm:"type:text"`
 	WorkstationID *uint `gorm:"index"`
 	Status ExecutionOperationStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
+	    // Snapshot of the routing operation definition.
+    Parameters []byte `gorm:"type:jsonb"`
+
+    // Actual result produced by the operation executor.
+    Result []byte `gorm:"type:jsonb"`
 	StartedAt *time.Time
 	CompletedAt *time.Time
 	CreatedAt time.Time

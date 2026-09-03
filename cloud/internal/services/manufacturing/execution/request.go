@@ -5,7 +5,6 @@ import "github.com/google/uuid"
 type CreateExecutionRequest struct {
 	WorkOrderID uint  `json:"workOrderId"`
 	DeviceID    *uint `json:"deviceId,omitempty"`
-	//Quantity    int64 `json:"quantity"`
 }
 
 
@@ -15,7 +14,7 @@ type RoutingOperationSnapshot struct {
 	Code                    string
 	Name                    string
 	Description             string
-	WorkstationID           *uuid.UUID
+	WorkstationID           uint
 	StandardDurationSeconds int
 	Required                bool
 	Parameters              map[string]any

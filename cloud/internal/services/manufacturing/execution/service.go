@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"sort"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
@@ -205,6 +206,8 @@ func (s *serviceImpl) CreateExecution(
 		if op == nil {
 			continue
 		}
+		//TODO: routing需要增加参数
+	   // parameters := append([]byte(nil), op.Parameters...)
 
 		operations = append(
 			operations,
@@ -215,6 +218,7 @@ func (s *serviceImpl) CreateExecution(
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
+				///Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},
 		)
@@ -544,45 +548,39 @@ func (s *serviceImpl) StartOperation(
 	// 4. Validate previous operation
 	// -------------------------------------------------------------------------
 
-	if op.Sequence > 1 {
+	// Fetch all sibling operations to determine the correct execution order.
+	operations, err := s.repository.ListOperations(ctx, executionID)
+	if err != nil {
+		return fmt.Errorf("failed to list execution operations for sequence validation: %w", err)
+	}
 
-		operations, err := s.repository.ListOperations(
-			ctx,
-			executionID,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to list execution operations: %w",
-				err,
-			)
-		}
+	// Sort operations by sequence to establish the definitive order.
+	sort.Slice(operations, func(i, j int) bool {
+		return operations[i].Sequence < operations[j].Sequence
+	})
 
-		previousFound := false
-
-		for _, previous := range operations {
-
-			if previous == nil {
-				continue
-			}
-
-			// if previous.Sequence != op.Sequence-1 {
-			// 	continue
-			// }
-
-			previousFound = true
-
-			if previous.Status != model.ExecutionOperationStatusCompleted &&
-				previous.Status != model.ExecutionOperationStatusSkipped {
-
-				return ErrPriorOperationIncomplete
-			}
-
+	// Find the index of the current operation in the sorted list.
+	currentIndex := -1
+	for i, operation := range operations {
+		if operation.ID == op.ID {
+			currentIndex = i
 			break
 		}
+	}
 
-		if !previousFound {
+	// If the operation is not the first one in the sequence, check its predecessor.
+	if currentIndex > 0 {
+		previousOperation := operations[currentIndex-1]
+
+		// A required preceding operation must be completed or skipped.
+		if //previousOperation.Required &&
+			previousOperation.Status != model.ExecutionOperationStatusCompleted &&
+			previousOperation.Status != model.ExecutionOperationStatusSkipped {
 			return ErrPriorOperationIncomplete
 		}
+	} else if currentIndex == -1 {
+		// This should not happen if the operation was loaded correctly before.
+		return fmt.Errorf("consistency error: current operation ID %d not found in its own execution %d", op.ID, executionID)
 	}
 
 	// -------------------------------------------------------------------------
