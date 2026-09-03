@@ -5,7 +5,7 @@ import "github.com/google/uuid"
 type CreateExecutionRequest struct {
 	WorkOrderID uint  `json:"workOrderId"`
 	DeviceID    *uint `json:"deviceId,omitempty"`
-	Quantity    int64 `json:"quantity"`
+	//Quantity    int64 `json:"quantity"`
 }
 
 

@@ -66,13 +66,13 @@ var (
 		"prior operation is not yet complete",
 	)
 
-	ErrExecutionQuantityExceeded = errors.New(
-		"execution quantity exceeds remaining work order quantity",
-	)
+	// ErrExecutionQuantityExceeded = errors.New(
+	// 	"execution quantity exceeds remaining work order quantity",
+	// )
 
-	ErrInvalidExecutionQuantity = errors.New(
-		"execution quantity must be greater than zero",
-	)
+	// ErrInvalidExecutionQuantity = errors.New(
+	// 	"execution quantity must be greater than zero",
+	// )
 )
 
 // -----------------------------------------------------------------------------
@@ -122,9 +122,9 @@ func (s *serviceImpl) CreateExecution(
 		return nil, ErrWorkOrderNotFound
 	}
 
-	if req.Quantity <= 0 {
-		return nil, ErrInvalidExecutionQuantity
-	}
+	// if req.Quantity <= 0 {
+	// 	return nil, ErrInvalidExecutionQuantity
+	// }
 
 	// -------------------------------------------------------------------------
 	// 1. Load WorkOrder
@@ -162,14 +162,14 @@ func (s *serviceImpl) CreateExecution(
 	// The next execution cannot request more than 30.
 	// -------------------------------------------------------------------------
 
-	if err := s.validateExecutionQuantity(
-		ctx,
-		tenantID,
-		wo,
-		req.Quantity,
-	); err != nil {
-		return nil, err
-	}
+	// if err := s.validateExecutionQuantity(
+	// 	ctx,
+	// 	tenantID,
+	// 	wo,
+	// 	//req.Quantity,
+	// ); err != nil {
+	// 	return nil, err
+	// }
 
 	// -------------------------------------------------------------------------
 	// 4. Load Routing
@@ -866,56 +866,56 @@ func (s *serviceImpl) ListOperations(
 //
 // Only completed and in-progress executions consume the WorkOrder quantity.
 // Cancelled and pending executions do not count as produced quantity.
-func (s *serviceImpl) validateExecutionQuantity(
-	ctx context.Context,
-	tenantID uuid.UUID,
-	wo *workorder.Response,
-	requestedQuantity int64,
-) error {
+// func (s *serviceImpl) validateExecutionQuantity(
+// 	ctx context.Context,
+// 	tenantID uuid.UUID,
+// 	wo *workorder.Response,
+// 	requestedQuantity int64,
+// ) error {
 
-	if requestedQuantity <= 0 {
-		return ErrInvalidExecutionQuantity
-	}
+// 	if requestedQuantity <= 0 {
+// 		return ErrInvalidExecutionQuantity
+// 	}
 
-	executions, err := s.repository.ListExecutions(
-		ctx,
-		tenantID,
-		&wo.ID,
-		nil,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to list existing executions: %w",
-			err,
-		)
-	}
+// 	executions, err := s.repository.ListExecutions(
+// 		ctx,
+// 		tenantID,
+// 		&wo.ID,
+// 		nil,
+// 		nil,
+// 	)
+// 	if err != nil {
+// 		return fmt.Errorf(
+// 			"failed to list existing executions: %w",
+// 			err,
+// 		)
+// 	}
 
-	var consumedQuantity int64
+// 	var consumedQuantity int64
 
-	for _, execution := range executions {
+// 	for _, execution := range executions {
 
-		if execution == nil {
-			continue
-		}
+// 		if execution == nil {
+// 			continue
+// 		}
 
-		switch execution.Status {
+// 		switch execution.Status {
 
-		case model.ProductionExecutionStatusInProgress,
-			model.ProductionExecutionStatusCompleted:
+// 		case model.ProductionExecutionStatusInProgress,
+// 			model.ProductionExecutionStatusCompleted:
 
-			//consumedQuantity += execution.Quantity
-		}
-	}
+// 			//consumedQuantity += execution.Quantity
+// 		}
+// 	}
 
-	remainingQuantity := int64(wo.PlannedQuantity) - consumedQuantity
+// 	remainingQuantity := int64(wo.PlannedQuantity) - consumedQuantity
 
-	if requestedQuantity > remainingQuantity {
-		return ErrExecutionQuantityExceeded
-	}
+// 	if requestedQuantity > remainingQuantity {
+// 		return ErrExecutionQuantityExceeded
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // tryCompleteExecution checks whether every operation belonging to an
 // execution has reached a terminal successful state.
