@@ -13,7 +13,6 @@ type ExecutionResponse struct {
 	TenantID     uuid.UUID                       `json:"tenantId"`
 	WorkOrderID  uint                            `json:"workOrderId"`
 	DeviceID     *uint                           `json:"deviceId,omitempty"`
-	Quantity     int64                           `json:"quantity"`
 	Status       model.ProductionExecutionStatus `json:"status"`
 	StartedAt    *time.Time                      `json:"startedAt,omitempty"`
 	CompletedAt  *time.Time                      `json:"completedAt,omitempty"`

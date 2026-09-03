@@ -17,8 +17,8 @@ type Repository interface {
 	CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error)
 
 	// Operation methods
-	GetOperation(ctx context.Context, tenantID uuid.UUID, executionID, operationID uint) (*model.ExecutionOperation, error)
-	ListOperations(ctx context.Context, tenantID uuid.UUID, executionID uint) ([]*model.ExecutionOperation, error)
+	GetOperation(ctx context.Context, executionID, operationID uint) (*model.ExecutionOperation, error)
+	ListOperations(ctx context.Context,executionID uint) ([]*model.ExecutionOperation, error)
 	UpdateOperation(ctx context.Context, operation *model.ExecutionOperation) error
 	GetCurrentOperation(ctx context.Context, tenantID uuid.UUID, executionID uint) (*model.ExecutionOperation, error)
 }

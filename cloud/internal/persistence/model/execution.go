@@ -68,7 +68,6 @@ type ExecutionOperation struct {
 	Status ExecutionOperationStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
 	StartedAt *time.Time
 	CompletedAt *time.Time
-
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`

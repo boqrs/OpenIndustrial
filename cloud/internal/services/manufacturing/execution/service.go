@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	"github.com/google/uuid"
 )
 
 // -----------------------------------------------------------------------------
@@ -65,14 +65,6 @@ var (
 	ErrPriorOperationIncomplete = errors.New(
 		"prior operation is not yet complete",
 	)
-
-	// ErrExecutionQuantityExceeded = errors.New(
-	// 	"execution quantity exceeds remaining work order quantity",
-	// )
-
-	// ErrInvalidExecutionQuantity = errors.New(
-	// 	"execution quantity must be greater than zero",
-	// )
 )
 
 // -----------------------------------------------------------------------------
@@ -112,23 +104,16 @@ func (s *serviceImpl) CreateExecution(
 	req *CreateExecutionRequest,
 ) (*ExecutionResponse, error) {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("tenant ID not found in context")
+	}
 	if req == nil {
 		return nil, ErrInvalidExecutionState
 	}
-
 	if req.WorkOrderID == 0 {
 		return nil, ErrWorkOrderNotFound
 	}
-
-	// if req.Quantity <= 0 {
-	// 	return nil, ErrInvalidExecutionQuantity
-	// }
-
-	// -------------------------------------------------------------------------
-	// 1. Load WorkOrder
-	// -------------------------------------------------------------------------
 
 	wo, err := s.workOrderSvc.GetByID(
 		ctx,
@@ -139,43 +124,12 @@ func (s *serviceImpl) CreateExecution(
 		return nil, ErrWorkOrderNotFound
 	}
 
-	// -------------------------------------------------------------------------
-	// 2. Validate WorkOrder state
-	// -------------------------------------------------------------------------
 
 	if wo.Status != model.WorkOrderStatusReleased &&
 		wo.Status != model.WorkOrderStatusInProgress {
 
 		return nil, ErrWorkOrderNotExecutable
 	}
-
-	// -------------------------------------------------------------------------
-	// 3. Validate remaining quantity
-	//
-	// A WorkOrder may have multiple executions:
-	//
-	//     WO = 100
-	//       Execution A = 30
-	//       Execution B = 40
-	//       remaining  = 30
-	//
-	// The next execution cannot request more than 30.
-	// -------------------------------------------------------------------------
-
-	// if err := s.validateExecutionQuantity(
-	// 	ctx,
-	// 	tenantID,
-	// 	wo,
-	// 	//req.Quantity,
-	// ); err != nil {
-	// 	return nil, err
-	// }
-
-	// -------------------------------------------------------------------------
-	// 4. Load Routing
-	//
-	// Routing is derived from WorkOrder, not supplied by the caller.
-	// -------------------------------------------------------------------------
 
 	rt, err := s.routingSvc.GetRouting(
 		ctx,
@@ -221,14 +175,12 @@ func (s *serviceImpl) CreateExecution(
 	// -------------------------------------------------------------------------
 
 	entity := &model.ProductionExecution{
-		//ResourceUUID:   uuid.New(),
 		TenantID:       tenantID,
 		WorkOrderID:    wo.ID,
 		ProductID:       wo.ProductID,
 		RoutingID:      wo.RoutingID,
 		RoutingVersion: rt.Version,
 		DeviceID:       req.DeviceID,
-		//Quantity:       req.Quantity,
 		Status:         model.ProductionExecutionStatusPending,
 	}
 
@@ -299,7 +251,10 @@ func (s *serviceImpl) GetExecution(
 	id uint,
 ) (*ExecutionResponse, error) {
 
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("tenant ID not found in context")
+	}
 
 	entity, err := s.repository.GetExecutionByID(
 		ctx,
@@ -325,8 +280,10 @@ func (s *serviceImpl) ListExecutions(
 	status *model.ProductionExecutionStatus,
 ) ([]*ExecutionResponse, error) {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("tenant ID not found in context")
+	}
 	entities, err := s.repository.ListExecutions(
 		ctx,
 		tenantID,
@@ -367,8 +324,10 @@ func (s *serviceImpl) StartExecution(
 	id uint,
 ) error {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID not found in context")
+	}
 	// -------------------------------------------------------------------------
 	// 1. Load execution
 	// -------------------------------------------------------------------------
@@ -482,8 +441,10 @@ func (s *serviceImpl) CancelExecution(
 	id uint,
 ) error {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID not found in context")
+	}
 	exec, err := s.repository.GetExecutionByID(
 		ctx,
 		tenantID,
@@ -521,13 +482,6 @@ func (s *serviceImpl) CancelExecution(
 // -----------------------------------------------------------------------------
 // Operation
 // -----------------------------------------------------------------------------
-
-// StartOperation starts one execution operation.
-//
-// Operations must be executed sequentially:
-//
-//     10 → 20 → 30 → ...
-//
 // An operation cannot start until its immediately preceding operation has
 // completed or been skipped.
 func (s *serviceImpl) StartOperation(
@@ -536,8 +490,10 @@ func (s *serviceImpl) StartOperation(
 	operationID uint,
 ) error {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID not found in context")
+	}
 	// -------------------------------------------------------------------------
 	// 1. Validate Execution
 	// -------------------------------------------------------------------------
@@ -565,7 +521,6 @@ func (s *serviceImpl) StartOperation(
 
 	op, err := s.repository.GetOperation(
 		ctx,
-		tenantID,
 		executionID,
 		operationID,
 	)
@@ -593,7 +548,6 @@ func (s *serviceImpl) StartOperation(
 
 		operations, err := s.repository.ListOperations(
 			ctx,
-			tenantID,
 			executionID,
 		)
 		if err != nil {
@@ -611,9 +565,9 @@ func (s *serviceImpl) StartOperation(
 				continue
 			}
 
-			if previous.Sequence != op.Sequence-1 {
-				continue
-			}
+			// if previous.Sequence != op.Sequence-1 {
+			// 	continue
+			// }
 
 			previousFound = true
 
@@ -664,8 +618,10 @@ func (s *serviceImpl) CompleteOperation(
 	result map[string]any,
 ) error {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return  fmt.Errorf("tenant ID not found in context")
+	}
 	// -------------------------------------------------------------------------
 	// 1. Validate Execution
 	// -------------------------------------------------------------------------
@@ -693,7 +649,6 @@ func (s *serviceImpl) CompleteOperation(
 
 	op, err := s.repository.GetOperation(
 		ctx,
-		tenantID,
 		executionID,
 		operationID,
 	)
@@ -762,8 +717,10 @@ func (s *serviceImpl) FailOperation(
 	result map[string]any,
 ) error {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return  fmt.Errorf("tenant ID not found in context")
+	}
 	exec, err := s.repository.GetExecutionByID(
 		ctx,
 		tenantID,
@@ -783,7 +740,6 @@ func (s *serviceImpl) FailOperation(
 
 	op, err := s.repository.GetOperation(
 		ctx,
-		tenantID,
 		executionID,
 		operationID,
 	)
@@ -825,11 +781,10 @@ func (s *serviceImpl) ListOperations(
 	executionID uint,
 ) ([]*OperationResponse, error) {
 
-	tenantID := tenantIDFromContext(ctx)
+	//tenantID := tenantIDFromContext(ctx)
 
 	entities, err := s.repository.ListOperations(
 		ctx,
-		tenantID,
 		executionID,
 	)
 	if err != nil {
@@ -857,82 +812,16 @@ func (s *serviceImpl) ListOperations(
 	return responses, nil
 }
 
-// -----------------------------------------------------------------------------
-// Internal business logic
-// -----------------------------------------------------------------------------
 
-// validateExecutionQuantity verifies that the requested execution quantity
-// does not exceed the remaining quantity of the WorkOrder.
-//
-// Only completed and in-progress executions consume the WorkOrder quantity.
-// Cancelled and pending executions do not count as produced quantity.
-// func (s *serviceImpl) validateExecutionQuantity(
-// 	ctx context.Context,
-// 	tenantID uuid.UUID,
-// 	wo *workorder.Response,
-// 	requestedQuantity int64,
-// ) error {
-
-// 	if requestedQuantity <= 0 {
-// 		return ErrInvalidExecutionQuantity
-// 	}
-
-// 	executions, err := s.repository.ListExecutions(
-// 		ctx,
-// 		tenantID,
-// 		&wo.ID,
-// 		nil,
-// 		nil,
-// 	)
-// 	if err != nil {
-// 		return fmt.Errorf(
-// 			"failed to list existing executions: %w",
-// 			err,
-// 		)
-// 	}
-
-// 	var consumedQuantity int64
-
-// 	for _, execution := range executions {
-
-// 		if execution == nil {
-// 			continue
-// 		}
-
-// 		switch execution.Status {
-
-// 		case model.ProductionExecutionStatusInProgress,
-// 			model.ProductionExecutionStatusCompleted:
-
-// 			//consumedQuantity += execution.Quantity
-// 		}
-// 	}
-
-// 	remainingQuantity := int64(wo.PlannedQuantity) - consumedQuantity
-
-// 	if requestedQuantity > remainingQuantity {
-// 		return ErrExecutionQuantityExceeded
-// 	}
-
-// 	return nil
-// }
-
-// tryCompleteExecution checks whether every operation belonging to an
-// execution has reached a terminal successful state.
-//
-// Terminal successful states:
-//
-//     Completed
-//     Skipped
-//
-// Failed is deliberately not considered successful.
 func (s *serviceImpl) tryCompleteExecution(
 	ctx context.Context,
 	executionID uint,
 ) error {
 
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID not found in context")
+	}
 	exec, err := s.repository.GetExecutionByID(
 		ctx,
 		tenantID,
@@ -952,7 +841,6 @@ func (s *serviceImpl) tryCompleteExecution(
 
 	operations, err := s.repository.ListOperations(
 		ctx,
-		tenantID,
 		executionID,
 	)
 	if err != nil {
@@ -994,102 +882,6 @@ func (s *serviceImpl) tryCompleteExecution(
 	); err != nil {
 		return fmt.Errorf(
 			"failed to complete execution: %w",
-			err,
-		)
-	}
-
-	// -------------------------------------------------------------------------
-	// Execution completion may cause WorkOrder completion.
-	// -------------------------------------------------------------------------
-
-	if err := s.tryCompleteWorkOrder(
-		ctx,
-		exec.WorkOrderID,
-	); err != nil {
-		return fmt.Errorf(
-			"failed to evaluate work order completion: %w",
-			err,
-		)
-	}
-
-	return nil
-}
-
-// tryCompleteWorkOrder checks whether the total completed execution quantity
-// has reached the WorkOrder planned quantity.
-//
-// Example:
-//
-//     WorkOrder = 100
-//
-//     Execution A = 30 completed
-//     Execution B = 40 completed
-//     Execution C = 30 completed
-//
-//     => WorkOrder Completed
-func (s *serviceImpl) tryCompleteWorkOrder(
-	ctx context.Context,
-	workOrderID uint,
-) error {
-
-	tenantID := tenantIDFromContext(ctx)
-
-	wo, err := s.workOrderSvc.GetByID(
-		ctx,
-		tenantID,
-		workOrderID,
-	)
-	if err != nil {
-		return ErrWorkOrderNotFound
-	}
-
-	if wo.Status == model.WorkOrderStatusCompleted ||
-		wo.Status == model.WorkOrderStatusCancelled {
-
-		return nil
-	}
-
-	executions, err := s.repository.ListExecutions(
-		ctx,
-		tenantID,
-		&workOrderID,
-		nil,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to list work order executions: %w",
-			err,
-		)
-	}
-
-	var completedQuantity int64
-
-	for _, execution := range executions {
-
-		if execution == nil {
-			continue
-		}
-
-		if execution.Status != model.ProductionExecutionStatusCompleted {
-			continue
-		}
-
-		//completedQuantity += execution.Quantity
-	}
-
-	if completedQuantity < int64(wo.PlannedQuantity) {
-		return nil
-	}
-
-	// WorkOrder service owns the WorkOrder state transition.
-	if err := s.workOrderSvc.Complete(
-		ctx,
-		tenantID,
-		workOrderID,
-	); err != nil {
-		return fmt.Errorf(
-			"failed to complete work order: %w",
 			err,
 		)
 	}
@@ -1160,19 +952,3 @@ func toOperationResponse(
 	return response
 }
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-
-	if ctx == nil {
-		return uuid.Nil
-	}
-
-	if id, ok := ctx.Value("tenant_id").(uuid.UUID); ok {
-		return id
-	}
-
-	return uuid.Nil
-}

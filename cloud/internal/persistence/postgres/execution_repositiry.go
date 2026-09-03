@@ -33,6 +33,10 @@ func (r *executionRepository) CreateExecution(ctx context.Context,entity *model.
 				return nil
 			}
 
+			for _, op := range operations {
+				op.ExecutionID = entity.ID
+			}
+
 			if err := tx.Create(
 				&operations,
 			).Error; err != nil {
@@ -55,13 +59,6 @@ func (r *executionRepository) GetExecutionByID(ctx context.Context,tenantID uuid
 		First(&entity).
 		Error
 
-	// if errors.Is(
-	// 	err,
-	// 	gorm.ErrRecordNotFound,
-	// ) {
-	// 	return nil, execution.ErrExecutionNotFound
-	// }
-
 	if err != nil {
 		return nil, err
 	}
@@ -80,22 +77,19 @@ func (r *executionRepository) ListExecutions(ctx context.Context,tenantID uuid.U
 
 	if workOrderID != nil {
 		query = query.Where(
-			"work_order_id = ?",
-			*workOrderID,
+			"work_order_id = ?", *workOrderID,
 		)
 	}
 
 	if deviceID != nil {
 		query = query.Where(
-			"device_id = ?",
-			*deviceID,
+			"device_id = ?", *deviceID,
 		)
 	}
 
 	if status != nil {
 		query = query.Where(
-			"status = ?",
-			*status,
+			"status = ?", *status,
 		)
 	}
 
@@ -117,13 +111,12 @@ func (r *executionRepository) UpdateExecution(ctx context.Context,entity *model.
 		Error
 }
 
-func (r *executionRepository) GetOperation(ctx context.Context,tenantID uuid.UUID,executionID,operationID uint) (*model.ExecutionOperation, error) {
+func (r *executionRepository) GetOperation(ctx context.Context,executionID,operationID uint) (*model.ExecutionOperation, error) {
 	var entity model.ExecutionOperation
 
 	err := r.db.Get().WithContext(ctx).
 		Where(
-			"tenant_id = ? AND execution_id = ? AND id = ?",
-			tenantID,
+			"execution_id = ? AND id = ?",
 			executionID,
 			operationID,
 		).
@@ -144,13 +137,12 @@ func (r *executionRepository) GetOperation(ctx context.Context,tenantID uuid.UUI
 	return &entity, nil
 }
 
-func (r *executionRepository) ListOperations(ctx context.Context,tenantID uuid.UUID,executionID uint) ([]*model.ExecutionOperation, error) {
+func (r *executionRepository) ListOperations(ctx context.Context,executionID uint) ([]*model.ExecutionOperation, error) {
 	var entities []*model.ExecutionOperation
 
 	err := r.db.Get().WithContext(ctx).
 		Where(
-			"tenant_id = ? AND execution_id = ?",
-			tenantID,
+			"execution_id = ?",
 			executionID,
 		).
 		Order("sequence ASC").
