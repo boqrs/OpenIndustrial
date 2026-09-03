@@ -54,21 +54,17 @@ func (r *WorkOrderRepository) GetByCode(ctx context.Context, tenantID uuid.UUID,
 	return &entity, nil
 }
 
-func (r *WorkOrderRepository) List(ctx context.Context, tenantID uuid.UUID, productID *uint, offset, limit int) ([]*model.WorkOrder, error) {
+func (r *WorkOrderRepository) List(ctx context.Context, tenantID uuid.UUID, planID *uint, offset, limit int) ([]*model.WorkOrder, error) {
 	var entities []*model.WorkOrder
 	query := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
 		Order("planned_start_at ASC")
 
-	// if status != nil {
-	// 	query = query.Where("status = ?", *status)
-	// }
-
-	if productID != nil {
-		query = query.Where("production_plan_id = ?", *productID)
+	if planID != nil {
+		query = query.Where("production_plan_id = ?", *planID)
 	}
 
-	if err := query.Find(&entities).Error; err != nil {
+	if err := query.Offset(offset).Limit(limit).Find(&entities).Error; err != nil {
 		return nil, err
 	}
 	return entities, nil

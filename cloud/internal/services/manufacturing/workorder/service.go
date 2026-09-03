@@ -131,31 +131,60 @@ func (s *serviceImpl) Release(ctx context.Context, tenantID uuid.UUID, id uint) 
 		return ErrInvalidWorkOrderState
 	}
 
-	// Re-validate plan
+	// 1. Re-validate Production Plan
 	plan, err := s.psrv.GetProductionPlanByID(ctx, entity.ProductionPlanID)
 	if err != nil {
-		return fmt.Errorf("failed to get production plan: %w", err)
+		return fmt.Errorf("failed to get production plan for release: %w", err)
+	}
+	if plan.ProductID != entity.ProductID {
+		return ErrPlanProductMismatch
+	}
+	if plan.Status != model.ProductionPlanStatusReleased && plan.Status != model.ProductionPlanStatusInProgress {
+		return ErrInvalidWorkOrderState
 	}
 
-	// Re-validate quantity on release
+	// 2. Re-validate Quantity
+	// Note: The entity is already in the DB, so SumQuantityByPlanID includes its quantity.
+	// We just need to check if the total allocation exceeds the plan.
 	allocated, err := s.repository.SumQuantityByPlanID(ctx, tenantID, entity.ProductionPlanID)
 	if err != nil {
-		return fmt.Errorf("failed to calculate allocated work order quantity: %w", err)
+		return fmt.Errorf("failed to calculate allocated work order quantity for release: %w", err)
 	}
 	if allocated > plan.PlannedQuantity {
 		return ErrQuantityExceedsPlan
 	}
 
-	// Re-validate BOM and Routing
-	// ... (omitted for brevity, but should be here as in Create)
+	// 3. Re-validate BOM
+	bom, err := s.bsrv.GetByID(ctx, tenantID, entity.BOMID)
+	if err != nil {
+		return fmt.Errorf("failed to get bom for release: %w", err)
+	}
+	if bom.ProductID != entity.ProductID {
+		return ErrBOMProductMismatch
+	}
+	if bom.Status != "released" {
+		return ErrBOMNotReleased
+	}
 
+	// 4. Re-validate Routing
+	routing, err := s.rsrv.GetRouting(ctx, entity.RoutingID)
+	if err != nil {
+		return fmt.Errorf("failed to get routing for release: %w", err)
+	}
+	if routing.ProductID != entity.ProductID {
+		return ErrRoutingProductMismatch
+	}
+	if routing.Status != "active" {
+		return ErrRoutingNotActive
+	}
+
+	// All checks passed, proceed to release
 	entity.Status = model.WorkOrderStatusReleased
 	if err := s.repository.Update(ctx, entity); err != nil {
 		return fmt.Errorf("failed to release work order: %w", err)
 	}
 	return nil
 }
-
 // ... (GetByID, List, Update, and other methods remain the same)
 func (s *serviceImpl) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*Response, error) {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
