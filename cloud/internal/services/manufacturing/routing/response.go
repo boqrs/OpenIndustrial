@@ -15,10 +15,11 @@ type OperationResponse struct {
 	Code           string    `json:"code"`
 	Name           string    `json:"name"`
 	Description    string    `json:"description"`
-	WorkCenterID   uint      `json:"workCenterId"`
+	WorkStationID   uint      `json:"workstationId"`
 	Sequence       int       `json:"sequence"`
 	SetupTime      int       `json:"setupTime"`
 	ProcessingTime int       `json:"processingTime"`
+	Parameters     []byte `json:"parameters"`
 	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 }

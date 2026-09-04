@@ -67,14 +67,11 @@ func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingReque
 	}
 
 	entity := &model.Routing{
-		//ResourceUUID: uuid.New(),
-		//TenantID:     tenantID,
 		ProductID:    req.ProductID,
 		Name:         name,
 		Version:      version,
 		Description:  req.Description,
 		Status:       model.RoutingStatusInactive,
-		//IsDefault:    req.IsDefault,
 	}
 
 	if err := s.repository.CreateRouting(ctx, entity); err != nil {

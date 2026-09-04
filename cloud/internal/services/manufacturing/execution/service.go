@@ -212,21 +212,17 @@ func (s *serviceImpl) CreateExecution(
 		if op == nil {
 			continue
 		}
-		//TODO: routing需要增加参数
-	   // parameters := append([]byte(nil), op.Parameters...)
-
+	    parameters := append([]byte(nil), op.Parameters...)
 		operations = append(
 			operations,
 			&model.ExecutionOperation{
-				ExecutionID:        entity.ID,
 				RoutingOperationID: &op.ID,
 				Sequence:           op.Sequence,
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
-				//WorkstationID:      op.WorkstationID, // 快照 WorkstationID
-				//Parameters:         op.Parameters,   // 快照 Parameters
-				///Parameters:         parameters,
+				WorkstationID:      &op.WorkStationID, // 快照 WorkstationID
+				Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},
 		)
