@@ -180,29 +180,18 @@ func (r *executionRepository) CountExecutions(ctx context.Context,tenantID uuid.
 	return count, err
 }
 
-func (r *executionRepository) GetCurrentOperation(ctx context.Context,tenantID uuid.UUID,executionID uint) (*model.ExecutionOperation, error) {
+func (r *executionRepository) GetCurrentOperation(ctx context.Context,executionID uint) (*model.ExecutionOperation, error) {
 	var entity model.ExecutionOperation
 
 	err := r.db.Get().WithContext(ctx).
 		Where(
-			"tenant_id = ? AND execution_id = ? AND status = ?",
-			tenantID,
+			"execution_id = ? AND status = ?",
 			executionID,
 			model.ExecutionOperationStatusInProgress,
 		).
 		Order("sequence ASC").
 		First(&entity).
 		Error
-
-	// if errors.Is(
-	// 	err,
-	// 	gorm.ErrRecordNotFound,
-	// ) {
-	// 	// In this specific case, not finding a current operation is not a system error,
-	// 	// but a state where no operation is 'in_progress'. We can return a specific,
-	// 	// non-gorm error for the service layer to handle.
-	// 	return nil, execution.ErrCurrentOperationNotFound
-	// }
 
 	if err != nil {
 		return nil, err

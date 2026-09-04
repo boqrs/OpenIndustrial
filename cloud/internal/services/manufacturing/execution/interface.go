@@ -20,7 +20,7 @@ type Repository interface {
 	GetOperation(ctx context.Context, executionID, operationID uint) (*model.ExecutionOperation, error)
 	ListOperations(ctx context.Context,executionID uint) ([]*model.ExecutionOperation, error)
 	UpdateOperation(ctx context.Context, operation *model.ExecutionOperation) error
-	GetCurrentOperation(ctx context.Context, tenantID uuid.UUID, executionID uint) (*model.ExecutionOperation, error)
+	GetCurrentOperation(ctx context.Context, executionID uint) (*model.ExecutionOperation, error)
 }
 
 // --- Service Interface ---

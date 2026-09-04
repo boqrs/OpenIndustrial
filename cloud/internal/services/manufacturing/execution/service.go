@@ -146,17 +146,17 @@ func (s *serviceImpl) CreateExecution(
 		return nil, ErrRoutingNotFound
 	}
 
-	// -------------------------------------------------------------------------
-	// 5. Validate Routing
-	// -------------------------------------------------------------------------
+	// // -------------------------------------------------------------------------
+	// // 5. Validate Routing
+	// // -------------------------------------------------------------------------
 
-	if rt.Status != model.RoutingStatusActive {
-		return nil, ErrRoutingNotActive
-	}
+	// if rt.Status != model.RoutingStatusActive {
+	// 	return nil, ErrRoutingNotActive
+	// }
 
-	if rt.ProductID != wo.ProductID {
-		return nil, ErrRoutingProductMismatch
-	}
+	// if rt.ProductID != wo.ProductID {
+	// 	return nil, ErrRoutingProductMismatch
+	// }
 
 	// -------------------------------------------------------------------------
 	// 6. Load Routing Operations
@@ -221,7 +221,7 @@ func (s *serviceImpl) CreateExecution(
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
-				WorkstationID:      &op.WorkStationID, // 快照 WorkstationID
+				WorkstationID:      &op.WorkStationID, 
 				Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},
@@ -346,7 +346,7 @@ func (s *serviceImpl) StartExecution(
 		id,
 	)
 	if err != nil {
-		return ErrExecutionNotFound
+		return err
 	}
 
 	if exec == nil {
@@ -459,7 +459,7 @@ func (s *serviceImpl) CancelExecution(
 		id,
 	)
 	if err != nil {
-		return ErrExecutionNotFound
+		return err
 	}
 
 	if exec == nil {
@@ -512,7 +512,7 @@ func (s *serviceImpl) StartOperation(
 		executionID,
 	)
 	if err != nil {
-		return ErrExecutionNotFound
+		return err
 	}
 
 	if exec == nil {
@@ -685,7 +685,7 @@ func (s *serviceImpl) CompleteOperation(
 		executionID,
 	)
 	if err != nil {
-		return ErrExecutionNotFound
+		return err
 	}
 
 	if exec == nil {
@@ -724,22 +724,17 @@ func (s *serviceImpl) CompleteOperation(
 	// -------------------------------------------------------------------------
 	// 4. Complete Operation
 	// -------------------------------------------------------------------------
-
-	now := time.Now()
-
-	op.Status = model.ExecutionOperationStatusCompleted
-	op.CompletedAt = &now
-
-	// The current model/repository does not currently expose a guaranteed
-	// Result persistence field in this service contract. Keep the result at
-	// the application boundary until that capability is intentionally added.
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("marshal operation result: %w", err)
 	}
+	now := time.Now()
+	op.Status = model.ExecutionOperationStatusCompleted
+	op.CompletedAt = &now
+	// The current model/repository does not currently expose a guaranteed
+	// Result persistence field in this service contract. Keep the result at
+	// the application boundary until that capability is intentionally added.
 	op.Result = resultJSON
-
-
 	if err := s.repository.UpdateOperation(
 		ctx,
 		op,
@@ -769,72 +764,90 @@ func (s *serviceImpl) CompleteOperation(
 
 // FailOperation marks an execution operation as failed.
 func (s *serviceImpl) FailOperation(
-	ctx context.Context,
-	executionID uint,
-	operationID uint,
-	result map[string]any,
+    ctx context.Context,
+    executionID uint,
+    operationID uint,
+    result map[string]any,
 ) error {
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return  fmt.Errorf("tenant ID not found in context")
-	}
-	exec, err := s.repository.GetExecutionByID(
-		ctx,
-		tenantID,
-		executionID,
-	)
-	if err != nil {
-		return ErrExecutionNotFound
-	}
+    tenantID := pkg.TenantIDFromContext(ctx)
+    if tenantID == uuid.Nil {
+        return fmt.Errorf("tenant ID not found in context")
+    }
 
-	if exec == nil {
-		return ErrExecutionNotFound
-	}
+    exec, err := s.repository.GetExecutionByID(
+        ctx,
+        tenantID,
+        executionID,
+    )
+    if err != nil {
+        return err
+    }
 
-	if exec.Status != model.ProductionExecutionStatusInProgress {
-		return ErrInvalidExecutionState
-	}
+    if exec == nil {
+        return ErrExecutionNotFound
+    }
 
-	op, err := s.repository.GetOperation(
-		ctx,
-		executionID,
-		operationID,
-	)
-	if err != nil {
-		return ErrOperationNotFound
-	}
+    if exec.Status != model.ProductionExecutionStatusInProgress {
+        return ErrInvalidExecutionState
+    }
 
-	if op == nil {
-		return ErrOperationNotFound
-	}
+    op, err := s.repository.GetOperation(
+        ctx,
+        executionID,
+        operationID,
+    )
+    if err != nil {
+        return err
+    }
 
-	if op.Status != model.ExecutionOperationStatusInProgress {
-		return ErrInvalidOperationState
-	}
+    if op == nil {
+        return ErrOperationNotFound
+    }
 
-	now := time.Now()
+    if op.Status != model.ExecutionOperationStatusInProgress {
+        return ErrInvalidOperationState
+    }
 
-	op.Status = model.ExecutionOperationStatusFailed
-	op.CompletedAt = &now
+    resultJSON, err := json.Marshal(result)
+    if err != nil {
+        return fmt.Errorf(
+            "marshal operation result: %w",
+            err,
+        )
+    }
 
-	resultJSON, err := json.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("marshal operation result: %w", err)
-	}
-	op.Result = resultJSON
+    now := time.Now()
 
-	if err := s.repository.UpdateOperation(
-		ctx,
-		op,
-	); err != nil {
-		return fmt.Errorf(
-			"failed to fail execution operation: %w",
-			err,
-		)
-	}
+    op.Status = model.ExecutionOperationStatusFailed
+    op.CompletedAt = &now
+    op.Result = resultJSON
 
-	return nil
+    if err := s.repository.UpdateOperation(
+        ctx,
+        op,
+    ); err != nil {
+        return fmt.Errorf(
+            "failed to fail execution operation: %w",
+            err,
+        )
+    }
+
+    // Operation failure makes the whole execution failed.
+    exec.Status = model.ProductionExecutionStatusFailed
+    exec.CompletedAt = &now
+
+    if err := s.repository.UpdateExecution(
+        ctx,
+        exec,
+    ); err != nil {
+        return fmt.Errorf(
+            "failed to fail execution: %w",
+            err,
+        )
+    }
+
+    return nil
 }
 
 // ListOperations lists operations belonging to an execution.
@@ -890,7 +903,7 @@ func (s *serviceImpl) tryCompleteExecution(
 		executionID,
 	)
 	if err != nil {
-		return ErrExecutionNotFound
+		return err
 	}
 
 	if exec == nil {

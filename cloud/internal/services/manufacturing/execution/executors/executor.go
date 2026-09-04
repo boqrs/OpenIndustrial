@@ -2,6 +2,8 @@ package executors
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 )
@@ -36,16 +38,29 @@ func NewOperationExecutorRegistry() *OperationExecutorRegistry {
 }
 
 // Register adds an executor to the registry.
-func (r *OperationExecutorRegistry) Register(executor OperationExecutor) {
-	if executor == nil {
-		return
-	}
-	if r.executors == nil {
-		r.executors = make(map[string]OperationExecutor)
-	}
-	r.executors[executor.Type()] = executor
-}
+func (r *OperationExecutorRegistry) Register(
+    executor OperationExecutor,
+) error {
+    if executor == nil {
+        return errors.New("executor is nil")
+    }
 
+    if r.executors == nil {
+        r.executors = make(map[string]OperationExecutor)
+    }
+
+    typ := executor.Type()
+    if typ == "" {
+        return errors.New("executor type is empty")
+    }
+
+    if _, exists := r.executors[typ]; exists {
+        return fmt.Errorf("executor already registered: %s", typ)
+    }
+
+    r.executors[typ] = executor
+    return nil
+}
 // Get retrieves an executor from the registry by its type code.
 func (r *OperationExecutorRegistry) Get(operationType string) (OperationExecutor, bool) {
 	if r == nil || r.executors == nil {
