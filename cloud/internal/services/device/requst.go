@@ -1,31 +1,36 @@
 package device
 
 import (
-	"github.com/google/uuid"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 )
 
-// CreateDeviceRequest defines the payload for creating a new device.
-type CreateDeviceRequest struct {
-	Name           string    `json:"name" binding:"required"`
-	ProductID      uint    `json:"product_id" binding:"required"`
-	SerialNumber   string    `json:"serial_number"`
-	HardwareID     string    `json:"hardware_id"`
-	ParentResourceID *uint `json:"parent_resource_id"` // For placing the device in the resource tree
-}
+// CreateDeviceFromExecutionResultRequest defines the manufacturing
+// information required to create a physical Device.
+type CreateDeviceFromExecutionResultRequest struct {
+	ProductID uint `json:"product_id" binding:"required"`
 
-// UpdateDeviceRequest defines the payload for updating an existing device.
-type UpdateDeviceRequest struct {
-	Name             *string    `json:"name"`
+	WorkOrderID       uint `json:"work_order_id" binding:"required"`
+	ExecutionID       uint `json:"execution_id" binding:"required"`
+	ExecutionResultID uint `json:"execution_result_id" binding:"required"`
+
+	SerialNumber string `json:"serial_number" binding:"required"`
+	HardwareID   string `json:"hardware_id"`
+
 	ParentResourceID *uint `json:"parent_resource_id"`
 }
 
-// ListDevicesRequest defines the filters and pagination for listing devices.
+// UpdateDeviceRequest defines mutable device resource properties.
+type UpdateDeviceRequest struct {
+	Name             *string `json:"name"`
+	ID               *uint   `json:"id"`
+	ParentResourceID *uint   `json:"parent_resource_id"`
+}
+
+// ListDevicesRequest defines device filters and pagination.
 type ListDevicesRequest struct {
-	Page           int
-	PageSize       int
-	ProductModelID *uuid.UUID
-	Status         *model.DeviceStatus
-	ParentID       *uuid.UUID
+	ProductID *uint		`json:"product_id,omitempty"`
+	Status    *model.DeviceStatus `json:"status,omitempty"`
+	ParentID  *uint `json:"parent_id,omitempty"`
+	pkg.BasePageReq
 }

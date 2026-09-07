@@ -5,10 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource" // 正确且唯一的服务依赖
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource" // 正确且唯一的服务依赖
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 	"github.com/google/uuid"
 )
 
@@ -40,105 +41,250 @@ func NewService(repo Repository,resourceSvc resource.Service,productSvc product.
 }
 
 // CreateDevice orchestrates the creation of a new device.
-func (s *serviceImpl) CreateDevice(ctx context.Context, req *CreateDeviceRequest) (*BootstrapCredentialResponse, error) {
-	if req == nil || req.Name == "" || req.ProductID == 0 {
+func (s *serviceImpl) CreateFromExecutionResult(
+	ctx context.Context,
+	req *CreateDeviceFromExecutionResultRequest,
+) (*DeviceResponse, error) {
+
+	if req == nil ||
+		req.ProductID == 0 ||
+		req.WorkOrderID == 0 ||
+		req.ExecutionID == 0 ||
+		req.ExecutionResultID == 0 ||
+		req.SerialNumber == "" {
 		return nil, ErrInvalidCreateRequest
 	}
 
-	// 1. Validate ProductModel exists
+	// 1. Product must exist.
 	if _, err := s.productSvc.GetProductModel(ctx, req.ProductID); err != nil {
 		if errors.Is(err, product.ErrProductModelNotFound) {
 			return nil, ErrProductModelNotFound
 		}
+
 		return nil, err
 	}
 
-	// 2. Check for duplicate serial number if provided
-	if req.SerialNumber != "" {
-		_, err := s.repo.GetBySerialNumber(ctx, req.SerialNumber)
-		if err == nil {
-			return nil, ErrSerialNumberExists
-		}
-		if !errors.Is(err, ErrDeviceNotFound) {
-			return nil, err // Handle unexpected repository errors
-		}
+	// 2. Serial number must be unique.
+	existing, err := s.repo.GetBySerialNumber(
+		ctx,
+		req.SerialNumber,
+	)
+
+	if err == nil && existing != nil {
+		return nil, ErrSerialNumberExists
 	}
 
-	var createdResource *model.Resource
-	var createdDevice *model.Device
+	if err != nil && !errors.Is(err, ErrDeviceNotFound) {
+		return nil, err
+	}
 
-	// TODO: Use a real transaction manager to wrap these operations
-	// tx, err := s.txManager.Begin(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// defer tx.Rollback()
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("tenant ID not found in context")
+	}
 
-	// 3. Create the core resource
+	// 3. Create Resource for the physical device.
 	resourceReq := &resource.CreateResource{
-		TenantID: tenantIDFromContext(ctx), // Assuming this helper exists
-		Name:     req.Name,
+		TenantID: tenantID,
+		Name:     req.SerialNumber,
 		Type:     string(resource.ResourceTypeDevice),
 		ParentID: req.ParentResourceID,
 	}
+
 	res, err := s.resourceSvc.CreateResource(ctx, resourceReq)
 	if err != nil {
 		return nil, err
 	}
-	createdResource = res
 
-	// 4. Create the device entity
-	newDevice := &model.Device{
-	//	ID:             uuid.New(),
-		ResourceID:     createdResource.ID,
-		ProductID:      req.ProductID,
-		SerialNumber:   req.SerialNumber,
-		HardwareID:     req.HardwareID,
-		Status:         model.DeviceStatusCreated,
+	// 4. Create Device.
+	entity := &model.Device{
+		ResourceID:        res.ID,
+		ProductID:         req.ProductID,
+		WorkOrderID:       req.WorkOrderID,
+		ExecutionID:       req.ExecutionID,
+		ExecutionResultID: req.ExecutionResultID,
+		SerialNumber:      req.SerialNumber,
+		HardwareID:        req.HardwareID,
+		Status:            model.DeviceStatusCreated,
 	}
-	if err := s.repo.Create(ctx, newDevice); err != nil {
-		// Rollback resource creation would happen here
+
+	if err := s.repo.Create(ctx, entity); err != nil {
 		return nil, err
 	}
-	createdDevice = newDevice
 
-	var bootstrapCred *security.BootstrapCredentialResponse
-	cbReq := security.CreateBootstrapCredentialRequest{
-		ResourceID: createdResource.ID,
-	}
-	bootstrapCred, err = s.securitySvc.CreateBootstrapCredential(ctx, cbReq)
-	if err != nil {
-		// Rollback would happen here
-		return nil, err
-	}
-	return &BootstrapCredentialResponse{
-		ResourceID:      createdDevice.ResourceID,
-		CredentialID:    bootstrapCred.CredentialID,
-		Token: bootstrapCred.Token,
-		CreatedAt: bootstrapCred.CreatedAt,
-	}, nil
+	return s.toDeviceResponse(entity, res), nil
 }
 
-func (s *serviceImpl) GetDevice(ctx context.Context, deviceID uuid.UUID) (*DeviceResponse, error) {
+func (s *serviceImpl) GetDevice(
+	ctx context.Context,
+	deviceID uint,
+) (*DeviceResponse, error) {
+
 	d, err := s.repo.GetByID(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := s.resourceSvc.GetResourceByID(ctx, tenantIDFromContext(ctx), d.ResourceID)
+	if d == nil {
+		return nil, ErrDeviceNotFound
+	}
+
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("tenant ID not found in context")
+	}
+
+	res, err := s.resourceSvc.GetResourceByID(
+		ctx,
+		tenantID,
+		d.ResourceID,
+	)
 	if err != nil {
-		// If resource is not found, it's an inconsistent state, but we can still return the device info
 		return nil, err
 	}
 
 	return s.toDeviceResponse(d, res), nil
 }
 
-func (s *serviceImpl) ListDevices(ctx context.Context, req *ListDevicesRequest) (*ListDevicesResponse, error) {
-	// Default pagination
-	if req.Page <= 0 {
-		req.Page = 1
+func (s *serviceImpl) UpdateDevice(
+	ctx context.Context,
+	deviceID uint,
+	req *UpdateDeviceRequest,
+) (*DeviceResponse, error) {
+
+	if req == nil {
+		return nil, ErrInvalidUpdateRequest
 	}
+
+	d, err := s.repo.GetByID(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	if d == nil {
+		return nil, ErrDeviceNotFound
+	}
+
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("tenant ID not found in context")
+	}
+	if req.Name != nil || req.ParentResourceID != nil {
+
+		res, err := s.resourceSvc.GetResourceByID(
+			ctx,
+			tenantID,
+			d.ResourceID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if req.Name != nil {
+			res.ResourceName = *req.Name
+		}
+
+		if req.ParentResourceID != nil {
+			res.ParentID = *req.ParentResourceID
+		}
+
+		upReq := &resource.UpdateResource{
+			Name:     res.ResourceName,
+			Code:     res.Code,
+			Status:   res.ResourceStatus,
+			Metadata: res.Metadata,
+			Version:  res.Version,
+			ParentID: res.ParentID,
+		}
+
+		if _, err := s.resourceSvc.UpdateResource(
+			ctx,
+			res.ID,
+			upReq,
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.GetDevice(ctx, deviceID)
+}
+
+func (s *serviceImpl) DeleteDevice(
+	ctx context.Context,
+	deviceID uint,
+) error {
+
+	d, err := s.repo.GetByID(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+
+	if d == nil {
+		return ErrDeviceNotFound
+	}
+
+	if d.Status == model.DeviceStatusOnline {
+		return ErrCannotDeleteOnlineDevice
+	}
+
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New("tenant ID not found in context")
+	}
+
+	if err := s.resourceSvc.DeleteResource(
+		ctx,
+		tenantID,
+		d.ResourceID,
+	); err != nil {
+		return err
+	}
+
+	return s.repo.Delete(ctx, deviceID)
+}
+
+func (s *serviceImpl) toDeviceResponse(
+	d *model.Device,
+	r *model.Resource,
+) *DeviceResponse {
+
+	resp := &DeviceResponse{
+		ID:                d.ID,
+		ResourceID:        d.ResourceID,
+		ProductID:         d.ProductID,
+		Name:              r.ResourceName,
+		SerialNumber:      d.SerialNumber,
+		HardwareID:        d.HardwareID,
+		WorkOrderID:       d.WorkOrderID,
+		ExecutionID:       d.ExecutionID,
+		ExecutionResultID: d.ExecutionResultID,
+		Status:            d.Status,
+		ParentResourceID:  &r.ParentID,
+		CreatedAt:         d.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         d.UpdatedAt.Format(time.RFC3339),
+	}
+
+	if d.LastOnlineAt != nil {
+		formatted := d.LastOnlineAt.Format(time.RFC3339)
+		resp.LastOnlineAt = &formatted
+	}
+
+	return resp
+}
+
+func (s *serviceImpl) ListDevices(
+	ctx context.Context,
+	req *ListDevicesRequest,
+) (*ListDevicesResponse, error) {
+
+	if req == nil {
+		req = &ListDevicesRequest{}
+	}
+
+	if req.CurrentPage <= 0 {
+		req.CurrentPage = 1
+	}
+
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
@@ -149,118 +295,30 @@ func (s *serviceImpl) ListDevices(ctx context.Context, req *ListDevicesRequest) 
 	}
 
 	responses := make([]*DeviceResponse, 0, len(items))
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("tenant ID not found in context")
+	}
 	for _, item := range items {
-		// In a real-world scenario, fetching each resource individually is inefficient (N+1 problem).
-		// A better approach would be to get all resource IDs and fetch them in a single batch call.
-		res, err := s.resourceSvc.GetResourceByID(ctx, tenantIDFromContext(ctx), item.ResourceID)
+		res, err := s.resourceSvc.GetResourceByID(
+			ctx,
+			tenantID,
+			item.ResourceID,
+		)
 		if err != nil {
-			// Log the error and skip this item, or handle as needed
-			continue
+			return nil, err
 		}
-		responses = append(responses, s.toDeviceResponse(item, res))
+
+		responses = append(
+			responses,
+			s.toDeviceResponse(item, res),
+		)
 	}
 
 	return &ListDevicesResponse{
-		Items:      responses,
-		Total:      total,
-		Page:       req.Page,
-		PageSize:   req.PageSize,
+		Items:    responses,
+		Total:    total,
+		Page:     req.CurrentPage,
+		PageSize: req.PageSize,
 	}, nil
-}
-
-func (s *serviceImpl) UpdateDevice(ctx context.Context, deviceID uuid.UUID, req *UpdateDeviceRequest) (*DeviceResponse, error) {
-	d, err := s.repo.GetByID(ctx, deviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update resource if needed
-	if req.Name != nil || req.ParentResourceID != nil {
-		res, err := s.resourceSvc.GetResourceByID(ctx, tenantIDFromContext(ctx), d.ResourceID)
-		if err != nil {
-			return nil, err
-		}
-		if req.Name != nil {
-			res.ResourceName = *req.Name
-		}
-		if req.ParentResourceID != nil {
-			res.ParentID = *req.ParentResourceID
-		}
-		upReq := &resource.UpdateResource{
-			Name: res.ResourceName,
-			Code: res.Code,
-			Status: res.ResourceStatus,
-			Metadata: res.Metadata,
-			Version: res.Version,
-			ParentID: res.ParentID,
-		}
-
-		if _, err := s.resourceSvc.UpdateResource(ctx, res.ID, upReq); err != nil {
-			return nil, err
-		}
-	}
-
-	// Refetch the device and its resource to return the latest state
-	return s.GetDevice(ctx, deviceID)
-}
-
-func (s *serviceImpl) DeleteDevice(ctx context.Context, deviceID uuid.UUID) error {
-	d, err := s.repo.GetByID(ctx, deviceID)
-	if err != nil {
-		return err
-	}
-
-	if d.Status == model.DeviceStatusOnline {
-		return ErrCannotDeleteOnlineDevice
-	}
-	
-	// TODO: Use a real transaction manager
-	// Delete the resource, which should cascade or be handled appropriately
-	if err := s.resourceSvc.DeleteResource(ctx, tenantIDFromContext(ctx), d.ResourceID); err != nil {
-		return err
-	}
-	// Delete the device entity
-	if err := s.repo.Delete(ctx, deviceID); err != nil {
-		return err
-	}
-	// Invalidate/delete credentials
-	if err := s.securitySvc.RevokeBootstrapCredential(ctx, d.ResourceID); err != nil {
-		// Log this error, as the primary deletion succeeded
-	}
-
-	return nil
-}
-
-// toDeviceResponse is a helper to map the domain model to the DTO.
-func (s *serviceImpl) toDeviceResponse(d *model.Device, r *model.Resource) *DeviceResponse {
-	resp := &DeviceResponse{
-		ID:               d.ID,
-		ResourceID:       d.ResourceID,
-		ProductID:        d.ProductID,
-		Name:             r.ResourceName,
-		SerialNumber:     d.SerialNumber,
-		HardwareID:       d.HardwareID,
-		Status:           d.Status,
-		ParentResourceID: &r.ParentID,
-		CreatedAt:        d.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        d.UpdatedAt.Format(time.RFC3339),
-	}
-	if d.LastOnlineAt != nil {
-		formatted := d.LastOnlineAt.Format(time.RFC3339)
-		resp.LastOnlineAt = &formatted
-	}
-	return resp
-}
-
-// tenantIDFromContext is a placeholder for a helper function that extracts tenant ID from context.
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-	// In a real implementation, this would come from a JWT or other auth middleware.
-	val := ctx.Value("tenant_id")
-	if val != nil {
-		if id, ok := val.(uuid.UUID); ok {
-			return id
-		}
-	}
-	// Return a default for now, but this should be handled properly.
-	return uuid.Nil 
 }
