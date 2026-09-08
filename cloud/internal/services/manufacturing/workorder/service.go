@@ -287,21 +287,38 @@ func (s *serviceImpl) Start(ctx context.Context, tenantID uuid.UUID, id uint) er
 	return nil
 }
 
-func (s *serviceImpl) Complete(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (s *serviceImpl) Complete(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	id uint,
+) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
 	if err != nil {
-		return fmt.Errorf("failed to get work order for completion: %w", err)
+		return err
 	}
+
+	if entity == nil {
+		return ErrWorkOrderNotFound
+	}
+
 	if entity.Status != model.WorkOrderStatusInProgress {
 		return ErrInvalidWorkOrderState
 	}
+
+	if entity.CompletedQuantity < entity.PlannedQuantity {
+		return fmt.Errorf(
+			"cannot complete work order: completed quantity %d is less than planned quantity %d",
+			entity.CompletedQuantity,
+			entity.PlannedQuantity,
+		)
+	}
+
 	now := time.Now()
+
 	entity.Status = model.WorkOrderStatusCompleted
 	entity.CompletedAt = &now
-	if err := s.repository.Update(ctx, entity); err != nil {
-		return fmt.Errorf("failed to complete work order: %w", err)
-	}
-	return nil
+
+	return s.repository.Update(ctx, entity)
 }
 
 func (s *serviceImpl) Cancel(ctx context.Context, tenantID uuid.UUID, id uint) error {

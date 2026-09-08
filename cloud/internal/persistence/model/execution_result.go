@@ -21,7 +21,7 @@ const (
 // Detailed per-unit production data remains in ExecutionOperation.Result.
 type ExecutionResult struct {
 	ID uint `gorm:"primaryKey"`
-	TenantID uuid.UUID `gorm:"ype:uuid;not null;index"`
+	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 	ExecutionID uint `gorm:"not null;uniqueIndex"`
 	WorkOrderID uint `gorm:"not null;index"`
 	ProducedQuantity  int64 `gorm:"not null;default:0"`

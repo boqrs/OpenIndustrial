@@ -42,6 +42,7 @@ type WorkOrder struct {
 	RoutingID uint `gorm:"not null;index"`
 	Code string `gorm:"type:varchar(100);not null"`
 	PlannedQuantity int64 `gorm:"not null;default:0"`
+	CompletedQuantity int64 `gorm:"not null;default:0"`
 	Priority int `gorm:"not null;default:0"`
 	DueDate *time.Time
 	Status WorkOrderStatus `gorm:"type:varchar(50);not null;default:'draft';index"`
