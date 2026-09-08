@@ -33,13 +33,13 @@ type service struct {
 	uow        postgres.UnitOfWork
 	workOrders workorder.Repository
 	routings   routing.Repository
-	executions execution.Repository
+	executions execution.Service
 	executionResults executionresult.Repository
 	devices device.Service
 }
 
 // NewService creates a new manufacturing application service.
-func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Repository, executionResults executionresult.Repository, devices device.Service) Service {
+func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults executionresult.Repository, devices device.Service) Service {
 	return &service{
 		uow:        uow,
 		workOrders: workOrders,
@@ -52,66 +52,11 @@ func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routin
 
 // CreateProductionExecution is a transactional use case that creates a new production execution from a work order.
 func (s *service) CreateProductionExecution(ctx context.Context, workOrderID uint, deviceID *uint) (*execution.ExecutionResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return nil, errors.New("tenant ID not found in context")
-	}
 
 	var result *execution.ExecutionResponse
 	var err error
 
 	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
-		// 1. Get the work order. In a real scenario, you'd lock the row for update.
-		// The GetByID method needs to be implemented in the workorder repository.
-		workOrder, err := s.workOrders.GetByID(txCtx, tenantID, workOrderID)
-		if err != nil {
-			return fmt.Errorf("failed to get work order: %w", err)
-		}
-
-		// 2. Validate the work order's state.
-		if err := validateWorkOrderForExecution(workOrder); err != nil {
-			return err
-		}
-
-
-		// 4. Get the associated routing.
-		routingEntity, err := s.routings.GetRoutingByID(txCtx, tenantID, workOrder.RoutingID)
-		if err != nil {
-			return fmt.Errorf("failed to get routing: %w", err)
-		}
-		if err := validateRoutingForExecution(routingEntity); err != nil {
-			return err
-		}
-
-		// 5. Get the operations from the routing.
-		routingOperations, err := s.routings.ListOperations(txCtx, tenantID, routingEntity.ID)
-		if err != nil {
-			return fmt.Errorf("failed to list routing operations: %w", err)
-		}
-		if len(routingOperations) == 0 {
-			return ErrRoutingHasNoOperations
-		}
-
-		// 6. Build the new execution entity.
-		entity := &model.ProductionExecution{
-			//ResourceUUID: uuid.New(),
-			TenantID:     tenantID,
-			WorkOrderID:  workOrder.ID,
-			DeviceID:     deviceID,
-			//Quantity:     quantity,
-			Status:       model.ProductionExecutionStatusPending,
-		}
-
-		// 7. Build the associated execution operation entities.
-		operations := buildExecutionOperations(routingOperations)
-
-		// 8. Persist the new execution and its operations.
-		if err := s.executions.CreateExecution(txCtx, entity, operations); err != nil {
-			return fmt.Errorf("failed to create execution in repository: %w", err)
-		}
-
-		// 9. Prepare the response DTO.
-		result = toExecutionResponse(entity, operations)
 		return nil
 	})
 
@@ -120,67 +65,6 @@ func (s *service) CreateProductionExecution(ctx context.Context, workOrderID uin
 	}
 
 	return result, nil
-}
-
-// --- Helper Functions ---
-
-func validateWorkOrderForExecution(wo *model.WorkOrder) error {
-	if wo.Status != model.WorkOrderStatusReleased {
-		return fmt.Errorf("%w: current status is '%s'", ErrWorkOrderNotReleasable, wo.Status)
-	}
-	return nil
-}
-
-func validateRoutingForExecution(r *model.Routing) error {
-	if r.Status != model.RoutingStatusActive {
-		return fmt.Errorf("%w: current status is '%s'", ErrRoutingNotActive, r.Status)
-	}
-	return nil
-}
-
-func buildExecutionOperations(
-    routingOps []*model.RoutingOperation,
-) []*model.ExecutionOperation {
-    operations := make([]*model.ExecutionOperation, 0, len(routingOps))
-
-    for _, routingOp := range routingOps {
-        operations = append(operations, &model.ExecutionOperation{
-            RoutingOperationID: &routingOp.ID,
-            Code:               routingOp.Code,
-            Name:               routingOp.Name,
-            Description:        routingOp.Description,
-            Sequence:           routingOp.Sequence,
-            WorkstationID:      routingOp.WorkstationID,
-            Parameters:         routingOp.Parameters,
-            Status:             model.ExecutionOperationStatusPending,
-        })
-    }
-
-    return operations
-}
-
-func toExecutionResponse(exec *model.ProductionExecution, ops []*model.ExecutionOperation) *execution.ExecutionResponse {
-	// This mapper now aligns with the execution.ExecutionResponse DTO
-	return &execution.ExecutionResponse{
-		ID:           exec.ID,
-		ResourceID: exec.ResourceID,
-		TenantID:     exec.TenantID,
-		WorkOrderID:  exec.WorkOrderID,
-		DeviceID:     exec.DeviceID,
-		//Quantity:     exec.Quantity,
-		Status:       exec.Status,
-		StartedAt:    exec.StartedAt,
-		CompletedAt:  exec.CompletedAt,
-		CreatedAt:    exec.CreatedAt,
-		UpdatedAt:    exec.UpdatedAt,
-	}
-}
-
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-	if id, ok := ctx.Value("tenant_id").(uuid.UUID); ok {
-		return id
-	}
-	return uuid.Nil
 }
 
 // ConfirmExecutionResult confirms the final production result. 
@@ -224,7 +108,7 @@ func tenantIDFromContext(ctx context.Context) uuid.UUID {
 				return fmt.Errorf( "%w: produced=%d qualified=%d rejected=%d", ErrExecutionResultInvalid, result.ProducedQuantity, result.QualifiedQuantity, result.RejectedQuantity, ) 
 			} // ------------------------------------------------------------ // 3. Load Execution // ------------------------------------------------------------ 
 
-			exec, err := s.executions.GetExecutionByID( txCtx, tenantID, result.ExecutionID) 
+			exec, err := s.executions.GetExecution(txCtx, result.ExecutionID) 
 			if err != nil { 
 				return fmt.Errorf("get execution: %w", err) 
 			} 
@@ -263,7 +147,7 @@ func tenantIDFromContext(ctx context.Context) uuid.UUID {
 					if err != nil { 
 						return fmt.Errorf( "list execution operations: %w", err, ) 
 					} 
-					if err := validateQualifiedItems( operations, result.QualifiedQuantity); err != nil {
+					if err := validateQualifiedItems(operations, result.QualifiedQuantity); err != nil {
 						 return err 
 					}
 					
@@ -305,7 +189,7 @@ func tenantIDFromContext(ctx context.Context) uuid.UUID {
 	SerialNumber string
 	HardwareID string 
 } 
-func validateQualifiedItems( operations []*model.ExecutionOperation, qualifiedQuantity int64, ) error { 
+func validateQualifiedItems( operations []*execution.OperationResponse, qualifiedQuantity int64, ) error { 
 	if qualifiedQuantity == 0 { 
 		return nil 
 	}
@@ -319,7 +203,7 @@ func validateQualifiedItems( operations []*model.ExecutionOperation, qualifiedQu
 	return nil 
 } 
 						
-func extractQualifiedItems( operations []*model.ExecutionOperation, ) []qualifiedItem { // TODO: // // Parse the standardized: // // { // "items": [ // { // "item_key": "000001", // "data": { // "serial_number": "SN000001", // "hardware_id": "HW000001" // } // } // ] // } // // from ExecutionOperation.Result. // // We deliberately leave this parser isolated from the // Executor implementations. 
+func extractQualifiedItems( operations []*execution.OperationResponse	, ) []qualifiedItem { // TODO: // // Parse the standardized: // // { // "items": [ // { // "item_key": "000001", // "data": { // "serial_number": "SN000001", // "hardware_id": "HW000001" // } // } // ] // } // // from ExecutionOperation.Result. // // We deliberately leave this parser isolated from the // Executor implementations. 
 							
 						return nil
 }
