@@ -23,7 +23,7 @@ func (r *DeviceRepository) Create(
 	ctx context.Context,
 	entity *model.Device,
 ) error {
-	return r.db.Get().
+	return dbFromContext(ctx, r.db.Get()).//TODO： 设备创建是在生产阶段的事物中完成的
 		WithContext(ctx).
 		Create(entity).
 		Error
