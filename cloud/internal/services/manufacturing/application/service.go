@@ -73,14 +73,6 @@ func (s *service) CreateProductionExecution(ctx context.Context, workOrderID uin
 			return err
 		}
 
-		// 3. Check if the planned quantity has already been met.
-		totalExecuted, err := s.executions.CountExecutions(txCtx, tenantID, workOrderID)
-		if err != nil {
-			return fmt.Errorf("failed to count existing executions: %w", err)
-		}
-		if totalExecuted >= workOrder.PlannedQuantity {
-			return ErrWorkOrderQuantityExceeded
-		}
 
 		// 4. Get the associated routing.
 		routingEntity, err := s.routings.GetRoutingByID(txCtx, tenantID, workOrder.RoutingID)
@@ -111,7 +103,7 @@ func (s *service) CreateProductionExecution(ctx context.Context, workOrderID uin
 		}
 
 		// 7. Build the associated execution operation entities.
-		operations := buildExecutionOperations(tenantID, routingOperations)
+		operations := buildExecutionOperations(routingOperations)
 
 		// 8. Persist the new execution and its operations.
 		if err := s.executions.CreateExecution(txCtx, entity, operations); err != nil {
@@ -146,23 +138,25 @@ func validateRoutingForExecution(r *model.Routing) error {
 	return nil
 }
 
-func buildExecutionOperations(tenantID uuid.UUID, routingOps []*model.RoutingOperation) []*model.ExecutionOperation {
-	if len(routingOps) == 0 {
-		return nil
-	}
+func buildExecutionOperations(
+    routingOps []*model.RoutingOperation,
+) []*model.ExecutionOperation {
+    operations := make([]*model.ExecutionOperation, 0, len(routingOps))
 
-	execOps := make([]*model.ExecutionOperation, len(routingOps))
-	for i, op := range routingOps {
-		execOps[i] = &model.ExecutionOperation{
-			//ID:           uuid.New(),
-			//TenantID:     tenantID,
-			// ExecutionID is set by the database and linked via the transaction.
-			Sequence:     op.Sequence,
-			//WorkCenterID: op.WorkCenterID,
-			Status:       model.ExecutionOperationStatusPending,
-		}
-	}
-	return execOps
+    for _, routingOp := range routingOps {
+        operations = append(operations, &model.ExecutionOperation{
+            RoutingOperationID: &routingOp.ID,
+            Code:               routingOp.Code,
+            Name:               routingOp.Name,
+            Description:        routingOp.Description,
+            Sequence:           routingOp.Sequence,
+            WorkstationID:      routingOp.WorkstationID,
+            Parameters:         routingOp.Parameters,
+            Status:             model.ExecutionOperationStatusPending,
+        })
+    }
+
+    return operations
 }
 
 func toExecutionResponse(exec *model.ProductionExecution, ops []*model.ExecutionOperation) *execution.ExecutionResponse {

@@ -22,7 +22,7 @@ func (r *Repository) Create(
 	ctx context.Context,
 	entity *model.ExecutionResult,
 ) error {
-	return r.db.Get().WithContext(ctx).Create(entity).Error
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Create(entity).Error
 }
 
 func (r *Repository) GetByID(
@@ -32,7 +32,7 @@ func (r *Repository) GetByID(
 ) (*model.ExecutionResult, error) {
 	var entity model.ExecutionResult
 
-	err := r.db.Get().WithContext(ctx).
+	err := dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Where("tenant_id = ? AND id = ?", tenantID, id).
 		First(&entity).Error
 
@@ -50,7 +50,7 @@ func (r *Repository) GetByExecutionID(
 ) (*model.ExecutionResult, error) {
 	var entity model.ExecutionResult
 
-	err := r.db.Get().WithContext(ctx).
+	err := dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Where(
 			"tenant_id = ? AND execution_id = ?",
 			tenantID,
@@ -69,5 +69,5 @@ func (r *Repository) Update(
 	ctx context.Context,
 	entity *model.ExecutionResult,
 ) error {
-	return r.db.Get().WithContext(ctx).Save(entity).Error
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Save(entity).Error
 }

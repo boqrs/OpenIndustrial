@@ -381,29 +381,6 @@ func (s *serviceImpl) StartExecution(
 	}
 
 	// -------------------------------------------------------------------------
-	// 4. Revalidate Routing
-	//
-	// Execution can sit in Pending state for some time. Therefore we must not
-	// assume that the Routing was still active when the execution was created.
-	// -------------------------------------------------------------------------
-
-	rt, err := s.routingSvc.GetRouting(
-		ctx,
-		exec.RoutingID,
-	)
-	if err != nil {
-		return ErrRoutingNotFound
-	}
-
-	if rt.Status != model.RoutingStatusActive {
-		return ErrRoutingNotActive
-	}
-
-	if rt.ProductID != exec.ProductID {
-		return ErrRoutingProductMismatch
-	}
-
-	// -------------------------------------------------------------------------
 	// 5. Start WorkOrder if necessary
 	// -------------------------------------------------------------------------
 
