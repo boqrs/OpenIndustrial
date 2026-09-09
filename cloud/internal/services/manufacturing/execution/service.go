@@ -150,13 +150,13 @@ func (s *serviceImpl) CreateExecution(
 	// // 5. Validate Routing
 	// // -------------------------------------------------------------------------
 
-	// if rt.Status != model.RoutingStatusActive {
-	// 	return nil, ErrRoutingNotActive
-	// }
+	if rt.Status != model.RoutingStatusActive {
+		return nil, ErrRoutingNotActive
+	}
 
-	// if rt.ProductID != wo.ProductID {
-	// 	return nil, ErrRoutingProductMismatch
-	// }
+	if rt.ProductID != wo.ProductID {
+		return nil, ErrRoutingProductMismatch
+	}
 
 	// -------------------------------------------------------------------------
 	// 6. Load Routing Operations

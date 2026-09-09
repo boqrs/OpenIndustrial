@@ -50,23 +50,19 @@ func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routin
 	}
 }
 
-// CreateProductionExecution is a transactional use case that creates a new production execution from a work order.
-func (s *service) CreateProductionExecution(ctx context.Context, workOrderID uint, deviceID *uint) (*execution.ExecutionResponse, error) {
+func (s *service) CreateProductionExecution(
+    ctx context.Context,
+    workOrderID uint,
+    deviceID *uint,
+) (*execution.ExecutionResponse, error) {
 
-	var result *execution.ExecutionResponse
-	var err error
+    req := &execution.CreateExecutionRequest{
+        WorkOrderID: workOrderID,
+        DeviceID:    deviceID,
+    }
 
-	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
+    return s.executions.CreateExecution(ctx, req)
 }
-
 // ConfirmExecutionResult confirms the final production result. 
 // // // This is the manufacturing completion boundary:
 //  // // ExecutionResult // ↓ 
@@ -203,9 +199,9 @@ func validateQualifiedItems( operations []*execution.OperationResponse, qualifie
 	return nil 
 } 
 						
-func extractQualifiedItems( operations []*execution.OperationResponse	, ) []qualifiedItem { // TODO: // // Parse the standardized: // // { // "items": [ // { // "item_key": "000001", // "data": { // "serial_number": "SN000001", // "hardware_id": "HW000001" // } // } // ] // } // // from ExecutionOperation.Result. // // We deliberately leave this parser isolated from the // Executor implementations. 
+func extractQualifiedItems( operations []*execution.OperationResponse) []qualifiedItem { // TODO: // // Parse the standardized: // // { // "items": [ // { // "item_key": "000001", // "data": { // "serial_number": "SN000001", // "hardware_id": "HW000001" // } // } // ] // } // // from ExecutionOperation.Result. // // We deliberately leave this parser isolated from the // Executor implementations. 
 							
-						return nil
+	return nil
 }
 
 
