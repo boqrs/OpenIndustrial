@@ -4,61 +4,59 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 	"strconv"
+	"time"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
 var (
-	ErrResourceNotFound = errors.New("resource not found")
-	ErrCredentialNotFound = errors.New("credential not found")
-	ErrCredentialInvalid = errors.New("invalid credential")
-	ErrCredentialRevoked = errors.New("credential revoked")
-	ErrCredentialConsumed = errors.New("credential already consumed")
-	ErrIdentityNotFound = errors.New("resource identity not found")
-	ErrIdentityMismatch = errors.New("resource identity mismatch")
+	ErrResourceNotFound      = errors.New("resource not found")
+	ErrCredentialNotFound    = errors.New("credential not found")
+	ErrCredentialInvalid     = errors.New("invalid credential")
+	ErrCredentialRevoked     = errors.New("credential revoked")
+	ErrCredentialConsumed    = errors.New("credential already consumed")
+	ErrIdentityNotFound      = errors.New("resource identity not found")
+	ErrIdentityMismatch      = errors.New("resource identity mismatch")
 	ErrIdentityAlreadyExists = errors.New("resource identity already exists")
-	ErrCertificateNotFound = errors.New("certificate not found")
-	ErrCertificateMismatch = errors.New("certificate does not belong to resource")
-	ErrCertificateRevoked = errors.New("certificate revoked")
-	ErrCertificateExpired = errors.New("certificate expired")
+	ErrCertificateNotFound   = errors.New("certificate not found")
+	ErrCertificateMismatch   = errors.New("certificate does not belong to resource")
+	ErrCertificateRevoked    = errors.New("certificate revoked")
+	ErrCertificateExpired    = errors.New("certificate expired")
 )
 
-
-
 type service struct {
-	resources resource.ResourceRepository
-	credentials CredentialRepository
-	identities IdentityRepository
+	resources    resource.ResourceRepository
+	credentials  CredentialRepository
+	identities   IdentityRepository
 	certificates CertificateRepository
-	ca CertificateAuthority
-	mqtt MQTTProvider
-	tx TransactionManager
+	ca           CertificateAuthority
+	mqtt         MQTTProvider
+	tx           TransactionManager
 }
 
-func NewService(resources resource.ResourceRepository,credentials CredentialRepository,identities IdentityRepository,certificates CertificateRepository,ca CertificateAuthority,mqtt MQTTProvider,tx TransactionManager) Service {
+func NewService(resources resource.ResourceRepository, credentials CredentialRepository, identities IdentityRepository, certificates CertificateRepository, ca CertificateAuthority, mqtt MQTTProvider, tx TransactionManager) Service {
 
 	return &service{
-		resources: resources,
-		credentials: credentials,
-		identities: identities,
+		resources:    resources,
+		credentials:  credentials,
+		identities:   identities,
 		certificates: certificates,
-		ca: ca,
-		mqtt: mqtt,
-		tx: tx,
+		ca:           ca,
+		mqtt:         mqtt,
+		tx:           tx,
 	}
 }
 
-func (s *service) CreateBootstrapCredential(ctx context.Context,req CreateBootstrapCredentialRequest) (*BootstrapCredentialResponse, error) {
+func (s *service) CreateBootstrapCredential(ctx context.Context, req CreateBootstrapCredentialRequest) (*BootstrapCredentialResponse, error) {
 	if req.ResourceID == 0 {
 		return nil, errors.New(
 			"resource_id is required",
 		)
 	}
 
-	exists, err := s.resources.Exists(ctx,req.ResourceID)
+	exists, err := s.resources.Exists(ctx, req.ResourceID)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"check resource: %w",
@@ -81,14 +79,14 @@ func (s *service) CreateBootstrapCredential(ctx context.Context,req CreateBootst
 	now := time.Now().UTC()
 	credential := &model.ResourceCredential{
 		ResourceID: req.ResourceID,
-		Type: model.CredentialTypeBootstrap,
-		Status: model.CredentialStatusActive,
+		Type:       model.CredentialTypeBootstrap,
+		Status:     model.CredentialStatusActive,
 		SecretHash: hashSecret(secret),
-		CreatedAt: now,
-		UpdatedAt: now,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 
-	if err := s.credentials.Create(ctx,credential); err != nil {
+	if err := s.credentials.Create(ctx, credential); err != nil {
 
 		return nil, fmt.Errorf(
 			"create credential: %w",
@@ -98,14 +96,14 @@ func (s *service) CreateBootstrapCredential(ctx context.Context,req CreateBootst
 
 	//TODO: 需要确定是否是hashsecret
 	return &BootstrapCredentialResponse{
-		ResourceID: req.ResourceID,
+		ResourceID:   req.ResourceID,
 		CredentialID: credential.ID,
-		Token: hashSecret(secret),
-		CreatedAt: now,
+		Token:        hashSecret(secret),
+		CreatedAt:    now,
 	}, nil
 }
 
-func (s *service) RevokeBootstrapCredential(ctx context.Context,resourceID uint) error {
+func (s *service) RevokeBootstrapCredential(ctx context.Context, resourceID uint) error {
 
 	if resourceID == 0 {
 		return errors.New(
@@ -140,7 +138,7 @@ func (s *service) RevokeBootstrapCredential(ctx context.Context,resourceID uint)
 	return nil
 }
 
-func (s *service) BindResourceIdentity(ctx context.Context,req BindResourceIdentityRequest) (*ResourceIdentityResponse, error) {
+func (s *service) BindResourceIdentity(ctx context.Context, req BindResourceIdentityRequest) (*ResourceIdentityResponse, error) {
 
 	if req.ResourceID == 0 {
 		return nil, errors.New(
@@ -197,14 +195,14 @@ func (s *service) BindResourceIdentity(ctx context.Context,req BindResourceIdent
 	now := time.Now().UTC()
 
 	identity := &model.ResourceIdentity{
-		ResourceID: req.ResourceID,
-		HardwareID: req.HardwareID,
+		ResourceID:   req.ResourceID,
+		HardwareID:   req.HardwareID,
 		SerialNumber: req.SerialNumber,
-		CreatedAt: now,
-		UpdatedAt: now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
-	if err := s.identities.Create(ctx,identity); err != nil {
+	if err := s.identities.Create(ctx, identity); err != nil {
 		return nil, fmt.Errorf(
 			"create resource identity: %w",
 			err,
@@ -212,14 +210,14 @@ func (s *service) BindResourceIdentity(ctx context.Context,req BindResourceIdent
 	}
 
 	return &ResourceIdentityResponse{
-		ResourceID: identity.ResourceID,
-		HardwareID: identity.HardwareID,
+		ResourceID:   identity.ResourceID,
+		HardwareID:   identity.HardwareID,
 		SerialNumber: identity.SerialNumber,
-		CreatedAt: identity.CreatedAt,
+		CreatedAt:    identity.CreatedAt,
 	}, nil
 }
 
-func (s *service) ProvisionDevice(ctx context.Context,req ProvisionDeviceRequest) (*ProvisionDeviceResponse, error) {
+func (s *service) ProvisionDevice(ctx context.Context, req ProvisionDeviceRequest) (*ProvisionDeviceResponse, error) {
 
 	if req.BootstrapToken == "" {
 		return nil, errors.New(
@@ -246,178 +244,172 @@ func (s *service) ProvisionDevice(ctx context.Context,req ProvisionDeviceRequest
 
 	var result *ProvisionDeviceResponse
 
-	err = s.tx.WithinTransaction(ctx,func(txCtx context.Context) error {
+	err = s.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
 
-			 credential, err := s.credentials.GetForUpdate(txCtx, req.ID)
-			if err != nil {
-				if errors.Is(err,ErrCredentialNotFound) {
-					return ErrCredentialNotFound
-				}
-
-				return fmt.Errorf(
-					"get credential: %w",
-					err,
-				)
+		credential, err := s.credentials.GetForUpdate(txCtx, req.ID)
+		if err != nil {
+			if errors.Is(err, ErrCredentialNotFound) {
+				return ErrCredentialNotFound
 			}
 
-			if credential.Type != model.CredentialTypeBootstrap {
-				return ErrCredentialInvalid
+			return fmt.Errorf(
+				"get credential: %w",
+				err,
+			)
+		}
+
+		if credential.Type != model.CredentialTypeBootstrap {
+			return ErrCredentialInvalid
+		}
+
+		if credential.Status == model.CredentialStatusRevoked {
+
+			return ErrCredentialRevoked
+		}
+
+		if credential.Status == model.CredentialStatusConsumed {
+
+			return ErrCredentialConsumed
+		}
+
+		if !verifySecret(secret, credential.SecretHash) {
+			return ErrCredentialInvalid
+		}
+
+		resourceID := credential.ResourceID
+
+		identity, err := s.identities.GetByResourceID(txCtx, resourceID)
+		if err != nil {
+			if errors.Is(err, ErrIdentityNotFound) {
+				return ErrIdentityNotFound
 			}
 
-			if credential.Status == model.CredentialStatusRevoked {
+			return fmt.Errorf(
+				"get resource identity: %w",
+				err,
+			)
+		}
 
-				return ErrCredentialRevoked
-			}
+		if identity.HardwareID != req.HardwareID {
+			return ErrIdentityMismatch
+		}
 
-			if credential.Status == model.CredentialStatusConsumed {
+		if identity.SerialNumber != "" && identity.SerialNumber != req.SerialNumber {
 
-				return ErrCredentialConsumed
-			}
+			return ErrIdentityMismatch
+		}
 
-			if !verifySecret(secret,credential.SecretHash) {
-				return ErrCredentialInvalid
-			}
+		csr, err := s.ca.ValidateCSR(req.CSR)
+		if err != nil {
+			return fmt.Errorf(
+				"validate csr: %w",
+				err,
+			)
+		}
 
-			resourceID := credential.ResourceID
+		if err := validateCSRForResource(csr, resourceID); err != nil {
 
-			identity, err := s.identities.GetByResourceID(txCtx,resourceID)
-			if err != nil {
-				if errors.Is(err,ErrIdentityNotFound) {
-					return ErrIdentityNotFound
-				}
+			return err
+		}
 
-				return fmt.Errorf(
-					"get resource identity: %w",
-					err,
-				)
-			}
+		issued, err := s.ca.IssueCertificate(txCtx, IssueCertificateRequest{ResourceID: resourceID, CSR: req.CSR})
+		if err != nil {
+			return fmt.Errorf(
+				"issue certificate: %w",
+				err,
+			)
+		}
 
-			if identity.HardwareID !=req.HardwareID {
-				return ErrIdentityMismatch
-			}
+		now := time.Now().UTC()
 
-			if identity.SerialNumber != "" &&identity.SerialNumber != req.SerialNumber {
+		certificate := &model.ResourceCertificate{
+			//ID: uuid.New(),
+			ResourceID:    resourceID,
+			CertificateID: issued.CertificateID,
+			Fingerprint:   issued.Fingerprint,
+			Subject:       issued.Subject,
+			Issuer:        issued.Issuer,
+			Status:        model.CertificateActive,
+			NotBefore:     issued.NotBefore,
+			NotAfter:      issued.NotAfter,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
 
-				return ErrIdentityMismatch
-			}
+		if err := s.certificates.Create(txCtx, certificate); err != nil {
 
-			csr, err := s.ca.ValidateCSR(req.CSR)
-			if err != nil {
-				return fmt.Errorf(
-					"validate csr: %w",
-					err,
-				)
-			}
+			_ = s.ca.RevokeCertificate(
+				ctx,
+				issued.CertificateID,
+				"database persistence failure",
+			)
 
-			if err := validateCSRForResource(csr, resourceID); err != nil {
+			return fmt.Errorf(
+				"save certificate: %w",
+				err,
+			)
+		}
 
-				return err
-			}
+		credential.Status =
+			model.CredentialStatusConsumed
 
-			issued, err := s.ca.IssueCertificate(txCtx,IssueCertificateRequest{ResourceID: resourceID,CSR: req.CSR})
-			if err != nil {
-				return fmt.Errorf(
-					"issue certificate: %w",
-					err,
-				)
-			}
+		credential.CreatedAt = time.Now()
 
-			now := time.Now().UTC()
+		credential.UpdatedAt = now
 
-			certificate := &model.ResourceCertificate{
-				//ID: uuid.New(),
+		if err := s.credentials.Update(
+			txCtx,
+			credential,
+		); err != nil {
+
+			_ = s.ca.RevokeCertificate(
+				ctx,
+				issued.CertificateID,
+				"credential consumption failure",
+			)
+
+			return fmt.Errorf(
+				"consume credential: %w",
+				err,
+			)
+		}
+
+		result = &ProvisionDeviceResponse{
+			ResourceID: resourceID,
+
+			Certificate: CertificateResponse{
+				ID: certificate.ID,
+
 				ResourceID: resourceID,
-				CertificateID: issued.CertificateID,
-				Fingerprint: issued.Fingerprint,
-				Subject: issued.Subject,
-				Issuer: issued.Issuer,
-				Status: model.CertificateActive,
-				NotBefore: issued.NotBefore,
-				NotAfter: issued.NotAfter,
-				CreatedAt: now,
-				UpdatedAt: now,
-			}
 
-			if err := s.certificates.Create(txCtx,certificate); err != nil {
+				CertificateID: certificate.CertificateID,
 
-				_ = s.ca.RevokeCertificate(
-					ctx,
-					issued.CertificateID,
-					"database persistence failure",
-				)
+				Fingerprint: certificate.Fingerprint,
 
-				return fmt.Errorf(
-					"save certificate: %w",
-					err,
-				)
-			}
+				Status: string(certificate.Status),
 
-			credential.Status =
-				model.CredentialStatusConsumed
+				NotBefore: certificate.NotBefore,
 
-			credential.CreatedAt = time.Now()
+				NotAfter: certificate.NotAfter,
 
-			credential.UpdatedAt = now
+				CreatedAt: certificate.CreatedAt,
+			},
 
-			if err := s.credentials.Update(
-				txCtx,
-				credential,
-			); err != nil {
+			MQTT: MQTTConnectionInfo{
+				Endpoint: s.mqtt.Endpoint(),
 
-				_ = s.ca.RevokeCertificate(
-					ctx,
-					issued.CertificateID,
-					"credential consumption failure",
-				)
+				Port: s.mqtt.Port(),
 
-				return fmt.Errorf(
-					"consume credential: %w",
-					err,
-				)
-			}
+				Protocol: s.mqtt.Protocol(),
 
-			result = &ProvisionDeviceResponse{
-				ResourceID: resourceID,
+				ClientID: strconv.Itoa(int(resourceID)),
+			},
 
-				Certificate: CertificateResponse{
-					ID: certificate.ID,
+			ProvisionedAt: now,
+		}
 
-					ResourceID: resourceID,
-
-					CertificateID:
-						certificate.CertificateID,
-
-					Fingerprint:
-						certificate.Fingerprint,
-
-					Status:
-						string(certificate.Status),
-
-					NotBefore:
-						certificate.NotBefore,
-
-					NotAfter:
-						certificate.NotAfter,
-
-					CreatedAt:
-						certificate.CreatedAt,
-				},
-
-				MQTT: MQTTConnectionInfo{
-					Endpoint: s.mqtt.Endpoint(),
-
-					Port: s.mqtt.Port(),
-
-					Protocol: s.mqtt.Protocol(),
-
-					ClientID: strconv.Itoa(int(resourceID)),
-				},
-
-				ProvisionedAt: now,
-			}
-
-			return nil
-		},
+		return nil
+	},
 	)
 
 	if err != nil {
@@ -427,7 +419,7 @@ func (s *service) ProvisionDevice(ctx context.Context,req ProvisionDeviceRequest
 	return result, nil
 }
 
-func (s *service) AuthenticateDevice(ctx context.Context,req AuthenticateDeviceRequest) (*DeviceAuthenticationResponse, error) {
+func (s *service) AuthenticateDevice(ctx context.Context, req AuthenticateDeviceRequest) (*DeviceAuthenticationResponse, error) {
 
 	if req.CertificateFingerprint == "" {
 		return nil, errors.New(
@@ -481,8 +473,7 @@ func (s *service) AuthenticateDevice(ctx context.Context,req AuthenticateDeviceR
 
 		ResourceID: certificate.ResourceID,
 
-		CertificateID:
-			certificate.CertificateID,
+		CertificateID: certificate.CertificateID,
 	}, nil
 }
 
@@ -523,7 +514,7 @@ func (s *service) GetCertificate(ctx context.Context, req CertificateReq) (*mode
 	return certificate, nil
 }
 
-func (s *service) ListCertificates(ctx context.Context,resourceID uint) ([]model.ResourceCertificate, error) {
+func (s *service) ListCertificates(ctx context.Context, resourceID uint) ([]model.ResourceCertificate, error) {
 
 	if resourceID == 0 {
 		return nil, errors.New(
@@ -548,7 +539,7 @@ func (s *service) ListCertificates(ctx context.Context,resourceID uint) ([]model
 		return nil, ErrResourceNotFound
 	}
 
-	certificates, err := s.certificates.ListByResourceID(ctx,resourceID)
+	certificates, err := s.certificates.ListByResourceID(ctx, resourceID)
 
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -560,7 +551,7 @@ func (s *service) ListCertificates(ctx context.Context,resourceID uint) ([]model
 	return certificates, nil
 }
 
-func (s *service) RenewCertificate(ctx context.Context,req RenewCertificateRequest) (*model.ResourceCertificate, error) {
+func (s *service) RenewCertificate(ctx context.Context, req RenewCertificateRequest) (*model.ResourceCertificate, error) {
 
 	if req.CSR == "" {
 		return nil, errors.New(
@@ -597,11 +588,11 @@ func (s *service) RenewCertificate(ctx context.Context,req RenewCertificateReque
 		return nil, err
 	}
 
-	issued, err :=s.ca.IssueCertificate(ctx,IssueCertificateRequest{
-				ResourceID: req.ResourceID,
-				CSR: req.CSR,
-			},
-		)
+	issued, err := s.ca.IssueCertificate(ctx, IssueCertificateRequest{
+		ResourceID: req.ResourceID,
+		CSR:        req.CSR,
+	},
+	)
 
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -612,20 +603,20 @@ func (s *service) RenewCertificate(ctx context.Context,req RenewCertificateReque
 
 	now := time.Now().UTC()
 
-	certificate :=&model.ResourceCertificate{
-			ResourceID: req.ResourceID,
-			CertificateID:issued.CertificateID,
-			Fingerprint:issued.Fingerprint,
-			Subject:issued.Subject,
-			Issuer:issued.Issuer,
-			Status:model.CertificateActive,
-			NotBefore:issued.NotBefore,
-			NotAfter:issued.NotAfter,
-			CreatedAt:now,
-			UpdatedAt:now,
-		}
+	certificate := &model.ResourceCertificate{
+		ResourceID:    req.ResourceID,
+		CertificateID: issued.CertificateID,
+		Fingerprint:   issued.Fingerprint,
+		Subject:       issued.Subject,
+		Issuer:        issued.Issuer,
+		Status:        model.CertificateActive,
+		NotBefore:     issued.NotBefore,
+		NotAfter:      issued.NotAfter,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
 
-	if err :=s.certificates.Create(ctx,certificate); err != nil {
+	if err := s.certificates.Create(ctx, certificate); err != nil {
 
 		_ = s.ca.RevokeCertificate(
 			ctx,
@@ -642,7 +633,7 @@ func (s *service) RenewCertificate(ctx context.Context,req RenewCertificateReque
 	return certificate, nil
 }
 
-func (s *service) RevokeCertificate(ctx context.Context,req RevokeCertificateRequest) error {
+func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRequest) error {
 
 	if req.ResourceID == 0 {
 		return errors.New(
@@ -656,7 +647,7 @@ func (s *service) RevokeCertificate(ctx context.Context,req RevokeCertificateReq
 		)
 	}
 
-	certificate, err :=s.certificates.GetByCertificateID(ctx,req.CertificateID)
+	certificate, err := s.certificates.GetByCertificateID(ctx, req.CertificateID)
 
 	if err != nil {
 
@@ -685,11 +676,11 @@ func (s *service) RevokeCertificate(ctx context.Context,req RevokeCertificateReq
 		return nil
 	}
 
-	if err :=s.ca.RevokeCertificate(
-			ctx,
-			certificate.CertificateID,
-			req.Reason,
-		); err != nil {
+	if err := s.ca.RevokeCertificate(
+		ctx,
+		certificate.CertificateID,
+		req.Reason,
+	); err != nil {
 
 		return fmt.Errorf(
 			"revoke certificate from ca: %w",
@@ -699,11 +690,11 @@ func (s *service) RevokeCertificate(ctx context.Context,req RevokeCertificateReq
 
 	now := time.Now().UTC()
 
-	certificate.Status =model.CertificateRevoked
-	certificate.RevokedAt =&now
-	certificate.UpdatedAt =now
+	certificate.Status = model.CertificateRevoked
+	certificate.RevokedAt = &now
+	certificate.UpdatedAt = now
 
-	if err :=s.certificates.Update(ctx,certificate); err != nil {
+	if err := s.certificates.Update(ctx, certificate); err != nil {
 
 		return fmt.Errorf(
 			"update certificate: %w",
@@ -713,4 +704,3 @@ func (s *service) RevokeCertificate(ctx context.Context,req RevokeCertificateReq
 
 	return nil
 }
-

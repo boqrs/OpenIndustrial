@@ -31,15 +31,15 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	execGroup := router.Group("/api/v1/external")
 	execGroup.Use(h.auth.Authenticate())
 	//{
-		execGroup.Handle(http.MethodGet, "/executions", h.ListExecutions)
-		execGroup.Handle(http.MethodGet, "/executions/:id", h.GetExecution)
-		execGroup.Handle(http.MethodPost, "/executions/:id/start", h.StartExecution)
-		execGroup.Handle(http.MethodPost, "/executions/:id/cancel", h.CancelExecution)
+	execGroup.Handle(http.MethodGet, "/executions", h.ListExecutions)
+	execGroup.Handle(http.MethodGet, "/executions/:id", h.GetExecution)
+	execGroup.Handle(http.MethodPost, "/executions/:id/start", h.StartExecution)
+	execGroup.Handle(http.MethodPost, "/executions/:id/cancel", h.CancelExecution)
 
-		execGroup.Handle(http.MethodGet, "/executions/:id/operations", h.ListOperations)
-		execGroup.Handle(http.MethodPost, "/executions/:id/operations/:op_id/start", h.StartOperation)
-		execGroup.Handle(http.MethodPost, "/executions/:id/operations/:op_id/complete", h.CompleteOperation)
-		execGroup.Handle(http.MethodPost, "/executions/:id/operations/:op_id/fail", h.FailOperation)
+	execGroup.Handle(http.MethodGet, "/executions/:id/operations", h.ListOperations)
+	execGroup.Handle(http.MethodPost, "/executions/:id/operations/:op_id/start", h.StartOperation)
+	execGroup.Handle(http.MethodPost, "/executions/:id/operations/:op_id/complete", h.CompleteOperation)
+	execGroup.Handle(http.MethodPost, "/executions/:id/operations/:op_id/fail", h.FailOperation)
 	//}
 }
 
@@ -196,4 +196,3 @@ func parseUintParam(ctx *gin.Context, paramName string) (uint, error) {
 	}
 	return uint(id), nil
 }
-

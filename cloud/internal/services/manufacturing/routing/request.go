@@ -1,7 +1,7 @@
 package routing
 
 import (
-	//"github.com/google/uuid"
+//"github.com/google/uuid"
 
 )
 
@@ -29,10 +29,10 @@ type CreateOperationRequest struct {
 }
 
 type UpdateOperationRequest struct {
-	Name           *string `json:"name,omitempty"`
-	Description    *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
 	//WorkCenterID   *uint   `json:"workCenterId,omitempty"`
-	Sequence       *int    `json:"sequence,omitempty"`
+	Sequence *int `json:"sequence,omitempty"`
 	//SetupTime      *int    `json:"setupTime,omitempty"`
 	//ProcessingTime *int    `json:"processingTime,omitempty"`
 }

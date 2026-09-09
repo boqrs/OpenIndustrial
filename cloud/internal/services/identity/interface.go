@@ -3,8 +3,8 @@ package identity
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/google/uuid"
 )
 
 // GroupRepository defines the interface for accessing group data.

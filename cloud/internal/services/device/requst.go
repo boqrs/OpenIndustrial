@@ -29,8 +29,8 @@ type UpdateDeviceRequest struct {
 
 // ListDevicesRequest defines device filters and pagination.
 type ListDevicesRequest struct {
-	ProductID *uint		`json:"product_id,omitempty"`
+	ProductID *uint               `json:"product_id,omitempty"`
 	Status    *model.DeviceStatus `json:"status,omitempty"`
-	ParentID  *uint `json:"parent_id,omitempty"`
+	ParentID  *uint               `json:"parent_id,omitempty"`
 	pkg.BasePageReq
 }

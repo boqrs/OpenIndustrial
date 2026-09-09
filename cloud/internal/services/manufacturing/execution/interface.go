@@ -3,8 +3,8 @@ package execution
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/google/uuid"
 )
 
 // --- Repository Interface ---
@@ -18,7 +18,7 @@ type Repository interface {
 
 	// Operation methods
 	GetOperation(ctx context.Context, executionID, operationID uint) (*model.ExecutionOperation, error)
-	ListOperations(ctx context.Context,executionID uint) ([]*model.ExecutionOperation, error)
+	ListOperations(ctx context.Context, executionID uint) ([]*model.ExecutionOperation, error)
 	UpdateOperation(ctx context.Context, operation *model.ExecutionOperation) error
 	GetCurrentOperation(ctx context.Context, executionID uint) (*model.ExecutionOperation, error)
 }

@@ -4,11 +4,9 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 	"github.com/boqrs/nexus/database"
-
+	"github.com/google/uuid"
 )
-
 
 type materialRepository struct {
 	db *database.DBProvider
@@ -57,7 +55,7 @@ func (r *materialRepository) List(ctx context.Context, tenantID uuid.UUID, offse
 		Order("created_at DESC").
 		Find(&materials).
 		Error
-	
+
 	return materials, total, err
 }
 

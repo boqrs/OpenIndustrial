@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/boqrs/nexus/database"
+	"github.com/google/uuid"
 )
 
 // --- TenantRepository ---
@@ -36,13 +36,14 @@ func (r *tenantRepository) UpdateTenant(ctx context.Context, tenant *model.Tenan
 	// It uses the primary key value to find the record.
 	return r.db.Get().WithContext(ctx).Save(tenant).Error
 }
+
 // --- UserRepository ---
 
 type userRepository struct {
 	db *database.DBProvider
 }
 
-func NewUserRepository(	db *database.DBProvider) identity.UserRepository {
+func NewUserRepository(db *database.DBProvider) identity.UserRepository {
 	return &userRepository{db: db}
 }
 
@@ -87,7 +88,7 @@ type roleRepository struct {
 	db *database.DBProvider
 }
 
-func NewRoleRepository(	db *database.DBProvider) identity.RoleRepository {
+func NewRoleRepository(db *database.DBProvider) identity.RoleRepository {
 	return &roleRepository{db: db}
 }
 
@@ -132,7 +133,7 @@ type permissionRepository struct {
 	db *database.DBProvider
 }
 
-func NewPermissionRepository(	db *database.DBProvider) identity.PermissionRepository {
+func NewPermissionRepository(db *database.DBProvider) identity.PermissionRepository {
 	return &permissionRepository{db: db}
 }
 

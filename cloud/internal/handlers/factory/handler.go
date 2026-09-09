@@ -1,15 +1,13 @@
 package factory
 
 import (
-	"net/http"
 	"fmt"
+	"net/http"
 	"strconv"
 
-
-	"github.com/gin-gonic/gin"
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	"github.com/boqrs/zeus/ginx"
-	srv"github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
-
+	"github.com/gin-gonic/gin"
 )
 
 // api handles the HTTP requests for the factory domain.
@@ -27,17 +25,17 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 
 	externalGroup := router.Group("/api/v1/external")
 	externalGroup.Handle(http.MethodPost, "/factories", h.createFactory)
-	externalGroup.Handle(http.MethodGet,"/factories/:factory_id", h.getFactory)
-	externalGroup.Handle(http.MethodPut,"/factories/:factory_id", h.updateFactory)
-	externalGroup.Handle(http.MethodDelete,"/factories/:factory_id", h.deleteFactory)
-	externalGroup.Handle(http.MethodGet,"/factories/:factory_id/topology", h.getTopology)
-	externalGroup.Handle(http.MethodPost,"/factories/topology/nodes", h.createTopologyNode)
-	externalGroup.Handle(http.MethodPut,"/factories/topology/nodes/:resource_id", h.updateTopologyNode)
-	externalGroup.Handle(http.MethodPost,"/factories/topology/nodes/move", h.moveTopologyNode)
-	externalGroup.Handle(http.MethodDelete,"/factories/topology/nodes/:resource_id", h.deleteTopologyNode)
+	externalGroup.Handle(http.MethodGet, "/factories/:factory_id", h.getFactory)
+	externalGroup.Handle(http.MethodPut, "/factories/:factory_id", h.updateFactory)
+	externalGroup.Handle(http.MethodDelete, "/factories/:factory_id", h.deleteFactory)
+	externalGroup.Handle(http.MethodGet, "/factories/:factory_id/topology", h.getTopology)
+	externalGroup.Handle(http.MethodPost, "/factories/topology/nodes", h.createTopologyNode)
+	externalGroup.Handle(http.MethodPut, "/factories/topology/nodes/:resource_id", h.updateTopologyNode)
+	externalGroup.Handle(http.MethodPost, "/factories/topology/nodes/move", h.moveTopologyNode)
+	externalGroup.Handle(http.MethodDelete, "/factories/topology/nodes/:resource_id", h.deleteTopologyNode)
 }
 
-func (a *Handler) createFactory(ctx *gin.Context)ginx.Render {
+func (a *Handler) createFactory(ctx *gin.Context) ginx.Render {
 	var req srv.CreateFactoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
@@ -51,7 +49,7 @@ func (a *Handler) createFactory(ctx *gin.Context)ginx.Render {
 	return ginx.Success(resp)
 }
 
-func (a *Handler) getFactory(ctx *gin.Context)ginx.Render  {
+func (a *Handler) getFactory(ctx *gin.Context) ginx.Render {
 	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param format"))
@@ -65,7 +63,7 @@ func (a *Handler) getFactory(ctx *gin.Context)ginx.Render  {
 	return ginx.Success(resp)
 }
 
-func (a *Handler) updateFactory(ctx *gin.Context)ginx.Render  {
+func (a *Handler) updateFactory(ctx *gin.Context) ginx.Render {
 	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param format"))
@@ -73,7 +71,7 @@ func (a *Handler) updateFactory(ctx *gin.Context)ginx.Render  {
 
 	var req srv.UpdateFactoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		return  ginx.Error(fmt.Errorf("invalid param json"))
+		return ginx.Error(fmt.Errorf("invalid param json"))
 	}
 
 	resp, err := a.service.UpdateFactory(ctx.Request.Context(), uint(factoryID), &req)
@@ -84,7 +82,7 @@ func (a *Handler) updateFactory(ctx *gin.Context)ginx.Render  {
 	return ginx.Success(resp)
 }
 
-func (a *Handler) deleteFactory(ctx *gin.Context)ginx.Render  {
+func (a *Handler) deleteFactory(ctx *gin.Context) ginx.Render {
 	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param format"))
@@ -98,7 +96,7 @@ func (a *Handler) deleteFactory(ctx *gin.Context)ginx.Render  {
 
 }
 
-func (a *Handler) createTopologyNode(ctx *gin.Context)ginx.Render  {
+func (a *Handler) createTopologyNode(ctx *gin.Context) ginx.Render {
 	var req srv.CreateTopologyNodeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		//c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -115,7 +113,7 @@ func (a *Handler) createTopologyNode(ctx *gin.Context)ginx.Render  {
 
 }
 
-func (a *Handler) updateTopologyNode(ctx *gin.Context)ginx.Render  {
+func (a *Handler) updateTopologyNode(ctx *gin.Context) ginx.Render {
 	resourceID, err := strconv.Atoi(ctx.Param("resource_id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param format"))
@@ -133,7 +131,7 @@ func (a *Handler) updateTopologyNode(ctx *gin.Context)ginx.Render  {
 	return ginx.Success(resp)
 }
 
-func (a *Handler) moveTopologyNode(ctx *gin.Context)ginx.Render  {
+func (a *Handler) moveTopologyNode(ctx *gin.Context) ginx.Render {
 	var req srv.MoveTopologyNodeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		//c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -150,7 +148,7 @@ func (a *Handler) moveTopologyNode(ctx *gin.Context)ginx.Render  {
 
 }
 
-func (a *Handler) deleteTopologyNode(ctx *gin.Context)ginx.Render  {
+func (a *Handler) deleteTopologyNode(ctx *gin.Context) ginx.Render {
 	resourceID, err := strconv.Atoi(ctx.Param("resource_id"))
 	if err != nil {
 		//c.JSON(http.StatusBadRequest, gin.H{"error": "invalid resource_id format"})
@@ -166,7 +164,7 @@ func (a *Handler) deleteTopologyNode(ctx *gin.Context)ginx.Render  {
 	return ginx.Success(nil)
 }
 
-func (a *Handler) getTopology(ctx *gin.Context)ginx.Render  {
+func (a *Handler) getTopology(ctx *gin.Context) ginx.Render {
 	factoryID, err := strconv.Atoi(ctx.Param("factory_id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param format"))
@@ -179,4 +177,3 @@ func (a *Handler) getTopology(ctx *gin.Context)ginx.Render  {
 
 	return ginx.Success(resp)
 }
-

@@ -67,11 +67,11 @@ func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingReque
 	}
 
 	entity := &model.Routing{
-		ProductID:    req.ProductID,
-		Name:         name,
-		Version:      version,
-		Description:  req.Description,
-		Status:       model.RoutingStatusInactive,
+		ProductID:   req.ProductID,
+		Name:        name,
+		Version:     version,
+		Description: req.Description,
+		Status:      model.RoutingStatusInactive,
 	}
 
 	if err := s.repository.CreateRouting(ctx, entity); err != nil {
@@ -207,12 +207,12 @@ func (s *serviceImpl) AddOperation(ctx context.Context, routingID uint, req *Cre
 	entity := &model.RoutingOperation{
 		//ID:             uuid.New(),
 		//TenantID:       tenantID,
-		RoutingID:      routingID,
-		Code:           code,
-		Name:           req.Name,
-		Description:    req.Description,
+		RoutingID:   routingID,
+		Code:        code,
+		Name:        req.Name,
+		Description: req.Description,
 		//WorkCenterID:   req.WorkCenterID,
-		Sequence:       req.Sequence,
+		Sequence: req.Sequence,
 		//SetupTime:      req.SetupTime,
 		//ProcessingTime: req.ProcessingTime,
 	}
@@ -306,17 +306,17 @@ func toRoutingResponse(entity *model.Routing) *RoutingResponse {
 		return nil
 	}
 	return &RoutingResponse{
-		ID:           entity.ID,
+		ID:         entity.ID,
 		ResourceID: entity.ResourceID,
 		//TenantID:     entity.TenantID,
-		ProductID:    entity.ProductID,
-		Name:         entity.Name,
-		Version:      entity.Version,
-		Description:  entity.Description,
-		Status:       entity.Status,
+		ProductID:   entity.ProductID,
+		Name:        entity.Name,
+		Version:     entity.Version,
+		Description: entity.Description,
+		Status:      entity.Status,
 		//IsDefault:    entity.IsDefault,
-		CreatedAt:    entity.CreatedAt,
-		UpdatedAt:    entity.UpdatedAt,
+		CreatedAt: entity.CreatedAt,
+		UpdatedAt: entity.UpdatedAt,
 	}
 }
 
@@ -325,18 +325,18 @@ func toOperationResponse(entity *model.RoutingOperation) *OperationResponse {
 		return nil
 	}
 	return &OperationResponse{
-		ID:             entity.ID,
-		RoutingID:      entity.RoutingID,
-		Code:           entity.Code,
-		Name:           entity.Name,
-		Description:    entity.Description,
-		WorkStationID:   *entity.WorkstationID,
-		Sequence:       entity.Sequence,
-		Parameters:     entity.Parameters,	
+		ID:            entity.ID,
+		RoutingID:     entity.RoutingID,
+		Code:          entity.Code,
+		Name:          entity.Name,
+		Description:   entity.Description,
+		WorkStationID: *entity.WorkstationID,
+		Sequence:      entity.Sequence,
+		Parameters:    entity.Parameters,
 		//SetupTime:      entity.SetupTime,
 		//ProcessingTime: entity.ProcessingTime,
-		CreatedAt:      entity.CreatedAt,
-		UpdatedAt:      entity.UpdatedAt,
+		CreatedAt: entity.CreatedAt,
+		UpdatedAt: entity.UpdatedAt,
 	}
 }
 

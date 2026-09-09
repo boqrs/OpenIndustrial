@@ -21,7 +21,7 @@ type Factory struct {
 
 // NewFactory creates a new provider factory.
 // It initializes certificate authority providers based on the given configuration.
-func NewFactory( pkiConfig ProviderConfig) (*Factory, error) {
+func NewFactory(pkiConfig ProviderConfig) (*Factory, error) {
 	var awsCA CertificateAuthority
 	// The awsSDKConfig parameter is ignored as the caller in main.go passes nil.
 	// Instead, we load the default AWS config from the environment (a more robust pattern).

@@ -2,14 +2,13 @@ package api
 
 import (
 	"fmt"
-	"strconv"
-	"net/http"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"strconv"
 
 	"github.com/boqrs/zeus/ginx"
 
-
-	srv"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 )
 
 // SecurityHandler wraps the security service to expose its functionality via HTTP.
@@ -25,9 +24,9 @@ func NewHandler(service srv.Service) *Handler {
 }
 
 // RegisterSecurityRoutes registers all security-related HTTP routes.
-func (h *Handler)  RouterRegister(router ginx.ZeroGinRouter) {
+func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	// Endpoint for unauthenticated devices to get their initial identity.
-	
+
 	externalGroup := router.Group("/api/v1/external")
 	externalGroup.Handle(http.MethodPost, "/provision", h.provisionDevice)
 	externalGroup.Handle(http.MethodPost, "/auth/device", h.authenticateDevice)
@@ -39,9 +38,10 @@ func (h *Handler)  RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup.Handle(http.MethodPost, "/certificates/:id/rotate", h.rotateCertificate)
 	externalGroup.Handle(http.MethodPost, "/resources/:id/certificates", h.listCertificates)
 }
+
 // --- Handler Implementations ---
 
-func (h *Handler) provisionDevice(ctx *gin.Context) ginx.Render{
+func (h *Handler) provisionDevice(ctx *gin.Context) ginx.Render {
 	var req srv.ProvisionDeviceRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param json"))
@@ -50,10 +50,10 @@ func (h *Handler) provisionDevice(ctx *gin.Context) ginx.Render{
 	if err != nil {
 		return ginx.Error(err)
 	}
-	return ginx.Success(resp)		
+	return ginx.Success(resp)
 }
 
-func (h *Handler) authenticateDevice(ctx *gin.Context) ginx.Render{
+func (h *Handler) authenticateDevice(ctx *gin.Context) ginx.Render {
 	var req srv.AuthenticateDeviceRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param json"))
@@ -66,7 +66,7 @@ func (h *Handler) authenticateDevice(ctx *gin.Context) ginx.Render{
 	return ginx.Success(resp)
 }
 
-func (h *Handler) createBootstrapCredential(ctx *gin.Context) ginx.Render{
+func (h *Handler) createBootstrapCredential(ctx *gin.Context) ginx.Render {
 	var req srv.CreateBootstrapCredentialRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param json"))
@@ -80,7 +80,7 @@ func (h *Handler) createBootstrapCredential(ctx *gin.Context) ginx.Render{
 	return ginx.Success(resp)
 }
 
-func (h *Handler) revokeCredential(ctx *gin.Context) ginx.Render{
+func (h *Handler) revokeCredential(ctx *gin.Context) ginx.Render {
 	credID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
@@ -92,10 +92,10 @@ func (h *Handler) revokeCredential(ctx *gin.Context) ginx.Render{
 	return ginx.Success(nil)
 }
 
-func (h *Handler) getCertificate(ctx *gin.Context) ginx.Render{
+func (h *Handler) getCertificate(ctx *gin.Context) ginx.Render {
 	var req srv.CertificateReq
 
-	if err := ctx.ShouldBindQuery(req); err != nil{
+	if err := ctx.ShouldBindQuery(req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid request body: %w", err.Error()))
 	}
 
@@ -107,7 +107,7 @@ func (h *Handler) getCertificate(ctx *gin.Context) ginx.Render{
 	return ginx.Success(resp)
 }
 
-func (h *Handler) listCertificates(ctx *gin.Context) ginx.Render{
+func (h *Handler) listCertificates(ctx *gin.Context) ginx.Render {
 	resID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
@@ -120,7 +120,7 @@ func (h *Handler) listCertificates(ctx *gin.Context) ginx.Render{
 	return ginx.Success(resp)
 }
 
-func (h *Handler) revokeCertificate(ctx *gin.Context) ginx.Render{
+func (h *Handler) revokeCertificate(ctx *gin.Context) ginx.Render {
 
 	var req srv.RevokeCertificateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -134,7 +134,7 @@ func (h *Handler) revokeCertificate(ctx *gin.Context) ginx.Render{
 	return ginx.Success(nil)
 }
 
-func (h *Handler) rotateCertificate(ctx *gin.Context) ginx.Render{
+func (h *Handler) rotateCertificate(ctx *gin.Context) ginx.Render {
 	var req srv.RenewCertificateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param json"))
@@ -149,7 +149,7 @@ func (h *Handler) rotateCertificate(ctx *gin.Context) ginx.Render{
 
 }
 
-func (h *Handler) bindResourceIdentity(ctx *gin.Context) ginx.Render{
+func (h *Handler) bindResourceIdentity(ctx *gin.Context) ginx.Render {
 	var req srv.BindResourceIdentityRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param json"))
@@ -160,5 +160,3 @@ func (h *Handler) bindResourceIdentity(ctx *gin.Context) ginx.Render{
 	}
 	return ginx.Success(resp)
 }
-
-

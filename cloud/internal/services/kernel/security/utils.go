@@ -1,27 +1,26 @@
 package security
 
-import(
+import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"crypto/subtle"
-	"strings"
+	"encoding/base64"
 	"errors"
-	"context"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
-
 )
 
-func verifySecret(secret string,expectedHash string) bool {
+func verifySecret(secret string, expectedHash string) bool {
 	actualHash := hashSecret(secret)
 
 	if len(actualHash) != len(expectedHash) {
 		return false
 	}
 
-	return subtle.ConstantTimeCompare([]byte(actualHash),[]byte(expectedHash)) == 1
+	return subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedHash)) == 1
 }
 
 func parseBootstrapToken(

@@ -7,7 +7,6 @@ type CreateExecutionRequest struct {
 	DeviceID    *uint `json:"deviceId,omitempty"`
 }
 
-
 type RoutingOperationSnapshot struct {
 	ID                      uuid.UUID
 	Sequence                int

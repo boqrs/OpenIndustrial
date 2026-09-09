@@ -11,14 +11,14 @@ const (
 	// Factory-related resource types
 	ResourceTypeFactory        ResourceType = "FACTORY"
 	ResourceTypeProductionLine ResourceType = "PRODUCTION_LINE"
-	ResourceTypeWorkStation     ResourceType = "WORK_STATION"
+	ResourceTypeWorkStation    ResourceType = "WORK_STATION"
 
 	// Device-related resource types
 	ResourceTypeDevice     ResourceType = "DEVICE"
 	ResourceTypeDeviceType ResourceType = "DEVICE_TYPE"
 
 	// Product-related resource types
-	ResourceTypeProductModel    ResourceType = "PRODUCT_MODEL"
+	ResourceTypeProductModel ResourceType = "PRODUCT_MODEL"
 	//ResourceTypeProductInstance ResourceType = "PRODUCT_INSTANCE"
 )
 
@@ -27,28 +27,27 @@ const (
 
 // CreateResource defines the parameters for creating a new resource.
 type CreateResource struct {
-	Type         string                 `json:"type" binding:"required,resourcetype"`
-	Name         string                 `json:"name" binding:"required,min=2,max=100"`
-	Code         *string                `json:"code,omitempty"`
+	Type string  `json:"type" binding:"required,resourcetype"`
+	Name string  `json:"name" binding:"required,min=2,max=100"`
+	Code *string `json:"code,omitempty"`
 	// Status must be one of the predefined resource statuses.
-	Status       string                 `json:"status" binding:"required,oneof=active inactive archived pending PROVISIONED ONBOARDED OFFLINE DECOMMISSIONED"`
-	Metadata     []byte                 `json:"metadata,omitempty"`
-	ParentID     *uint             `json:"parent_id,omitempty"`
-	OwnerGroupID *uuid.UUID             `json:"owner_group_id,omitempty"`//TODO: 这个字段是什么
+	Status       string     `json:"status" binding:"required,oneof=active inactive archived pending PROVISIONED ONBOARDED OFFLINE DECOMMISSIONED"`
+	Metadata     []byte     `json:"metadata,omitempty"`
+	ParentID     *uint      `json:"parent_id,omitempty"`
+	OwnerGroupID *uuid.UUID `json:"owner_group_id,omitempty"` //TODO: 这个字段是什么
 	//Attributes   map[string]interface{} `json:"attributes,omitempty"`
-	TenantID     uuid.UUID              `json:"-"`
+	TenantID uuid.UUID `json:"-"`
 }
-
 
 // UpdateResource is the authoritative parameter structure for updating a resource.
 type UpdateResource struct {
 	// Fields from the request body
-	Name     string `json:"name" binding:"required,min=2,max=100"`
+	Name     string  `json:"name" binding:"required,min=2,max=100"`
 	Code     *string `json:"code,omitempty"`
-	Status   string `json:"status" binding:"required,oneof=active inactive archived pending"`
-	Metadata []byte `json:"metadata,omitempty"`
-	Version  int    `json:"version" binding:"required,gt=0"`
-	ParentID uint `json:"parent_id,omitempty"`
+	Status   string  `json:"status" binding:"required,oneof=active inactive archived pending"`
+	Metadata []byte  `json:"metadata,omitempty"`
+	Version  int     `json:"version" binding:"required,gt=0"`
+	ParentID uint    `json:"parent_id,omitempty"`
 
 	// Populated by the handler from the URL and context.
 	TenantID   uuid.UUID `json:"-"`

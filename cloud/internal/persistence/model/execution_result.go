@@ -20,17 +20,17 @@ const (
 // The result owns production quantities and final confirmation state.
 // Detailed per-unit production data remains in ExecutionOperation.Result.
 type ExecutionResult struct {
-	ID uint `gorm:"primaryKey"`
-	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
-	ExecutionID uint `gorm:"not null;uniqueIndex"`
-	WorkOrderID uint `gorm:"not null;index"`
-	ProducedQuantity  int64 `gorm:"not null;default:0"`
-	QualifiedQuantity int64 `gorm:"not null;default:0"`
-	RejectedQuantity  int64 `gorm:"not null;default:0"`
-	Status ExecutionResultStatus `gorm:"type:varchar(50);not null;default:'draft';index"`
-	ConfirmedAt *time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                uint                  `gorm:"primaryKey"`
+	TenantID          uuid.UUID             `gorm:"type:uuid;not null;index"`
+	ExecutionID       uint                  `gorm:"not null;uniqueIndex"`
+	WorkOrderID       uint                  `gorm:"not null;index"`
+	ProducedQuantity  int64                 `gorm:"not null;default:0"`
+	QualifiedQuantity int64                 `gorm:"not null;default:0"`
+	RejectedQuantity  int64                 `gorm:"not null;default:0"`
+	Status            ExecutionResultStatus `gorm:"type:varchar(50);not null;default:'draft';index"`
+	ConfirmedAt       *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (ExecutionResult) TableName() string {

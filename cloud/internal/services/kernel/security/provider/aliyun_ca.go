@@ -9,9 +9,9 @@ import (
 
 // AliyunCAConfig contains Alibaba Cloud PCA configuration.
 type AliyunCAConfig struct {
-	RegionID string `json:"region_id"`
+	RegionID     string `json:"region_id"`
 	CAInstanceID string `json:"ca_instance_id"`
-	ValidityDays int `json:"validity_days"`
+	ValidityDays int    `json:"validity_days"`
 }
 
 // AliyunCertificateClient is the minimum Alibaba Cloud
@@ -20,7 +20,6 @@ type AliyunCAConfig struct {
 // The actual Alibaba Cloud SDK implementation is injected
 // from outside this provider.
 type AliyunCertificateClient interface {
-
 	IssueCertificate(
 		ctx context.Context,
 		req AliyunIssueCertificateRequest,
@@ -89,7 +88,7 @@ func (p *AliyunCA) ValidateCSR(
 
 // IssueCertificate issues an end-entity certificate
 // using Alibaba Cloud PCA.
-func (p *AliyunCA) IssueCertificate(ctx context.Context,req IssueCertificateRequest) (*IssuedCertificate, error) {
+func (p *AliyunCA) IssueCertificate(ctx context.Context, req IssueCertificateRequest) (*IssuedCertificate, error) {
 
 	if req.ResourceID == 0 {
 		return nil, errors.New(
@@ -129,14 +128,11 @@ func (p *AliyunCA) IssueCertificate(ctx context.Context,req IssueCertificateRequ
 			ctx,
 			AliyunIssueCertificateRequest{
 
-				CAInstanceID:
-					p.config.CAInstanceID,
+				CAInstanceID: p.config.CAInstanceID,
 
-				CSR:
-					csrDER,
+				CSR: csrDER,
 
-				ValidityDays:
-					validityDays,
+				ValidityDays: validityDays,
 			},
 		)
 
@@ -203,14 +199,11 @@ func (p *AliyunCA) RevokeCertificate(
 			ctx,
 			AliyunRevokeCertificateRequest{
 
-				CAInstanceID:
-					p.config.CAInstanceID,
+				CAInstanceID: p.config.CAInstanceID,
 
-				CertificateID:
-					fmt.Sprintf("%d", req.CertificateID),
+				CertificateID: fmt.Sprintf("%d", req.CertificateID),
 
-				SerialNumber:
-					req.SerialNumber,
+				SerialNumber: req.SerialNumber,
 			},
 		)
 

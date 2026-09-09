@@ -23,25 +23,25 @@ const (
 
 // ResourceCredential stores a credential used for authenticating a resource, typically for bootstrapping.
 type ResourceCredential struct {
-	ID  uint      `gorm:"primaryKey"`
+	ID uint `gorm:"primaryKey"`
 	// ResourceID is the foreign key linking this credential to its owner resource.
-	ResourceID uint `gorm:"not null;index"`
+	ResourceID uint             `gorm:"not null;index"`
 	Type       CredentialType   `gorm:"type:varchar(50);not null"`
 	Status     CredentialStatus `gorm:"type:varchar(50);not null"`
 	// SecretHash stores the hashed version of the secret (e.g., SHA256 of the bootstrap token).
-	SecretHash string           `gorm:"type:varchar(255);not null"`
-	CreatedAt  time.Time        `gorm:"autoCreateTime"`
+	SecretHash string    `gorm:"type:varchar(255);not null"`
+	CreatedAt  time.Time `gorm:"autoCreateTime"`
 	ConsumedAt *time.Time
 	RevokedAt  *time.Time
-	UpdatedAt  time.Time        `gorm:"autoUpdateTime"`
+	UpdatedAt  time.Time `gorm:"autoUpdateTime"`
 }
 
 // ResourceIdentity stores the intrinsic, often hardware-based, identifiers of a resource.
 type ResourceIdentity struct {
-	ID  uint      `gorm:"primaryKey"`
+	ID uint `gorm:"primaryKey"`
 	// ResourceID is the foreign key linking this identity to its owner resource. It is unique
 	// as a resource should only have one canonical identity record.
-	ResourceID   uint `gorm:"not null;index"`
+	ResourceID   uint      `gorm:"not null;index"`
 	HardwareID   string    `gorm:"type:varchar(255);index"`
 	SerialNumber string    `gorm:"type:varchar(255);index"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
@@ -60,10 +60,10 @@ const (
 
 // ResourceCertificate stores information about a X.509 certificate associated with a resource.
 type ResourceCertificate struct {
-	ID  uint      `gorm:"primaryKey"`
+	ID uint `gorm:"primaryKey"`
 	// ResourceID is the foreign key linking this certificate to its owner resource.
-	ResourceID              uint `gorm:"not null;index"`
-	CertificateID           uint            `gorm:"not null;index"`
+	ResourceID              uint              `gorm:"not null;index"`
+	CertificateID           uint              `gorm:"not null;index"`
 	CertificateSerialNumber string            `gorm:"type:varchar(255);index"`
 	Fingerprint             string            `gorm:"type:varchar(255);not null;uniqueIndex"`
 	Subject                 string            `gorm:"type:text"`
@@ -71,8 +71,8 @@ type ResourceCertificate struct {
 	Status                  CertificateStatus `gorm:"type:varchar(50);not null"`
 	NotBefore               time.Time
 	NotAfter                time.Time
-	CreatedAt               time.Time         `gorm:"autoCreateTime"`
-	UpdatedAt               time.Time         `gorm:"autoUpdateTime"`
+	CreatedAt               time.Time `gorm:"autoCreateTime"`
+	UpdatedAt               time.Time `gorm:"autoUpdateTime"`
 	ActivatedAt             *time.Time
 	RevokedAt               *time.Time
 }

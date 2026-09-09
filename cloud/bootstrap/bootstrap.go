@@ -28,9 +28,9 @@ import (
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
+	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
-	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 
 	//mSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
 	routSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
@@ -70,7 +70,6 @@ func (m *mockTxManager) WithinTransaction(ctx context.Context, fn func(txCtx con
 	//log.Println("警告: 正在使用 mock Transaction Manager，操作不具备事务性。")
 	return fn(ctx)
 }
-
 
 type InfraCloseFunc func() error
 
@@ -120,16 +119,16 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	pkiConfig := provider.ProviderConfig{
 		Provider: "",
 		AWS: provider.AWSConfig{
-			Region:                 cfg.Ca.AWS.Region,
-			AccessKey:                  cfg.Ca.AWS.AccessKey,
+			Region:    cfg.Ca.AWS.Region,
+			AccessKey: cfg.Ca.AWS.AccessKey,
 			SecretKey: cfg.Ca.AWS.SecretKey,
-			CAArn:           cfg.Ca.AWS.CAArn,
+			CAArn:     cfg.Ca.AWS.CAArn,
 		},
 
 		Aliyun: provider.AliyunConfig{
-			Endpoint:       cfg.Ca.Aliyun.Endpoint,
-			AccessKeyID:    cfg.Ca.Aliyun.AccessKeyID,
-			AccessKeySecret:    cfg.Ca.Aliyun.AccessKeySecret,
+			Endpoint:         cfg.Ca.Aliyun.Endpoint,
+			AccessKeyID:      cfg.Ca.Aliyun.AccessKeyID,
+			AccessKeySecret:  cfg.Ca.Aliyun.AccessKeySecret,
 			ParentIdentifier: cfg.Ca.Aliyun.ParentIdentifier,
 		},
 	}
@@ -139,7 +138,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		log.Fatalf("failed to create pki provider factory: %v", err)
 	}
 
-		// 2. Create the specific Certificate Authority instance based on config
+	// 2. Create the specific Certificate Authority instance based on config
 	ca, err := pkiFactory.Create(provider.Provider(cfg.Ca.Provider))
 	if err != nil {
 		log.Fatalf("failed to create certificate authority: %v", err)
@@ -158,7 +157,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	//持久化模块初始化
 	resourceRepo := postgres.NewResourceRepository(dbProv)
- 	attrDefRepo := postgres.NewAttributeDefinitionRepository(dbProv)
+	attrDefRepo := postgres.NewAttributeDefinitionRepository(dbProv)
 	resAttrRepo := postgres.NewResourceAttributeRepository(dbProv)
 	resConnRepo := postgres.NewResourceConnectionsRepository(dbProv)
 	permissionRepo := postgres.NewPermissionRepository(dbProv)
@@ -169,35 +168,34 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	deviceRepo := postgres.NewDeviceRepository(dbProv)
 	pRepo := postgres.NewProductRepository(dbProv)
 	TenantRepo := postgres.NewTenantRepository(dbProv)
-	usRepo	:=	postgres.NewUserRepository(dbProv)
-	roleRepo :=	 postgres.NewRoleRepository(dbProv)
+	usRepo := postgres.NewUserRepository(dbProv)
+	roleRepo := postgres.NewRoleRepository(dbProv)
 	groupRepo := postgres.NewGroupRepository(dbProv)
-	ePb		:=  event.NewEventPubSub()
+	ePb := event.NewEventPubSub()
 	//plRepo :=	postgres.NewProductionPlanRepository(dbProv)
 	auth := middleware.NewAuthService(cfg.UserJwtSecret, permissionRepo)
 	woRepo := postgres.NewWorkOrderRepository(dbProv)
 	plRepo := postgres.NewProductionPlanRepository(dbProv)
-	bomRepo	:= postgres.NewBOMRepository(dbProv)
+	bomRepo := postgres.NewBOMRepository(dbProv)
 	materialRepo := postgres.NewMaterialRepository(dbProv)
 	ufRepo := postgres.NewUnitOfWork(dbProv)
 	routingRepo := postgres.NewRoutingRepository(dbProv)
-	execRepo :=	 postgres.NewExecutionRepository(dbProv)
-
+	execRepo := postgres.NewExecutionRepository(dbProv)
 
 	// 业务模块初始化, service层按道理只能使用srv
 	reSrv := rSrv.NewService(resourceRepo, attrDefRepo, resAttrRepo, resConnRepo)
 	seSrv := secSrv.NewService(resourceRepo, credRepo, identityRepo, certRepo, adaptedCA, &mockMQTT{}, &mockTxManager{})
-	pSrv :=	pSrv.NewService(reSrv, pRepo)
-	dSrv := dSrv.NewService(deviceRepo, reSrv,pSrv, seSrv)
+	pSrv := pSrv.NewService(reSrv, pRepo)
+	dSrv := dSrv.NewService(deviceRepo, reSrv, pSrv, seSrv)
 	fSrv := fSrv.NewService(reSrv, factoryRepo)
-	idtSrv :=	idtSrv.NewService(TenantRepo, usRepo, roleRepo, groupRepo, cfg.UserJwtSecret, ePb)
+	idtSrv := idtSrv.NewService(TenantRepo, usRepo, roleRepo, groupRepo, cfg.UserJwtSecret, ePb)
 	plSrv := plSrv.NewService(plRepo, pSrv, fSrv)
 	//materialSrv := mSrv.NewService(materialRepo)
 	routSrv := routSrv.NewService(routingRepo)
 	boSrv := bom.NewService(bomRepo, materialRepo, pSrv, ufRepo)
 	woSrv := woSrv.NewService(woRepo, plSrv, boSrv, routSrv)
 	execSrv := execSrv.NewService(execRepo, woSrv, routSrv)
-   // plSrv := planning.NewService(plRepo, pSrv, fSrv)
+	// plSrv := planning.NewService(plRepo, pSrv, fSrv)
 
 	// 初始化中间件，用于创建认证等中间件 需要时传入middlewareFactory
 	ph.NewHandler(pSrv).RouterRegister(router)

@@ -15,11 +15,11 @@ type AttributeDefinitionRequest struct {
 }
 
 type CreateProductModelRequest struct {
-	Name        string                              `json:"name"`
-	Code        string                              `json:"code"`
-	Version     string                              `json:"version"`
-	Category    string                              `json:"category"`
-	Description string                              `json:"description,omitempty"`
+	Name        string                                `json:"name"`
+	Code        string                                `json:"code"`
+	Version     string                                `json:"version"`
+	Category    string                                `json:"category"`
+	Description string                                `json:"description,omitempty"`
 	Attributes  map[string]AttributeDefinitionRequest `json:"attributes,omitempty"`
 }
 

@@ -9,31 +9,29 @@ import (
 
 // Response defines the standard structure for a work order API response.
 type Response struct {
-	ID               uint                    `json:"id"`
-	TenantID         string                  `json:"tenant_id"`
-	FactoryID        uint                    `json:"factory_id"`
-	ProductionLineID uint                    `json:"production_line_id"`
-	ProductionPlanID uint                    `json:"production_plan_id"`
-	ProductID        uint                    `json:"product_id"`
-	BOMID            uint                    `json:"bom_id"`
-	RoutingID        uint                    `json:"routing_id"`
-	Code             string                  `json:"code"`
-	PlannedQuantity  int64                   `json:"planned_quantity"`
-	Priority         int                     `json:"priority"`
-	DueDate          *time.Time              `json:"due_date,omitempty"`
-	Status           model.WorkOrderStatus   `json:"status"`
-	StartedAt        *time.Time              `json:"started_at,omitempty"`
-	CompletedAt      *time.Time              `json:"completed_at,omitempty"`
-	CreatedAt        time.Time               `json:"created_at"`
-	UpdatedAt        time.Time               `json:"updated_at"`
+	ID               uint                  `json:"id"`
+	TenantID         string                `json:"tenant_id"`
+	FactoryID        uint                  `json:"factory_id"`
+	ProductionLineID uint                  `json:"production_line_id"`
+	ProductionPlanID uint                  `json:"production_plan_id"`
+	ProductID        uint                  `json:"product_id"`
+	BOMID            uint                  `json:"bom_id"`
+	RoutingID        uint                  `json:"routing_id"`
+	Code             string                `json:"code"`
+	PlannedQuantity  int64                 `json:"planned_quantity"`
+	Priority         int                   `json:"priority"`
+	DueDate          *time.Time            `json:"due_date,omitempty"`
+	Status           model.WorkOrderStatus `json:"status"`
+	StartedAt        *time.Time            `json:"started_at,omitempty"`
+	CompletedAt      *time.Time            `json:"completed_at,omitempty"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
 }
 
-type ListResp struct{
- Detail []*Response `json:"detail"`
- pkg.PageBaseResp
+type ListResp struct {
+	Detail []*Response `json:"detail"`
+	pkg.PageBaseResp
 }
-
-
 
 // ToResponse converts a model.WorkOrder entity to a Response DTO.
 func ToResponse(wo *model.WorkOrder) *Response {

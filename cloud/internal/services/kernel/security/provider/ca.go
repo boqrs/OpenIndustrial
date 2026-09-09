@@ -9,6 +9,6 @@ import "context"
 // know anything about AWS, Alibaba Cloud, PCA, ARN, etc.
 type CertificateAuthority interface {
 	ValidateCSR(csrPEM string) (*ParsedCSR, error)
-	IssueCertificate(ctx context.Context,req IssueCertificateRequest) (*IssuedCertificate, error)
-	RevokeCertificate(ctx context.Context,req RevokeCertificateRequest) error
+	IssueCertificate(ctx context.Context, req IssueCertificateRequest) (*IssuedCertificate, error)
+	RevokeCertificate(ctx context.Context, req RevokeCertificateRequest) error
 }

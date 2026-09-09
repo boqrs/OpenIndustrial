@@ -21,7 +21,6 @@ type CreateRequest struct {
 	DueDate          *time.Time `json:"due_date"`
 }
 
-
 // UpdateRequest defines the structure for updating an existing work order.
 // Only certain fields of a work order in 'draft' status can be updated.
 type UpdateRequest struct {
@@ -32,6 +31,6 @@ type UpdateRequest struct {
 }
 type ListRequest struct {
 	TenantID  uuid.UUID `json:"-"`
-	ProductID uint `json:"product_id"`
+	ProductID uint      `json:"product_id"`
 	pkg.BasePageReq
 }

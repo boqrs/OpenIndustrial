@@ -181,7 +181,7 @@ func toResponse(entity *model.ProductionPlan) *ProductionPlanResponse {
 	}
 	return &ProductionPlanResponse{
 		ID:              entity.ID,
-		ResourceID:    entity.ResourceID,
+		ResourceID:      entity.ResourceID,
 		TenantID:        entity.TenantID,
 		PlanNo:          entity.PlanNo,
 		ProductID:       entity.ProductID,

@@ -1,16 +1,15 @@
 package resource
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
-	"fmt"
 
-	"github.com/gin-gonic/gin"
 	"github.com/boqrs/zeus/ginx"
+	"github.com/gin-gonic/gin"
 
-	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
-
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
 // --- Permission Constants (ADDED) ---
@@ -25,16 +24,16 @@ const (
 // ResourceHandler handles HTTP requests for the resource domain.
 type Handler struct {
 	service srv.Service
-	auth middleware.Service
+	auth    middleware.Service
 }
 
 // NewResourceHandler creates a new ResourceHandler.
 // UPDATED: Removed authzRepo from parameters.
-func NewHandler(service srv.Service,auth middleware.Service) *Handler {
-	
+func NewHandler(service srv.Service, auth middleware.Service) *Handler {
+
 	return &Handler{
-		service:        service,
-		auth:       auth,
+		service: service,
+		auth:    auth,
 	}
 }
 
@@ -99,7 +98,7 @@ func (h *Handler) handleListProducts(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-		return ginx.Success(products)
+	return ginx.Success(products)
 }
 
 // handleGetProduct handles retrieving a single product by its ID.
@@ -114,10 +113,9 @@ func (h *Handler) handleGetProduct(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
 
-
 	product, err := h.service.GetResource(ctx.Request.Context(), tenantID, uint(productID))
 	if err != nil {
-		
+
 		return ginx.Error(err)
 	}
 	return ginx.Success(product)
@@ -174,7 +172,6 @@ func (h *Handler) handleGetResource(ctx *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
-	
 
 	res, err := h.service.GetResource(ctx.Request.Context(), tenantID, uint(resourceID))
 	if err != nil {
@@ -183,7 +180,6 @@ func (h *Handler) handleGetResource(ctx *gin.Context) ginx.Render {
 
 	return ginx.Success(res)
 }
-
 
 // handleUpdateResource handles updating a generic resource.
 func (h *Handler) handleUpdateResource(ctx *gin.Context) ginx.Render {
@@ -196,7 +192,6 @@ func (h *Handler) handleUpdateResource(ctx *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid credential id format"))
 	}
-
 
 	var req srv.UpdateResource
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -230,7 +225,6 @@ func (h *Handler) handleDeleteResource(ctx *gin.Context) ginx.Render {
 
 	return ginx.Success(nil)
 }
-
 
 // REMOVED: handleListGroups function is removed.
 // This logic belongs in an IdentityHandler that uses the Identity service.

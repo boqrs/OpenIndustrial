@@ -30,8 +30,6 @@ type CertificateAuthorityAdapter struct {
 // 	) error
 // }
 
-
-
 // NewCertificateAuthorityAdapter creates a new adapter that makes the provider's CA
 // compatible with the interface required by the security service.
 func NewCertificateAuthorityAdapter(p provider.CertificateAuthority) CertificateAuthority {

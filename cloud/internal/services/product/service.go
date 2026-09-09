@@ -3,26 +3,25 @@ package product
 import (
 	"context"
 	"errors"
-	"strings"
 	"fmt"
+	"strings"
 
-	"github.com/google/uuid"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
+	"github.com/google/uuid"
 )
 
 var (
-	ErrProductModelNotFound        = errors.New("product model not found")
+	ErrProductModelNotFound          = errors.New("product model not found")
 	ErrProductModelCodeVersionExists = errors.New("product model code and version already exists")
-	ErrProductModelImmutable       = errors.New("product model code and version are immutable")
-	ErrInvalidProductModel         = errors.New("invalid product model")
-	ErrInvalidAttributeDefinition  = errors.New("invalid attribute definition")
-	ErrAttributeDefinitionNotFound = errors.New("attribute definition not found")
-	ErrProductModelAlreadyActive   = errors.New("product model is already active")
-	ErrProductModelCannotModify    = errors.New("active product model cannot modify schema")
+	ErrProductModelImmutable         = errors.New("product model code and version are immutable")
+	ErrInvalidProductModel           = errors.New("invalid product model")
+	ErrInvalidAttributeDefinition    = errors.New("invalid attribute definition")
+	ErrAttributeDefinitionNotFound   = errors.New("attribute definition not found")
+	ErrProductModelAlreadyActive     = errors.New("product model is already active")
+	ErrProductModelCannotModify      = errors.New("active product model cannot modify schema")
 )
-
 
 // serviceImpl implements the Service interface.
 type serviceImpl struct {
@@ -31,7 +30,7 @@ type serviceImpl struct {
 }
 
 // NewService creates a new product service.
-func NewService(resourceSvc resource.Service,repository Repository) Service {
+func NewService(resourceSvc resource.Service, repository Repository) Service {
 	return &serviceImpl{
 		resourceSvc: resourceSvc,
 		repository:  repository,
@@ -126,8 +125,8 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 }
 
 func (s *serviceImpl) buildCreateProductModelResponse(resourceEntity *model.Resource, entity *model.ProductModel, ad []*model.AttributeDefinition) *CreateProductModelResponse {
-	
-	atts := make([]AttributeDefinitionResponse, len(ad))	
+
+	atts := make([]AttributeDefinitionResponse, len(ad))
 	for _, def := range ad {
 		atts = append(atts, AttributeDefinitionResponse{
 			Name:        def.Name,
@@ -135,8 +134,8 @@ func (s *serviceImpl) buildCreateProductModelResponse(resourceEntity *model.Reso
 			Description: def.Description,
 			DataType:    string(def.DataType),
 			Unit:        def.Unit})
-	}	
-	
+	}
+
 	return &CreateProductModelResponse{
 		ID:          entity.ID,
 		ResourceID:  entity.ResourceID,
@@ -204,15 +203,13 @@ func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductDet
 
 //TODO: 这里是获取单个产品的详细信息包括产品 资源和属性
 
-
-
 func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductModelsRequest) (*ProductModelListResponse, error) {
 	if req == nil {
 		req = &ListProductModelsRequest{}
 	}
 
 	if req.CurrentPage <= 0 {
-		req.CurrentPage	 = 1
+		req.CurrentPage = 1
 	}
 
 	if req.PageSize <= 0 {
@@ -227,11 +224,11 @@ func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductMod
 
 	if len(products) == 0 {
 		return &ProductModelListResponse{
-			Items:    []*ProductModelResponse{},
+			Items: []*ProductModelResponse{},
 			PageBaseResp: pkg.PageBaseResp{
-				Total:       total,
-				Next: false,
-},
+				Total: total,
+				Next:  false,
+			},
 		}, nil
 	}
 
@@ -246,22 +243,22 @@ func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductMod
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resources by ids: %w", err)
 	}
-	 resourceMap := make(map[uint][]model.ResourceAttribute, len(resources))
+	resourceMap := make(map[uint][]model.ResourceAttribute, len(resources))
 	for _, r := range products {
 		resourceMap[r.ID] = make([]model.ResourceAttribute, 0)
 		for _, rs := range resources {
-			if rs.ResourceID == r.ResourceID{
+			if rs.ResourceID == r.ResourceID {
 				resourceMap[r.ID] = append(resourceMap[r.ID], rs)
 			}
 		}
 	}
-	
+
 	// Build responses
 	result := &ProductModelListResponse{
-		Items:    []*ProductModelResponse{},
+		Items: []*ProductModelResponse{},
 		PageBaseResp: pkg.PageBaseResp{
-			Total:       total,
-			Next: false,
+			Total: total,
+			Next:  false,
 		},
 	}
 
@@ -323,11 +320,11 @@ func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *Upda
 
 	if resourceNeedsUpdate {
 		req := &resource.UpdateResource{
-			Name: resourceEntity.ResourceName,
-			Code: resourceEntity.Code,
-			Status: resourceEntity.ResourceStatus,
-			Metadata:resourceEntity.Metadata,
-			Version: resourceEntity.Version,
+			Name:     resourceEntity.ResourceName,
+			Code:     resourceEntity.Code,
+			Status:   resourceEntity.ResourceStatus,
+			Metadata: resourceEntity.Metadata,
+			Version:  resourceEntity.Version,
 			ParentID: resourceEntity.ParentID,
 		}
 		if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
@@ -386,12 +383,12 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, sta
 
 	resourceEntity.ResourceStatus = targetStatus
 	req := &resource.UpdateResource{
-			Name: resourceEntity.ResourceName,
-			Code: resourceEntity.Code,
-			Status: resourceEntity.ResourceStatus,
-			Metadata:resourceEntity.Metadata,
-			Version: resourceEntity.Version,
-			ParentID: resourceEntity.ParentID,
+		Name:     resourceEntity.ResourceName,
+		Code:     resourceEntity.Code,
+		Status:   resourceEntity.ResourceStatus,
+		Metadata: resourceEntity.Metadata,
+		Version:  resourceEntity.Version,
+		ParentID: resourceEntity.ParentID,
 	}
 
 	if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
@@ -479,8 +476,8 @@ func (s *serviceImpl) buildProductModelResponse(dataM map[uint][]model.ResourceA
 		CreatedAt:   entity.CreatedAt,
 		UpdatedAt:   entity.UpdatedAt,
 	}
-	
-	if  v, has:= dataM[prs.ID]; has{
+
+	if v, has := dataM[prs.ID]; has {
 		prs.Attributes = make([]AttributeResponse, 0, len(v))
 		for _, attr := range v {
 			prs.Attributes = append(prs.Attributes, AttributeResponse{
@@ -500,9 +497,7 @@ func (s *serviceImpl) buildProductModelResponse(dataM map[uint][]model.ResourceA
 }
 
 type UpdateProductResponse struct {
-
 }
-
 
 func validateAttributeDefinitions(attributes map[string]AttributeDefinitionRequest) error {
 	seen := make(map[string]struct{}, len(attributes))

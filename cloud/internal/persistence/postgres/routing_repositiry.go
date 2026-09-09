@@ -69,11 +69,11 @@ func (r *routingRepository) DeactivateOtherRoutings(ctx context.Context, tenantI
 		Error
 }
 
-func (r *routingRepository) CountOperations(ctx context.Context, tenantID uuid.UUID, routingID  uint) (int64, error) {
+func (r *routingRepository) CountOperations(ctx context.Context, tenantID uuid.UUID, routingID uint) (int64, error) {
 	var count int64
 	err := r.db.Get().WithContext(ctx).Model(&model.RoutingOperation{}).Where("tenant_id = ? AND routing_id = ?", tenantID, routingID).Count(&count).Error
 	return count, err
-}	
+}
 
 func (r *routingRepository) CreateOperation(ctx context.Context, entity *model.RoutingOperation) error {
 	return r.db.Get().WithContext(ctx).Create(entity).Error

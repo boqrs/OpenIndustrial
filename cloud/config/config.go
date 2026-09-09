@@ -6,14 +6,13 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
 	config "github.com/boqrs/nexus/config/v2"
 	"github.com/boqrs/nexus/email"
 	"github.com/boqrs/nexus/log"
 	"github.com/boqrs/nexus/media"
 	"github.com/boqrs/nexus/redis"
 	"github.com/boqrs/nexus/tracing"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
-
 )
 
 type MyAppConfig struct {
@@ -24,8 +23,8 @@ type MyAppConfig struct {
 	LogCfg   log.LogConfig   `json:"log_cfg" yaml:"log_cfg" mapstructure:"log_cfg"`
 	EmailCfg email.Config    `json:"email_cfg" yaml:"email_cfg" mapstructure:"email_cfg"`
 	// Demo 业务配置
-	UserJwtSecret string `json:"user_jwt_secret" yaml:"user_jwt_secret" mapstructure:"user_jwt_secret"`
-	Ca			provider.ProviderConfig `json:"ca" yaml:"ca" mapstructure:"ca"`
+	UserJwtSecret string                  `json:"user_jwt_secret" yaml:"user_jwt_secret" mapstructure:"user_jwt_secret"`
+	Ca            provider.ProviderConfig `json:"ca" yaml:"ca" mapstructure:"ca"`
 }
 
 // Reload implements comm/config.ConfigReloader.

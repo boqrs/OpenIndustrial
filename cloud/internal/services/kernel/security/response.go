@@ -4,22 +4,21 @@ import (
 	"time"
 )
 
-
 type CertificateResponse struct {
-	ID uint `json:"id"`
-	ResourceID uint `json:"resource_id"`
-	CertificateID uint `json:"certificate_id"`
-	Fingerprint string `json:"fingerprint"`
-	Status string `json:"status"`
-	NotBefore time.Time `json:"not_before"`
-	NotAfter time.Time `json:"not_after"`
-	CreatedAt time.Time `json:"created_at"`
-	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+	ID            uint       `json:"id"`
+	ResourceID    uint       `json:"resource_id"`
+	CertificateID uint       `json:"certificate_id"`
+	Fingerprint   string     `json:"fingerprint"`
+	Status        string     `json:"status"`
+	NotBefore     time.Time  `json:"not_before"`
+	NotAfter      time.Time  `json:"not_after"`
+	CreatedAt     time.Time  `json:"created_at"`
+	RevokedAt     *time.Time `json:"revoked_at,omitempty"`
 }
 
 type DeviceAuthenticationResponse struct {
 	Authenticated bool `json:"authenticated"`
-	ResourceID uint `json:"resource_id"`
+	ResourceID    uint `json:"resource_id"`
 	CertificateID uint `json:"certificate_id"`
 }
 
@@ -56,7 +55,7 @@ type ResourceIdentityResponse struct {
 }
 
 type BootstrapCredentialResponse struct {
-	ResourceID  uint `json:"resource_id"`
+	ResourceID   uint `json:"resource_id"`
 	CredentialID uint `json:"credential_id"`
 
 	// 明文 Token 只返回一次。
@@ -65,4 +64,3 @@ type BootstrapCredentialResponse struct {
 
 	CreatedAt time.Time `json:"created_at"`
 }
-

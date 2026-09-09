@@ -9,29 +9,28 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
 var (
-	ErrFactoryNotFound = errors.New("factory not found")
-	ErrFactoryCodeExists = errors.New("factory code already exists")
-	ErrResourceNotFound = errors.New("resource not found")
-	ErrResourceTypeMismatch = errors.New("resource type mismatch")
-	ErrInvalidTopologyType = errors.New("invalid topology resource type")
-	ErrInvalidParent = errors.New("invalid topology parent")
-	ErrTopologyCycle = errors.New("topology operation would create a cycle")
+	ErrFactoryNotFound                 = errors.New("factory not found")
+	ErrFactoryCodeExists               = errors.New("factory code already exists")
+	ErrResourceNotFound                = errors.New("resource not found")
+	ErrResourceTypeMismatch            = errors.New("resource type mismatch")
+	ErrInvalidTopologyType             = errors.New("invalid topology resource type")
+	ErrInvalidParent                   = errors.New("invalid topology parent")
+	ErrTopologyCycle                   = errors.New("topology operation would create a cycle")
 	ErrCannotDeleteFactoryWithChildren = errors.New("cannot delete factory with children")
-	ErrCannotDeleteNodeWithChildren = errors.New("cannot delete topology node with children")
-	ErrNodeNotFound = errors.New("topology node not found")
+	ErrCannotDeleteNodeWithChildren    = errors.New("cannot delete topology node with children")
+	ErrNodeNotFound                    = errors.New("topology node not found")
 )
 
 // topologyTypes defines the allowed resource types for topology nodes in this first phase.
 var topologyTypes = map[resource.ResourceType]struct{}{
 	resource.ResourceTypeProductionLine: {},
-	resource.ResourceTypeWorkStation:     {},
+	resource.ResourceTypeWorkStation:    {},
 }
 
 // serviceImpl implements the Service interface.
@@ -41,7 +40,7 @@ type serviceImpl struct {
 }
 
 // NewService creates a new factory service.
-func NewService(resourceSvc resource.Service,repository Repository) Service {
+func NewService(resourceSvc resource.Service, repository Repository) Service {
 	return &serviceImpl{
 		resourceSvc: resourceSvc,
 		repository:  repository,
@@ -75,7 +74,7 @@ func (s *serviceImpl) CreateFactory(ctx context.Context, req *CreateFactoryReque
 		return nil, fmt.Errorf("check factory code: %w", err)
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx) 
+	tenantID := pkg.TenantIDFromContext(ctx)
 	resourceEntity, err := s.resourceSvc.CreateResource(ctx, &resource.CreateResource{
 		TenantID: tenantID,
 		Type:     string(resource.ResourceTypeFactory),
@@ -186,11 +185,11 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uint, req *Up
 
 	if resourceNeedsUpdate {
 		req := &resource.UpdateResource{
-			Name: resourceEntity.ResourceName,
-			Code: resourceEntity.Code,
-			Status: resourceEntity.ResourceStatus,
-			Metadata:resourceEntity.Metadata,
-			Version: resourceEntity.Version,
+			Name:     resourceEntity.ResourceName,
+			Code:     resourceEntity.Code,
+			Status:   resourceEntity.ResourceStatus,
+			Metadata: resourceEntity.Metadata,
+			Version:  resourceEntity.Version,
 			ParentID: resourceEntity.ParentID,
 		}
 		if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
@@ -277,13 +276,13 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 	}
 
 	resourceEntity, err := s.resourceSvc.CreateResource(ctx, &resource.CreateResource{
-		TenantID:  tenantID,
-		ParentID:  &parentResourceID,
-		Type:      req.Type,
-		Name:      name,
-		Code:      optionalString(req.Code),
-		Status:    model.StatusActive,
-		Metadata:  metadata,
+		TenantID: tenantID,
+		ParentID: &parentResourceID,
+		Type:     req.Type,
+		Name:     name,
+		Code:     optionalString(req.Code),
+		Status:   model.StatusActive,
+		Metadata: metadata,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create topology node resource: %w", err)
@@ -335,11 +334,11 @@ func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uint, r
 
 	if needsUpdate {
 		req := &resource.UpdateResource{
-			Name: entity.ResourceName,
-			Code: entity.Code,
-			Status: entity.ResourceStatus,
-			Metadata:entity.Metadata,
-			Version: entity.Version,
+			Name:     entity.ResourceName,
+			Code:     entity.Code,
+			Status:   entity.ResourceStatus,
+			Metadata: entity.Metadata,
+			Version:  entity.Version,
 			ParentID: entity.ParentID,
 		}
 		if _, err := s.resourceSvc.UpdateResource(ctx, entity.ID, req); err != nil {
@@ -355,7 +354,7 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 		return errors.New("request is nil")
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx) 
+	tenantID := pkg.TenantIDFromContext(ctx)
 	node, err := s.resourceSvc.GetResourceByID(ctx, tenantID, req.ResourceID)
 	if err != nil {
 		return ErrNodeNotFound
@@ -386,7 +385,7 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 }
 
 func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uint) error {
-	tenantID := pkg.TenantIDFromContext(ctx) 
+	tenantID := pkg.TenantIDFromContext(ctx)
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
@@ -462,7 +461,6 @@ func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uuid.
 			return ErrInvalidParent
 		}
 	}
-
 
 	return nil
 }

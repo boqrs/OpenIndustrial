@@ -11,16 +11,16 @@ type Publisher interface {
 }
 
 type EventPubSub struct {
-	topic         string
+	topic string
 	//client        *pubsub.Client
 	//preconditions []precondition.Precondition
 }
 
-func NewEventPubSub()Publisher{
+func NewEventPubSub() Publisher {
 	return &EventPubSub{}
 }
 
-func (p *EventPubSub) 	Publish(ctx context.Context, streamName string, event *Envelope) error{
-    // ... 方法实现 ...
+func (p *EventPubSub) Publish(ctx context.Context, streamName string, event *Envelope) error {
+	// ... 方法实现 ...
 	return nil
 }

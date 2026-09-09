@@ -1,6 +1,5 @@
 package factory
 
-
 type CreateFactoryRequest struct {
 	Name     string `json:"name"`
 	Code     string `json:"code"`
@@ -16,12 +15,12 @@ type UpdateFactoryRequest struct {
 }
 
 type CreateTopologyNodeRequest struct {
-	FactoryID uint `json:"factory_id"`
-	ParentResourceID *uint `json:"parent_resource_id,omitempty"`
-	Type string `json:"type"`
-	Name string `json:"name"`
-	Code string `json:"code,omitempty"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	FactoryID        uint                   `json:"factory_id"`
+	ParentResourceID *uint                  `json:"parent_resource_id,omitempty"`
+	Type             string                 `json:"type"`
+	Name             string                 `json:"name"`
+	Code             string                 `json:"code,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type UpdateTopologyNodeRequest struct {
@@ -31,6 +30,6 @@ type UpdateTopologyNodeRequest struct {
 }
 
 type MoveTopologyNodeRequest struct {
-	ResourceID       uint `json:"resource_id"`
+	ResourceID       uint  `json:"resource_id"`
 	ParentResourceID *uint `json:"parent_resource_id,omitempty"`
 }

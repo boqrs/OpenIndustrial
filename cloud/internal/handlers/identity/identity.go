@@ -8,17 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-
-	"github.com/boqrs/zeus/ginx"
-	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
+	"github.com/boqrs/zeus/ginx"
 )
 
 // IdentityHandler handles HTTP requests for the identity domain.
 type Handler struct {
-	service          srv.Service
+	service srv.Service
 	//permissionRepo   PermissionRepository
 	auth middleware.Service
 }
@@ -26,14 +24,14 @@ type Handler struct {
 // NewIdentityHandler creates a new IdentityHandler.
 func NewIdentityHandler(service srv.Service, auth middleware.Service) *Handler {
 	return &Handler{
-		service:          service,
-		auth: 			  auth,
+		service: service,
+		auth:    auth,
 	}
 }
 
 // RegisterRoutes registers the identity routes.
 func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
-	
+
 	externalGroup := router.Group("/api/v1/external")
 	externalGroup.Use(h.auth.Authenticate())
 	externalGroup.Handle(http.MethodPost, "/identity/register", h.handleRegister)
@@ -137,7 +135,7 @@ func (h *Handler) handleListUsers(ctx *gin.Context) ginx.Render {
 }
 
 // handleGetUser retrieves a single user by their ID.
-func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render{
+func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
@@ -160,7 +158,7 @@ func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render{
 }
 
 // handleUpdateUser updates a user.
-func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render  {
+func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
@@ -186,7 +184,7 @@ func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render  {
 }
 
 // handleDeleteUser deletes a user.
-func (h *Handler) handleDeleteUser(ctx *gin.Context) ginx.Render  {
+func (h *Handler) handleDeleteUser(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
@@ -200,12 +198,12 @@ func (h *Handler) handleDeleteUser(ctx *gin.Context) ginx.Render  {
 	if err = h.service.DeleteUser(ctx.Request.Context(), tenantID, userID); err != nil {
 		return ginx.Error(err)
 	}
-	
+
 	return ginx.Success(nil)
 }
 
 // handleListRoles lists all roles.
-func (h *Handler) handleListRoles(ctx *gin.Context) ginx.Render  {
+func (h *Handler) handleListRoles(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
@@ -221,7 +219,7 @@ func (h *Handler) handleListRoles(ctx *gin.Context) ginx.Render  {
 }
 
 // handleAssignRoleToUser assigns a role to a user.
-func (h *Handler) handleAssignRoleToUser(ctx *gin.Context) ginx.Render  {
+func (h *Handler) handleAssignRoleToUser(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
@@ -239,7 +237,7 @@ func (h *Handler) handleAssignRoleToUser(ctx *gin.Context) ginx.Render  {
 	}
 
 	// CORRECTED: Pass userID from URL to the service call
-	if err = h.service.AssignRoleToUser(ctx.Copy().Request.Context(), tenantID, userID, &params);err != nil {
+	if err = h.service.AssignRoleToUser(ctx.Copy().Request.Context(), tenantID, userID, &params); err != nil {
 		return ginx.Error(err)
 	}
 

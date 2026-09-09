@@ -9,47 +9,39 @@ import (
 type CertificateRevokeReason string
 
 const (
-	CertificateRevokeReasonUnspecified CertificateRevokeReason =
-		"unspecified"
+	CertificateRevokeReasonUnspecified CertificateRevokeReason = "unspecified"
 
-	CertificateRevokeReasonKeyCompromise CertificateRevokeReason =
-		"key_compromise"
+	CertificateRevokeReasonKeyCompromise CertificateRevokeReason = "key_compromise"
 
-	CertificateRevokeReasonCACompromise CertificateRevokeReason =
-		"ca_compromise"
+	CertificateRevokeReasonCACompromise CertificateRevokeReason = "ca_compromise"
 
-	CertificateRevokeReasonSuperseded CertificateRevokeReason =
-		"superseded"
+	CertificateRevokeReasonSuperseded CertificateRevokeReason = "superseded"
 
-	CertificateRevokeReasonCessationOfOperation CertificateRevokeReason =
-		"cessation_of_operation"
+	CertificateRevokeReasonCessationOfOperation CertificateRevokeReason = "cessation_of_operation"
 
-	CertificateRevokeReasonPrivilegeWithdrawn CertificateRevokeReason =
-		"privilege_withdrawn"
-	RevokeReasonKeyCompromise        CertificateRevokeReason = 
-	    "KEY_COMPROMISE"
-
+	CertificateRevokeReasonPrivilegeWithdrawn CertificateRevokeReason = "privilege_withdrawn"
+	RevokeReasonKeyCompromise                 CertificateRevokeReason = "KEY_COMPROMISE"
 )
 
 // ParsedCSR contains provider-independent information
 // extracted from a PKCS#10 CSR.
 type ParsedCSR struct {
-	Subject string `json:"subject"`
-	CommonName string `json:"common_name"`
-	DNSNames []string `json:"dns_names"`
-	IPAddresses []string `json:"ip_addresses"`
-	URIs []string `json:"uris"`
-	EmailAddresses []string `json:"email_addresses"`
-	PublicKeyAlgorithm string `json:"public_key_algorithm"`
-	PublicKeySize int `json:"public_key_size"`
+	Subject            string   `json:"subject"`
+	CommonName         string   `json:"common_name"`
+	DNSNames           []string `json:"dns_names"`
+	IPAddresses        []string `json:"ip_addresses"`
+	URIs               []string `json:"uris"`
+	EmailAddresses     []string `json:"email_addresses"`
+	PublicKeyAlgorithm string   `json:"public_key_algorithm"`
+	PublicKeySize      int      `json:"public_key_size"`
 }
 
 // IssueCertificateRequest contains all information required
 // by a CertificateAuthority to issue a certificate.
 type IssueCertificateRequest struct {
-	ResourceID uint `json:"resource_id"`
-	CSR string `json:"csr"`
-	ValidityDays int `json:"validity_days"`
+	ResourceID   uint   `json:"resource_id"`
+	CSR          string `json:"csr"`
+	ValidityDays int    `json:"validity_days"`
 }
 
 // IssuedCertificate contains provider-independent information

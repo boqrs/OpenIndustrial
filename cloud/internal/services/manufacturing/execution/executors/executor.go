@@ -39,28 +39,29 @@ func NewOperationExecutorRegistry() *OperationExecutorRegistry {
 
 // Register adds an executor to the registry.
 func (r *OperationExecutorRegistry) Register(
-    executor OperationExecutor,
+	executor OperationExecutor,
 ) error {
-    if executor == nil {
-        return errors.New("executor is nil")
-    }
+	if executor == nil {
+		return errors.New("executor is nil")
+	}
 
-    if r.executors == nil {
-        r.executors = make(map[string]OperationExecutor)
-    }
+	if r.executors == nil {
+		r.executors = make(map[string]OperationExecutor)
+	}
 
-    typ := executor.Type()
-    if typ == "" {
-        return errors.New("executor type is empty")
-    }
+	typ := executor.Type()
+	if typ == "" {
+		return errors.New("executor type is empty")
+	}
 
-    if _, exists := r.executors[typ]; exists {
-        return fmt.Errorf("executor already registered: %s", typ)
-    }
+	if _, exists := r.executors[typ]; exists {
+		return fmt.Errorf("executor already registered: %s", typ)
+	}
 
-    r.executors[typ] = executor
-    return nil
+	r.executors[typ] = executor
+	return nil
 }
+
 // Get retrieves an executor from the registry by its type code.
 func (r *OperationExecutorRegistry) Get(operationType string) (OperationExecutor, bool) {
 	if r == nil || r.executors == nil {
@@ -69,7 +70,6 @@ func (r *OperationExecutorRegistry) Get(operationType string) (OperationExecutor
 	executor, ok := r.executors[operationType]
 	return executor, ok
 }
-
 
 // --- Registry Builder ---
 

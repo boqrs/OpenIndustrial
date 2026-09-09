@@ -8,11 +8,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	"github.com/google/uuid"
 )
-
 
 // Service provides use cases for the identity domain.
 type service struct {
@@ -21,7 +20,7 @@ type service struct {
 	roleRepo   RoleRepository
 	groupRepo  GroupRepository
 	jwtSecret  string
-	publisher   event.Publisher
+	publisher  event.Publisher
 }
 
 // NewService creates a new identity service.
@@ -32,7 +31,7 @@ func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo R
 		roleRepo:   roleRepo,
 		groupRepo:  groupRepo,
 		jwtSecret:  jwtSecret,
-		publisher: publisher,
+		publisher:  publisher,
 	}
 }
 
@@ -155,8 +154,6 @@ func (s *service) CreateUser(ctx context.Context, tenantID uuid.UUID, req *Creat
 	if err := s.userRepo.CreateUser(ctx, newUser); err != nil {
 		return nil, fmt.Errorf("failed to create user record: %w", err)
 	}
-
-
 
 	hashedPassword, err := HashPassword(req.Password)
 	if err != nil {

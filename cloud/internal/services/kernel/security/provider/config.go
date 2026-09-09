@@ -1,11 +1,10 @@
 package provider
 
-
 type ProviderConfig struct {
-	Provider string      `mapstructure:"provider"` // "aws", "aliyun", or "local"
-	AWS      AWSConfig   `mapstructure:"aws"`
+	Provider string       `mapstructure:"provider"` // "aws", "aliyun", or "local"
+	AWS      AWSConfig    `mapstructure:"aws"`
 	Aliyun   AliyunConfig `mapstructure:"aliyun"`
-	Local    LocalConfig `mapstructure:"local"`
+	Local    LocalConfig  `mapstructure:"local"`
 }
 
 type AWSConfig struct {

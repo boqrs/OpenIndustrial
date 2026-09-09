@@ -1,4 +1,4 @@
-package executionresult	
+package executionresult
 
 import (
 	"context"
@@ -10,14 +10,13 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-
 )
 
 var (
-	ErrResultNotFound       = errors.New("execution result not found")
-	ErrResultAlreadyExists  = errors.New("execution result already exists")
-	ErrInvalidResultState   = errors.New("invalid execution result state")
-	ErrInvalidQuantity      = errors.New("invalid execution result quantity")
+	ErrResultNotFound      = errors.New("execution result not found")
+	ErrResultAlreadyExists = errors.New("execution result already exists")
+	ErrInvalidResultState  = errors.New("invalid execution result state")
+	ErrInvalidQuantity     = errors.New("invalid execution result quantity")
 )
 
 type service struct {

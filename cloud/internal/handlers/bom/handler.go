@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
@@ -17,12 +17,11 @@ import (
 // Handler wraps the BOM service to expose it via HTTP handlers.
 type Handler struct {
 	service bom.Service
-	auth middleware.Service
-
+	auth    middleware.Service
 }
 
 // NewHandler creates a new BOM handler.
-func NewHandler(service bom.Service,auth middleware.Service) *Handler {
+func NewHandler(service bom.Service, auth middleware.Service) *Handler {
 	return &Handler{
 		service: service,
 	}

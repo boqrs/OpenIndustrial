@@ -11,25 +11,25 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 )
 
-type service struct{
+type service struct {
 	jwtSecret string
-	repo identity.PermissionRepository
+	repo      identity.PermissionRepository
 }
 
-type Service interface{
+type Service interface {
 	Authenticate() gin.HandlerFunc
 	RequirePermission(permissionKey string) gin.HandlerFunc
 }
 
-func NewAuthService(jwtSecret string, repo identity.PermissionRepository)Service{
+func NewAuthService(jwtSecret string, repo identity.PermissionRepository) Service {
 	return &service{
 		jwtSecret: jwtSecret,
-		repo: repo,
+		repo:      repo,
 	}
 }
 
 // NewAuthMiddleware creates a middleware for JWT authentication.
-func(s *service) Authenticate() gin.HandlerFunc {
+func (s *service) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {

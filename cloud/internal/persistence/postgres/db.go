@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"gorm.io/driver/postgres"
-	"gorm.io/gorm"// The PostgreSQL driver, blank import
+	"gorm.io/gorm" // The PostgreSQL driver, blank import
 )
 
 // NewDB creates a new database connection using GORM.

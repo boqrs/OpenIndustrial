@@ -46,11 +46,9 @@ func NewAWSCA(
 	}
 
 	return &AWSCA{
-		client:
-			acmpca.NewFromConfig(cfg),
+		client: acmpca.NewFromConfig(cfg),
 
-		config:
-			config,
+		config: config,
 	}
 }
 
@@ -99,27 +97,22 @@ func (p *AWSCA) IssueCertificate(
 	}
 
 	input := &acmpca.IssueCertificateInput{
-		CertificateAuthorityArn:
-			awssdk.String(
-				p.config.CAARN,
-			),
+		CertificateAuthorityArn: awssdk.String(
+			p.config.CAARN,
+		),
 
-		Csr:
-			csrDER,
+		Csr: csrDER,
 
-		SigningAlgorithm:
-			parseAWSSigningAlgorithm(
-				p.config.SigningAlgorithm,
-			),
+		SigningAlgorithm: parseAWSSigningAlgorithm(
+			p.config.SigningAlgorithm,
+		),
 
 		Validity: &types.Validity{
-			Type:
-				types.ValidityPeriodTypeDays,
+			Type: types.ValidityPeriodTypeDays,
 
-			Value:
-				awssdk.Int64(
-					int64(validityDays),
-				),
+			Value: awssdk.Int64(
+				int64(validityDays),
+			),
 		},
 	}
 
@@ -190,15 +183,13 @@ func (p *AWSCA) waitCertificate(
 			p.client.GetCertificate(
 				ctx,
 				&acmpca.GetCertificateInput{
-					CertificateAuthorityArn:
-						awssdk.String(
-							p.config.CAARN,
-						),
+					CertificateAuthorityArn: awssdk.String(
+						p.config.CAARN,
+					),
 
-					CertificateArn:
-						awssdk.String(
-							certificateID,
-						),
+					CertificateArn: awssdk.String(
+						certificateID,
+					),
 				},
 			)
 
@@ -260,25 +251,22 @@ func (p *AWSCA) RevokeCertificate(
 			ctx,
 			&acmpca.RevokeCertificateInput{
 
-				CertificateAuthorityArn:
-					awssdk.String(
-						p.config.CAARN,
-					),
+				CertificateAuthorityArn: awssdk.String(
+					p.config.CAARN,
+				),
 
 				// CertificateArn:
 				// 	awssdk.String(
 				// 		req.CertificateID,
 				// 	),
 
-				CertificateSerial:
-					awssdk.String(
-						req.SerialNumber,
-					),
+				CertificateSerial: awssdk.String(
+					req.SerialNumber,
+				),
 
-				RevocationReason:
-					mapAWSRevokeReason(
-						req.Reason,
-					),
+				RevocationReason: mapAWSRevokeReason(
+					req.Reason,
+				),
 			},
 		)
 

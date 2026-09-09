@@ -3,30 +3,28 @@ package workorder
 //TODO：所有和keranl resource相关的逻辑都需要重新review
 import (
 	"context"
-	"fmt"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	bomSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
-	"github.com/google/uuid"
 	routingSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
-
+	"github.com/google/uuid"
 )
 
 var (
-	ErrInvalidWorkOrder      = errors.New("invalid work order data")
-	ErrWorkOrderNotFound     = errors.New("work order not found")
-	ErrInvalidWorkOrderState = errors.New("invalid work order state for this operation")
-	ErrPlanProductMismatch   = errors.New("work order product does not match production plan product")
-	ErrQuantityExceedsPlan   = errors.New("work order quantity exceeds remaining quantity of the production plan")
-	ErrBOMProductMismatch    = errors.New("bom does not belong to the specified product")
-	ErrBOMNotReleased        = errors.New("bom is not in released status")
+	ErrInvalidWorkOrder       = errors.New("invalid work order data")
+	ErrWorkOrderNotFound      = errors.New("work order not found")
+	ErrInvalidWorkOrderState  = errors.New("invalid work order state for this operation")
+	ErrPlanProductMismatch    = errors.New("work order product does not match production plan product")
+	ErrQuantityExceedsPlan    = errors.New("work order quantity exceeds remaining quantity of the production plan")
+	ErrBOMProductMismatch     = errors.New("bom does not belong to the specified product")
+	ErrBOMNotReleased         = errors.New("bom is not in released status")
 	ErrRoutingProductMismatch = errors.New("routing does not belong to the specified product")
-	ErrRoutingNotActive = errors.New("routing is not active")
+	ErrRoutingNotActive       = errors.New("routing is not active")
 )
-
 
 type serviceImpl struct {
 	repository Repository
@@ -35,7 +33,7 @@ type serviceImpl struct {
 	rsrv       routingSrv.Service
 }
 
-func NewService(repository Repository,productionPlanService planning.Service,bomService bomSrv.Service,routingService routingSrv.Service) Service {
+func NewService(repository Repository, productionPlanService planning.Service, bomService bomSrv.Service, routingService routingSrv.Service) Service {
 	return &serviceImpl{
 		repository: repository,
 		psrv:       productionPlanService,
@@ -185,6 +183,7 @@ func (s *serviceImpl) Release(ctx context.Context, tenantID uuid.UUID, id uint) 
 	}
 	return nil
 }
+
 // ... (GetByID, List, Update, and other methods remain the same)
 func (s *serviceImpl) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*Response, error) {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
@@ -214,7 +213,7 @@ func (s *serviceImpl) List(ctx context.Context, req *ListRequest) (*ListResp, er
 	resp.Detail = res
 	resp.Total = total
 
-	if (int(total) > (offset+len(entities))){
+	if int(total) > (offset + len(entities)) {
 		resp.Next = true
 	}
 

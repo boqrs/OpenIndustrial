@@ -18,7 +18,7 @@ type ProductRepository struct {
 }
 
 // NewProductRepository creates a new GORM-based repository for product models.
-func NewProductRepository(	db *database.DBProvider) *ProductRepository {
+func NewProductRepository(db *database.DBProvider) *ProductRepository {
 	return &ProductRepository{db: db}
 }
 
@@ -62,7 +62,7 @@ func (r *ProductRepository) GetByCodeAndVersion(ctx context.Context, code string
 	return &pm, nil
 }
 
-func (r *ProductRepository) List(ctx context.Context,req product.ListProductModelsRequest) ([]*model.ProductModel, int64, error){
+func (r *ProductRepository) List(ctx context.Context, req product.ListProductModelsRequest) ([]*model.ProductModel, int64, error) {
 	var items []*model.ProductModel
 	var total int64
 

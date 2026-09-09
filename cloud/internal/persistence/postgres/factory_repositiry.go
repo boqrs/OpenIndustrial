@@ -6,10 +6,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	"github.com/boqrs/nexus/database"
-
 )
 
 // factoryRepository implements the factory.Repository interface using GORM.

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 )
 
 // Resource is the standard data transfer object for a single resource response.

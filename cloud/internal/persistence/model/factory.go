@@ -17,7 +17,7 @@ type Factory struct {
 	// Address stores the physical address of the factory.
 	Address string `gorm:"type:text"`
 	// Timezone of the factory's location.
-	Timezone string `gorm:"type:varchar(100);not null;default:'UTC'"`
+	Timezone  string    `gorm:"type:varchar(100);not null;default:'UTC'"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }

@@ -1,9 +1,8 @@
 package model
 
 import (
-	"time"
 	"encoding/json"
-
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -91,13 +90,13 @@ const (
 
 // ResourceConnection defines a specific, runtime technical binding between two resources.
 type ResourceConnection struct {
-	ID       uint      `gorm:"primaryKey"`
+	ID uint `gorm:"primaryKey"`
 	// SourceResourceID is the resource where the connection originates (e.g., a Device).
-	SourceResourceID uint `gorm:"not null;index"`
-	SourceResource   Resource  `gorm:"foreignKey:SourceResourceID;references:ID"`
+	SourceResourceID uint     `gorm:"not null;index"`
+	SourceResource   Resource `gorm:"foreignKey:SourceResourceID;references:ID"`
 	// TargetResourceID is the resource where the connection terminates (e.g., a Gateway).
-	TargetResourceID uint `gorm:"not null;index"`
-	TargetResource   Resource  `gorm:"foreignKey:TargetResourceID;references:ID"`
+	TargetResourceID uint     `gorm:"not null;index"`
+	TargetResource   Resource `gorm:"foreignKey:TargetResourceID;references:ID"`
 	// ConnectionType defines the semantics of the technical binding (e.g., "connected_through").
 	ConnectionType ConnectionType `gorm:"type:varchar(100);not null;index:idx_connection_unique,priority:3"`
 	// Metadata can store additional context about the connection itself.
@@ -107,25 +106,23 @@ type ResourceConnection struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-
 // TableName specifies the table name for the ResourceAttribute model.
 func (ResourceConnection) TableName() string {
 	return "resource_connections"
 }
 
-
 // ResourceAttribute is the GORM model for the 'resource_attributes' table.
 // It stores the actual value of a defined attribute for a specific resource instance.
 // Following the new architecture decision, all foreign keys are now UUIDs.
 type ResourceAttribute struct {
-    ID uint `gorm:"primaryKey"`
-    ResourceID uint `gorm:"not null;index"`
-    AttributeDefinitionID uint `gorm:"not null;index"`
-    Value []byte `gorm:"type:jsonb;not null"`
-    CreatedAt time.Time
-    UpdatedAt time.Time
-    Resource Resource `gorm:"foreignKey:ResourceID;references:ID"`
-    AttributeDefinition AttributeDefinition `gorm:"foreignKey:AttributeDefinitionID;references:ID"`
+	ID                    uint   `gorm:"primaryKey"`
+	ResourceID            uint   `gorm:"not null;index"`
+	AttributeDefinitionID uint   `gorm:"not null;index"`
+	Value                 []byte `gorm:"type:jsonb;not null"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	Resource              Resource            `gorm:"foreignKey:ResourceID;references:ID"`
+	AttributeDefinition   AttributeDefinition `gorm:"foreignKey:AttributeDefinitionID;references:ID"`
 }
 
 // TableName specifies the table name for the ResourceAttribute model.

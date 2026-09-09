@@ -3,8 +3,8 @@ package routing
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/google/uuid"
 )
 
 // Repository defines the persistence interface for routings and operations
@@ -27,7 +27,6 @@ type Repository interface {
 	UpdateOperation(ctx context.Context, entity *model.RoutingOperation) error
 	DeleteOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uint) error
 }
-
 
 // --- Service Interface ---
 type Service interface {

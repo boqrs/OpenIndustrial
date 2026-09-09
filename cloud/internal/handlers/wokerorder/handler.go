@@ -1,10 +1,10 @@
 package workorder
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-	"errors"
 	//"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
@@ -42,7 +42,6 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 		externalGroup.Handle(http.MethodPost, "/work-orders/:id/cancel", h.cancel)
 	}
 }
-
 
 func (h *Handler) create(c *gin.Context) ginx.Render {
 	var req srv.CreateRequest
@@ -95,7 +94,7 @@ func (h *Handler) list(c *gin.Context) ginx.Render {
 	// Assuming ProductID is a query param for filtering
 	productIDStr := c.Query("product_id")
 	if productIDStr != "" {
-		productID, err := strconv.ParseUint(productIDStr, 10 , 74)
+		productID, err := strconv.ParseUint(productIDStr, 10, 74)
 		if err != nil {
 			return ginx.Error(errors.New("invalid product_id format"))
 		}
@@ -205,4 +204,3 @@ func parseUintParam(c *gin.Context, paramName string) (uint, error) {
 	}
 	return uint(id), nil
 }
-

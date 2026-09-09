@@ -4,15 +4,15 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 	"github.com/boqrs/nexus/database"
+	"github.com/google/uuid"
 )
 
 type Repository struct {
 	db *database.DBProvider
 }
 
-func NewRepository(	db *database.DBProvider) *Repository {
+func NewRepository(db *database.DBProvider) *Repository {
 	return &Repository{
 		db: db,
 	}

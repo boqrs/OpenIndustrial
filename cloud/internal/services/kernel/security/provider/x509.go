@@ -71,17 +71,15 @@ func ParseCSR(
 
 		CommonName: csr.Subject.CommonName,
 
-		DNSNames:
-			append(
-				[]string(nil),
-				csr.DNSNames...,
-			),
+		DNSNames: append(
+			[]string(nil),
+			csr.DNSNames...,
+		),
 
-		EmailAddresses:
-			append(
-				[]string(nil),
-				csr.EmailAddresses...,
-			),
+		EmailAddresses: append(
+			[]string(nil),
+			csr.EmailAddresses...,
+		),
 	}
 
 	for _, ip := range csr.IPAddresses {
@@ -170,7 +168,7 @@ func ParseCSRDER(
 
 // ParseIssuedCertificate parses an issued certificate
 // and converts it to the provider-independent model.
-func ParseIssuedCertificate(certificateID uint,certificatePEM string) (*IssuedCertificate, error) {
+func ParseIssuedCertificate(certificateID uint, certificatePEM string) (*IssuedCertificate, error) {
 
 	if certificatePEM == "" {
 		return nil, errors.New(
@@ -209,31 +207,23 @@ func ParseIssuedCertificate(certificateID uint,certificatePEM string) (*IssuedCe
 	}
 
 	return &IssuedCertificate{
-		CertificateID:
-			certificateID,
+		CertificateID: certificateID,
 
-		CertificatePEM:
-			certificatePEM,
+		CertificatePEM: certificatePEM,
 
-		Fingerprint:
-			CertificateFingerprint(
-				block.Bytes,
-			),
+		Fingerprint: CertificateFingerprint(
+			block.Bytes,
+		),
 
-		SerialNumber:
-			cert.SerialNumber.String(),
+		SerialNumber: cert.SerialNumber.String(),
 
-		Subject:
-			cert.Subject.String(),
+		Subject: cert.Subject.String(),
 
-		Issuer:
-			cert.Issuer.String(),
+		Issuer: cert.Issuer.String(),
 
-		NotBefore:
-			cert.NotBefore,
+		NotBefore: cert.NotBefore,
 
-		NotAfter:
-			cert.NotAfter,
+		NotAfter: cert.NotAfter,
 	}, nil
 }
 

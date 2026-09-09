@@ -2,10 +2,10 @@ package identity
 
 import (
 	"context"
-	"time"
-		"github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 // UserType defines the type of a user.

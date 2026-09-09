@@ -3,13 +3,11 @@ package postgres
 import (
 	"context"
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/boqrs/nexus/database"
+	"github.com/google/uuid"
 )
-
-
 
 // groupRepository implements the identity.GroupRepository interface using GORM.
 type groupRepository struct {

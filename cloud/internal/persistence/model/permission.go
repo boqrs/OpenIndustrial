@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -37,7 +36,7 @@ type Principal struct {
 	// ID is the internal auto-incrementing primary key.
 	ID uint `gorm:"primaryKey"`
 	// UUID is the public-facing, unique business identifier.
-	UUID uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();uniqueIndex"`
+	UUID     uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();uniqueIndex"`
 	UserID   uuid.UUID `gorm:"type:uuid;not null;index"`
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 	// Provider indicates the authentication method, e.g., "password", "google", "wechat".

@@ -43,7 +43,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 
 func (h *Handler) create(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID ==  uuid.Nil {
+	if tenantID == uuid.Nil {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -88,10 +88,9 @@ func (h *Handler) list(ctx *gin.Context) ginx.Render {
 
 func (h *Handler) getByID(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID ==  uuid.Nil {
+	if tenantID == uuid.Nil {
 		return ginx.Error(errors.New("no perm"))
 	}
-
 
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {
@@ -107,7 +106,7 @@ func (h *Handler) getByID(ctx *gin.Context) ginx.Render {
 
 func (h *Handler) update(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID ==  uuid.Nil {
+	if tenantID == uuid.Nil {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -130,10 +129,9 @@ func (h *Handler) update(ctx *gin.Context) ginx.Render {
 
 func (h *Handler) delete(ctx *gin.Context) ginx.Render {
 	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID ==  uuid.Nil {
+	if tenantID == uuid.Nil {
 		return ginx.Error(errors.New("no perm"))
 	}
-
 
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {

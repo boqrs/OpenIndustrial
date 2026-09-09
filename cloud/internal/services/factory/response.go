@@ -25,12 +25,12 @@ type FactoryResponse struct {
 }
 
 type TopologyNodeResponse struct {
-	ResourceID uint `json:"resource_id"`
-	Type string `json:"type"`
-	Name string `json:"name"`
-	Status string `json:"status"`
-	ParentResourceID *uint `json:"parent_resource_id,omitempty"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	ResourceID       uint                   `json:"resource_id"`
+	Type             string                 `json:"type"`
+	Name             string                 `json:"name"`
+	Status           string                 `json:"status"`
+	ParentResourceID *uint                  `json:"parent_resource_id,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type FactoryTopologyResponse struct {

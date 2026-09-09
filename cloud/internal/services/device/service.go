@@ -3,8 +3,8 @@ package device
 import (
 	"context"
 	"errors"
-	"time"
 	"fmt"
+	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
@@ -15,29 +15,29 @@ import (
 )
 
 var (
-	ErrDeviceNotFound         = errors.New("device not found")
-	ErrProductModelNotFound   = errors.New("associated product model not found")
-	ErrSerialNumberExists     = errors.New("a device with this serial number already exists")
-	ErrInvalidCreateRequest   = errors.New("invalid create device request")
-	ErrInvalidUpdateRequest   = errors.New("invalid update device request")
+	ErrDeviceNotFound           = errors.New("device not found")
+	ErrProductModelNotFound     = errors.New("associated product model not found")
+	ErrSerialNumberExists       = errors.New("a device with this serial number already exists")
+	ErrInvalidCreateRequest     = errors.New("invalid create device request")
+	ErrInvalidUpdateRequest     = errors.New("invalid update device request")
 	ErrCannotDeleteOnlineDevice = errors.New("cannot delete a device that is currently online")
 )
 
 type serviceImpl struct {
-	repo         Repository
-	resourceSvc  resource.Service
-	productSvc   product.Service
-	securitySvc  security.Service
+	repo        Repository
+	resourceSvc resource.Service
+	productSvc  product.Service
+	securitySvc security.Service
 	// txManager transaction.Manager // Assuming a transaction manager exists
 }
 
 // NewService creates a new device service implementation.
-func NewService(repo Repository,resourceSvc resource.Service,productSvc product.Service,securitySvc security.Service) Service {
+func NewService(repo Repository, resourceSvc resource.Service, productSvc product.Service, securitySvc security.Service) Service {
 	return &serviceImpl{
-		repo:         repo,
-		resourceSvc:  resourceSvc,
-		productSvc:   productSvc,
-		securitySvc:  securitySvc,
+		repo:        repo,
+		resourceSvc: resourceSvc,
+		productSvc:  productSvc,
+		securitySvc: securitySvc,
 	}
 }
 
@@ -116,7 +116,6 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	return s.toDeviceResponse(entity, res), nil
 }
 
-
 func validateCreateRequest(req *CreateDeviceFromExecutionResultRequest) error {
 	if req == nil {
 		return errors.New("invalid request")
@@ -140,86 +139,86 @@ func validateCreateRequest(req *CreateDeviceFromExecutionResultRequest) error {
 }
 
 func (s *serviceImpl) CreateFromExecutionResultBatchTx(
-    ctx context.Context,
-    reqs []*CreateDeviceFromExecutionResultRequest,
+	ctx context.Context,
+	reqs []*CreateDeviceFromExecutionResultRequest,
 ) ([]*DeviceResponse, error) {
 
-    if len(reqs) == 0 {
-        return nil, nil
-    }
+	if len(reqs) == 0 {
+		return nil, nil
+	}
 
-    resourceParams := make(
-        []*resource.CreateResource,
-        0,
-        len(reqs),
-    )
+	resourceParams := make(
+		[]*resource.CreateResource,
+		0,
+		len(reqs),
+	)
 
-    for _, req := range reqs {
-        if err := validateCreateRequest(req); err != nil {
-            return nil, err
-        }
-        resourceParams = append(
-            resourceParams,
-            &resource.CreateResource{
-                Type:     string(resource.ResourceTypeDevice),
-                Name:     req.SerialNumber,
-                ParentID: req.ParentResourceID,
-            },
-        )
-    }
+	for _, req := range reqs {
+		if err := validateCreateRequest(req); err != nil {
+			return nil, err
+		}
+		resourceParams = append(
+			resourceParams,
+			&resource.CreateResource{
+				Type:     string(resource.ResourceTypeDevice),
+				Name:     req.SerialNumber,
+				ParentID: req.ParentResourceID,
+			},
+		)
+	}
 
-    resources, err := s.resourceSvc.CreateResourceBatchTx(ctx, resourceParams)
-    if err != nil {
-        return nil, fmt.Errorf(
-            "create device resources: %w",
-            err,
-        )
-    }
+	resources, err := s.resourceSvc.CreateResourceBatchTx(ctx, resourceParams)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"create device resources: %w",
+			err,
+		)
+	}
 
-    devices := make(
-        []*model.Device,
-        0,
-        len(reqs),
-    )
+	devices := make(
+		[]*model.Device,
+		0,
+		len(reqs),
+	)
 
-    for i, req := range reqs {
+	for i, req := range reqs {
 
-        devices = append(devices, &model.Device{
-            ResourceID:        resources[i].ID,
-            ProductID:         req.ProductID,
-            WorkOrderID:       req.WorkOrderID,
-            ExecutionID:       req.ExecutionID,
-            ExecutionResultID: req.ExecutionResultID,
-            SerialNumber:      req.SerialNumber,
-            HardwareID:        req.HardwareID,
-            Status:            model.StatusInactive,
-        })
-    }
+		devices = append(devices, &model.Device{
+			ResourceID:        resources[i].ID,
+			ProductID:         req.ProductID,
+			WorkOrderID:       req.WorkOrderID,
+			ExecutionID:       req.ExecutionID,
+			ExecutionResultID: req.ExecutionResultID,
+			SerialNumber:      req.SerialNumber,
+			HardwareID:        req.HardwareID,
+			Status:            model.StatusInactive,
+		})
+	}
 
-    if err := s.repo.CreateBatchTx(
-        ctx,
-        devices,
-    ); err != nil {
-        return nil, fmt.Errorf(
-            "create devices: %w",
-            err,
-        )
-    }
+	if err := s.repo.CreateBatchTx(
+		ctx,
+		devices,
+	); err != nil {
+		return nil, fmt.Errorf(
+			"create devices: %w",
+			err,
+		)
+	}
 
-    responses := make(
-        []*DeviceResponse,
-        0,
-        len(devices),
-    )
+	responses := make(
+		[]*DeviceResponse,
+		0,
+		len(devices),
+	)
 
-    for i, d := range devices {
-        responses = append(
-            responses,
-            s.toDeviceResponse(d, resources[i]),
-        )
-    }
+	for i, d := range devices {
+		responses = append(
+			responses,
+			s.toDeviceResponse(d, resources[i]),
+		)
+	}
 
-    return responses, nil
+	return responses, nil
 }
 
 func (s *serviceImpl) GetDevice(

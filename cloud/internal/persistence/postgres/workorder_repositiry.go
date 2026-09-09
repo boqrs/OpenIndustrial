@@ -13,7 +13,6 @@ type WorkOrderRepository struct {
 	db *database.DBProvider
 }
 
-
 func NewWorkOrderRepository(db *database.DBProvider) *WorkOrderRepository {
 	return &WorkOrderRepository{
 		db: db,
@@ -111,9 +110,9 @@ func (r *WorkOrderRepository) Count(ctx context.Context, tenantID uuid.UUID, pro
 		Where("tenant_id = ?", tenantID).
 		Where("product_id = ?", productID).
 		Count(&count).
-		Error; err != nil{
-			return 0, err
-		}
+		Error; err != nil {
+		return 0, err
+	}
 
-		return count, nil
+	return count, nil
 }

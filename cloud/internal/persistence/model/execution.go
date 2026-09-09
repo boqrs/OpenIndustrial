@@ -22,22 +22,22 @@ const (
 // ResourceUUID is the public identity of the execution.
 // ID is only used for internal database relations.
 type ProductionExecution struct {
-	ID uint `gorm:"primaryKey"`
-	ResourceID uint `gorm:"not null;index"`
-	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
-	WorkOrderID uint `gorm:"not null;index"`
-	ProductID uint `gorm:"not null;index"`
-	RoutingID uint `gorm:"not null;index"`
+	ID          uint      `gorm:"primaryKey"`
+	ResourceID  uint      `gorm:"not null;index"`
+	TenantID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	WorkOrderID uint      `gorm:"not null;index"`
+	ProductID   uint      `gorm:"not null;index"`
+	RoutingID   uint      `gorm:"not null;index"`
 	// RoutingVersion is the routing version actually used
 	// by this execution.
-	RoutingVersion int `gorm:"not null"`
-	DeviceID *uint `gorm:"index"`
-	Status ProductionExecutionStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
-	StartedAt *time.Time
-	CompletedAt *time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	RoutingVersion int                       `gorm:"not null"`
+	DeviceID       *uint                     `gorm:"index"`
+	Status         ProductionExecutionStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
+	StartedAt      *time.Time
+	CompletedAt    *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      gorm.DeletedAt `gorm:"index"`
 }
 
 func (ProductionExecution) TableName() string {
@@ -57,25 +57,25 @@ const (
 // ExecutionOperation is an execution-time child entity.
 // It is not a Resource and therefore owns its own UUID.
 type ExecutionOperation struct {
-	ID uint `gorm:"primaryKey"`
-	ExecutionID uint `gorm:"not null;index"`
-	RoutingOperationID *uint `gorm:"index"`
-	Sequence int `gorm:"not null"`
-	Code string `gorm:"type:varchar(100);not null"`
-	Name string `gorm:"type:varchar(255);not null"`
-	Description string `gorm:"type:text"`
-	WorkstationID *uint `gorm:"index"`
-	Status ExecutionOperationStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
-	    // Snapshot of the routing operation definition.
-    Parameters []byte `gorm:"type:jsonb"`
+	ID                 uint                     `gorm:"primaryKey"`
+	ExecutionID        uint                     `gorm:"not null;index"`
+	RoutingOperationID *uint                    `gorm:"index"`
+	Sequence           int                      `gorm:"not null"`
+	Code               string                   `gorm:"type:varchar(100);not null"`
+	Name               string                   `gorm:"type:varchar(255);not null"`
+	Description        string                   `gorm:"type:text"`
+	WorkstationID      *uint                    `gorm:"index"`
+	Status             ExecutionOperationStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
+	// Snapshot of the routing operation definition.
+	Parameters []byte `gorm:"type:jsonb"`
 
-    // Actual result produced by the operation executor.
-    Result []byte `gorm:"type:jsonb"`
-	StartedAt *time.Time
+	// Actual result produced by the operation executor.
+	Result      []byte `gorm:"type:jsonb"`
+	StartedAt   *time.Time
 	CompletedAt *time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
 }
 
 func (ExecutionOperation) TableName() string {

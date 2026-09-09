@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
 	"gorm.io/gorm/clause"
-	"github.com/boqrs/nexus/database"
 )
 
 // credentialRepository implements the security.CredentialRepository interface.
@@ -56,31 +56,29 @@ func (r *CertificateRepository) GetByFingerprint(ctx context.Context, fingerprin
 func (r *CertificateRepository) Update(ctx context.Context, cert *model.ResourceCertificate) error {
 	return r.db.Get().WithContext(ctx).Save(cert).Error
 }
-func(r *CertificateRepository) GetActiveByResourceID(ctx context.Context,resourceID uint) (*model.ResourceCertificate, error){
+func (r *CertificateRepository) GetActiveByResourceID(ctx context.Context, resourceID uint) (*model.ResourceCertificate, error) {
 	return nil, nil
 }
 
-func ( r *CertificateRepository)    GetByCertificateID(ctx context.Context,certificateID uint) (*model.ResourceCertificate, error){
+func (r *CertificateRepository) GetByCertificateID(ctx context.Context, certificateID uint) (*model.ResourceCertificate, error) {
 	return nil, nil
 }
 
-func (CertificateRepository)  ListByResourceID(ctx context.Context,resourceID uint) ([]model.ResourceCertificate, error){
+func (CertificateRepository) ListByResourceID(ctx context.Context, resourceID uint) ([]model.ResourceCertificate, error) {
 	return nil, nil
 }
 
-func ( r *CertificateRepository)    Activate(ctx context.Context,id uint,activatedAt time.Time) error{
+func (r *CertificateRepository) Activate(ctx context.Context, id uint, activatedAt time.Time) error {
 	return nil
 }
 
-func (r *CertificateRepository)    Revoke(ctx context.Context,id uint,revokedAt time.Time) error{
+func (r *CertificateRepository) Revoke(ctx context.Context, id uint, revokedAt time.Time) error {
 	return nil
 }
 
 // func (r *CertificateRepository)    GetByCertificateID(ctx context.Context,certificateID string) (*model.ResourceCertificate, error){
 // 	return nil, nil
 // }
-
-
 
 // ===================================================================
 // IdentityRepository Implementation
@@ -129,19 +127,19 @@ func (r *IdentityRepository) FindBySerialNumber(ctx context.Context, serialNumbe
 	return &identity, nil
 }
 
-func (r *IdentityRepository)    GetByResourceID(ctx context.Context,resourceID uint) (*model.ResourceIdentity, error){
+func (r *IdentityRepository) GetByResourceID(ctx context.Context, resourceID uint) (*model.ResourceIdentity, error) {
 	return nil, nil
 }
 
-func (r *IdentityRepository)    CreateOrUpdate(ctx context.Context,identity *model.ResourceIdentity) error{
+func (r *IdentityRepository) CreateOrUpdate(ctx context.Context, identity *model.ResourceIdentity) error {
 	return nil
 }
 
-func (r *IdentityRepository)    HardwareIDExists(ctx context.Context,hardwareID string,excludeResourceID *uint) (bool, error){
+func (r *IdentityRepository) HardwareIDExists(ctx context.Context, hardwareID string, excludeResourceID *uint) (bool, error) {
 	return false, nil
 }
 
-func (r *IdentityRepository)    SerialNumberExists(ctx context.Context,tenantID uuid.UUID,serialNumber string,excludeResourceID *uint) (bool, error){
+func (r *IdentityRepository) SerialNumberExists(ctx context.Context, tenantID uuid.UUID, serialNumber string, excludeResourceID *uint) (bool, error) {
 	return false, nil
 }
 
@@ -158,11 +156,12 @@ type CredentialRepository struct {
 func NewCertificateRepository(db *database.DBProvider) *CertificateRepository {
 	return &CertificateRepository{db: db}
 }
-func(r *CredentialRepository)    Consume(ctx context.Context,id uint,consumedAt time.Time) error{
+func (r *CredentialRepository) Consume(ctx context.Context, id uint, consumedAt time.Time) error {
 	return nil
 }
+
 // Compile-time check to ensure certificateRepository implements the interface.
-//var _ security.CertificateRepository = (*certificateRepository)(nil)
+// var _ security.CertificateRepository = (*certificateRepository)(nil)
 func (r *CredentialRepository) Create(ctx context.Context, cert *model.ResourceCredential) error {
 	return r.db.Get().WithContext(ctx).Create(cert).Error
 }
@@ -221,10 +220,10 @@ func (r *CredentialRepository) Update(ctx context.Context, cred *model.ResourceC
 	return r.db.Get().WithContext(ctx).Save(cred).Error
 }
 
-func (r *CredentialRepository)    GetActive(ctx context.Context,resourceID uint,credentialType model.CredentialType) (*model.ResourceCredential, error){
+func (r *CredentialRepository) GetActive(ctx context.Context, resourceID uint, credentialType model.CredentialType) (*model.ResourceCredential, error) {
 	return nil, nil
 }
 
-func (r *CredentialRepository)    GetByID(ctx context.Context,id uint) (*model.ResourceCredential, error){
+func (r *CredentialRepository) GetByID(ctx context.Context, id uint) (*model.ResourceCredential, error) {
 	return nil, nil
 }

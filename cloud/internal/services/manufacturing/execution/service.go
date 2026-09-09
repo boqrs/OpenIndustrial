@@ -75,9 +75,9 @@ var (
 // -----------------------------------------------------------------------------
 
 type serviceImpl struct {
-	repository   Repository
-	workOrderSvc workorder.Service
-	routingSvc   routing.Service
+	repository       Repository
+	workOrderSvc     workorder.Service
+	routingSvc       routing.Service
 	executorRegistry *executors.OperationExecutorRegistry
 }
 
@@ -90,9 +90,9 @@ func NewService(
 ) Service {
 
 	return &serviceImpl{
-		repository:   repository,
-		workOrderSvc: workOrderSvc,
-		routingSvc:   routingService,
+		repository:       repository,
+		workOrderSvc:     workOrderSvc,
+		routingSvc:       routingService,
 		executorRegistry: executorRegistry,
 	}
 }
@@ -130,7 +130,6 @@ func (s *serviceImpl) CreateExecution(
 	if err != nil {
 		return nil, ErrWorkOrderNotFound
 	}
-
 
 	if wo.Status != model.WorkOrderStatusReleased &&
 		wo.Status != model.WorkOrderStatusInProgress {
@@ -184,7 +183,7 @@ func (s *serviceImpl) CreateExecution(
 	entity := &model.ProductionExecution{
 		TenantID:       tenantID,
 		WorkOrderID:    wo.ID,
-		ProductID:       wo.ProductID,
+		ProductID:      wo.ProductID,
 		RoutingID:      wo.RoutingID,
 		RoutingVersion: rt.Version,
 		DeviceID:       req.DeviceID,
@@ -212,7 +211,7 @@ func (s *serviceImpl) CreateExecution(
 		if op == nil {
 			continue
 		}
-	    parameters := append([]byte(nil), op.Parameters...)
+		parameters := append([]byte(nil), op.Parameters...)
 		operations = append(
 			operations,
 			&model.ExecutionOperation{
@@ -221,7 +220,7 @@ func (s *serviceImpl) CreateExecution(
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
-				WorkstationID:      &op.WorkStationID, 
+				WorkstationID:      &op.WorkStationID,
 				Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},
@@ -566,7 +565,7 @@ func (s *serviceImpl) StartOperation(
 		return fmt.Errorf("consistency error: current operation ID %d not found in its own execution %d", op.ID, executionID)
 	}
 
-		// -------------------------------------------------------------------------
+	// -------------------------------------------------------------------------
 	// 5. Resolve Executor
 	// -------------------------------------------------------------------------
 
@@ -581,7 +580,7 @@ func (s *serviceImpl) StartOperation(
 	// -------------------------------------------------------------------------
 	// 6. Build OperationInput
 	// -------------------------------------------------------------------------
-	
+
 	var parameters map[string]any
 	if len(op.Parameters) > 0 {
 		if err := json.Unmarshal(op.Parameters, &parameters); err != nil {
@@ -613,7 +612,6 @@ func (s *serviceImpl) StartOperation(
 			err,
 		)
 	}
-
 
 	// -------------------------------------------------------------------------
 	// 5. Start Operation
@@ -650,7 +648,7 @@ func (s *serviceImpl) CompleteOperation(
 
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
-		return  fmt.Errorf("tenant ID not found in context")
+		return fmt.Errorf("tenant ID not found in context")
 	}
 	// -------------------------------------------------------------------------
 	// 1. Validate Execution
@@ -741,90 +739,90 @@ func (s *serviceImpl) CompleteOperation(
 
 // FailOperation marks an execution operation as failed.
 func (s *serviceImpl) FailOperation(
-    ctx context.Context,
-    executionID uint,
-    operationID uint,
-    result map[string]any,
+	ctx context.Context,
+	executionID uint,
+	operationID uint,
+	result map[string]any,
 ) error {
 
-    tenantID := pkg.TenantIDFromContext(ctx)
-    if tenantID == uuid.Nil {
-        return fmt.Errorf("tenant ID not found in context")
-    }
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID not found in context")
+	}
 
-    exec, err := s.repository.GetExecutionByID(
-        ctx,
-        tenantID,
-        executionID,
-    )
-    if err != nil {
-        return err
-    }
+	exec, err := s.repository.GetExecutionByID(
+		ctx,
+		tenantID,
+		executionID,
+	)
+	if err != nil {
+		return err
+	}
 
-    if exec == nil {
-        return ErrExecutionNotFound
-    }
+	if exec == nil {
+		return ErrExecutionNotFound
+	}
 
-    if exec.Status != model.ProductionExecutionStatusInProgress {
-        return ErrInvalidExecutionState
-    }
+	if exec.Status != model.ProductionExecutionStatusInProgress {
+		return ErrInvalidExecutionState
+	}
 
-    op, err := s.repository.GetOperation(
-        ctx,
-        executionID,
-        operationID,
-    )
-    if err != nil {
-        return err
-    }
+	op, err := s.repository.GetOperation(
+		ctx,
+		executionID,
+		operationID,
+	)
+	if err != nil {
+		return err
+	}
 
-    if op == nil {
-        return ErrOperationNotFound
-    }
+	if op == nil {
+		return ErrOperationNotFound
+	}
 
-    if op.Status != model.ExecutionOperationStatusInProgress {
-        return ErrInvalidOperationState
-    }
+	if op.Status != model.ExecutionOperationStatusInProgress {
+		return ErrInvalidOperationState
+	}
 
-    resultJSON, err := json.Marshal(result)
-    if err != nil {
-        return fmt.Errorf(
-            "marshal operation result: %w",
-            err,
-        )
-    }
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf(
+			"marshal operation result: %w",
+			err,
+		)
+	}
 
-    now := time.Now()
+	now := time.Now()
 
-    op.Status = model.ExecutionOperationStatusFailed
-    op.CompletedAt = &now
-    op.Result = resultJSON
+	op.Status = model.ExecutionOperationStatusFailed
+	op.CompletedAt = &now
+	op.Result = resultJSON
 
-    if err := s.repository.UpdateOperation(
-        ctx,
-        op,
-    ); err != nil {
-        return fmt.Errorf(
-            "failed to fail execution operation: %w",
-            err,
-        )
-    }
+	if err := s.repository.UpdateOperation(
+		ctx,
+		op,
+	); err != nil {
+		return fmt.Errorf(
+			"failed to fail execution operation: %w",
+			err,
+		)
+	}
 
-    // Operation failure makes the whole execution failed.
-    exec.Status = model.ProductionExecutionStatusFailed
-    exec.CompletedAt = &now
+	// Operation failure makes the whole execution failed.
+	exec.Status = model.ProductionExecutionStatusFailed
+	exec.CompletedAt = &now
 
-    if err := s.repository.UpdateExecution(
-        ctx,
-        exec,
-    ); err != nil {
-        return fmt.Errorf(
-            "failed to fail execution: %w",
-            err,
-        )
-    }
+	if err := s.repository.UpdateExecution(
+		ctx,
+		exec,
+	); err != nil {
+		return fmt.Errorf(
+			"failed to fail execution: %w",
+			err,
+		)
+	}
 
-    return nil
+	return nil
 }
 
 // ListOperations lists operations belonging to an execution.
@@ -863,7 +861,6 @@ func (s *serviceImpl) ListOperations(
 
 	return responses, nil
 }
-
 
 func (s *serviceImpl) tryCompleteExecution(
 	ctx context.Context,
@@ -954,11 +951,11 @@ func toExecutionResponse(
 	}
 
 	return &ExecutionResponse{
-		ID:             entity.ID,
-		ResourceID:   entity.ResourceID,
-		TenantID:       entity.TenantID,
-		WorkOrderID:    entity.WorkOrderID,
-		DeviceID:       entity.DeviceID,
+		ID:          entity.ID,
+		ResourceID:  entity.ResourceID,
+		TenantID:    entity.TenantID,
+		WorkOrderID: entity.WorkOrderID,
+		DeviceID:    entity.DeviceID,
 		//Quantity:       entity.Quantity,
 		Status:         entity.Status,
 		StartedAt:      entity.StartedAt,
@@ -980,17 +977,17 @@ func toOperationResponse(
 	}
 
 	response := &OperationResponse{
-		ID:                 entity.ID,
-		ExecutionID:        entity.ExecutionID,
-		Sequence:           entity.Sequence,
-		Status:             entity.Status,
-		StartedAt:          entity.StartedAt,
-		CompletedAt:        entity.CompletedAt,
-		Code:               entity.Code,
-		Name:               entity.Name,
-		Description:        entity.Description,
-		CreatedAt:          entity.CreatedAt,
-		UpdatedAt:          entity.UpdatedAt,
+		ID:          entity.ID,
+		ExecutionID: entity.ExecutionID,
+		Sequence:    entity.Sequence,
+		Status:      entity.Status,
+		StartedAt:   entity.StartedAt,
+		CompletedAt: entity.CompletedAt,
+		Code:        entity.Code,
+		Name:        entity.Name,
+		Description: entity.Description,
+		CreatedAt:   entity.CreatedAt,
+		UpdatedAt:   entity.UpdatedAt,
 	}
 
 	if entity.WorkstationID != nil {
@@ -1003,4 +1000,3 @@ func toOperationResponse(
 
 	return response
 }
-

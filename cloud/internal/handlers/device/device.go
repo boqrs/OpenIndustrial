@@ -1,20 +1,19 @@
 package device
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
-	"fmt"
 
-	"github.com/gin-gonic/gin"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 	"github.com/boqrs/nexus/log"
 	"github.com/boqrs/zeus/ginx"
-	
+	"github.com/gin-gonic/gin"
 )
 
 // API handles HTTP requests for the device module.
 type Handler struct {
-	log    *log.Provider
+	log     *log.Provider
 	service srv.Service
 }
 
@@ -27,14 +26,14 @@ func NewHandler(service srv.Service) *Handler {
 func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 
 	externalGroup := router.Group("/api/v1/external")
-	
+
 	externalGroup.Handle(http.MethodGet, "/devices", h.listDevices)
 	externalGroup.Handle(http.MethodGet, "/devices/:id", h.getDevice)
 	externalGroup.Handle(http.MethodPatch, "/devices/:id", h.updateDevice)
 	externalGroup.Handle(http.MethodDelete, "/devices/:id", h.deleteDevice)
 }
 
-//TODO: 分页逻辑后续统一定义
+// TODO: 分页逻辑后续统一定义
 func (a *Handler) listDevices(ctx *gin.Context) ginx.Render {
 	//page, _ := strconv.Atoi(ctx.ClientIP.DefaultQuery("page", "1"))
 	req := srv.ListDevicesRequest{}
@@ -55,7 +54,6 @@ func (a *Handler) getDevice(ctx *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
-
 
 	resp, err := a.service.GetDevice(ctx, uint(id))
 	if err != nil {

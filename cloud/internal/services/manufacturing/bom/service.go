@@ -14,14 +14,14 @@ import (
 )
 
 var (
-	ErrBOMNotFound = errors.New("bom not found")
-	ErrInvalidBOM = errors.New("invalid bom")
-	ErrInvalidBOMState = errors.New("invalid bom state")
-	ErrBOMMustHaveItems = errors.New("bom must contain at least one item")
-	ErrInvalidBOMItem = errors.New("invalid bom item")
+	ErrBOMNotFound         = errors.New("bom not found")
+	ErrInvalidBOM          = errors.New("invalid bom")
+	ErrInvalidBOMState     = errors.New("invalid bom state")
+	ErrBOMMustHaveItems    = errors.New("bom must contain at least one item")
+	ErrInvalidBOMItem      = errors.New("invalid bom item")
 	ErrDuplicateBOMVersion = errors.New("bom version already exists")
-	ErrMaterialNotFound = errors.New("material not found")
-	ErrProductNotFound = errors.New("product not found")
+	ErrMaterialNotFound    = errors.New("material not found")
+	ErrProductNotFound     = errors.New("product not found")
 )
 
 // service implements the bom.Service interface.
@@ -74,7 +74,6 @@ func (s *service) Create(ctx context.Context, tenantID uuid.UUID, req *CreateReq
 			Description:   itemReq.Description,
 		}
 	}
-
 
 	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
 		if err := s.repo.Create(ctx, bom); err != nil {

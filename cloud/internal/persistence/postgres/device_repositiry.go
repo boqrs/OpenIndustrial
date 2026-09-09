@@ -23,10 +23,10 @@ func (r *DeviceRepository) CreateTx(
 	ctx context.Context,
 	entity *model.Device,
 ) error {
-	return dbFromContext(ctx, r.db.Get()).//TODO： 设备创建是在生产阶段的事物中完成的
-		WithContext(ctx).
-		Create(entity).
-		Error
+	return dbFromContext(ctx, r.db.Get()). //TODO： 设备创建是在生产阶段的事物中完成的
+						WithContext(ctx).
+						Create(entity).
+						Error
 }
 
 func (r *DeviceRepository) Create(
@@ -40,16 +40,16 @@ func (r *DeviceRepository) Create(
 }
 
 func (r *DeviceRepository) CreateBatchTx(
-    ctx context.Context,
-    devices []*model.Device,
+	ctx context.Context,
+	devices []*model.Device,
 ) error {
 
-    if len(devices) == 0 {
-        return nil
-    }
+	if len(devices) == 0 {
+		return nil
+	}
 
-    return dbFromContext(ctx, r.db.Get()).CreateInBatches(&devices, len(devices)).
-        Error
+	return dbFromContext(ctx, r.db.Get()).CreateInBatches(&devices, len(devices)).
+		Error
 }
 
 func (r *DeviceRepository) GetByID(

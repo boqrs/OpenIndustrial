@@ -6,7 +6,6 @@ import (
 	"fmt"
 )
 
-
 // --- Supporting Abstractions ---
 
 // SerialNumberGenerator defines the interface for a service that can generate

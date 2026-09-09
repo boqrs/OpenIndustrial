@@ -12,18 +12,18 @@ import (
 )
 
 type service struct {
-	resourceRepo ResourceRepository
-	attrDefRepo  AttributeDefinitionRepository
-	resAttrRepo  ResourceAttributeRepository
+	resourceRepo    ResourceRepository
+	attrDefRepo     AttributeDefinitionRepository
+	resAttrRepo     ResourceAttributeRepository
 	resourceConRepo ResourceConnectionsRepository
 }
 
 // NewService creates a new resource service.
-func NewService(resourceRepo ResourceRepository,attrDefRepo AttributeDefinitionRepository,resAttrRepo ResourceAttributeRepository,resourceConRepo ResourceConnectionsRepository) Service {
+func NewService(resourceRepo ResourceRepository, attrDefRepo AttributeDefinitionRepository, resAttrRepo ResourceAttributeRepository, resourceConRepo ResourceConnectionsRepository) Service {
 	return &service{
-		resourceRepo: resourceRepo,
-		attrDefRepo:  attrDefRepo,
-		resAttrRepo:  resAttrRepo,
+		resourceRepo:    resourceRepo,
+		attrDefRepo:     attrDefRepo,
+		resAttrRepo:     resAttrRepo,
 		resourceConRepo: resourceConRepo,
 	}
 }
@@ -36,10 +36,10 @@ func (s *service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 	// We now correctly set the OwnerGroupID directly on the resource.
 	resource := &model.Resource{
 		TenantID:     tenantID,
-		ResourceName:         params.Name,
-		ResourceType:         params.Type,
+		ResourceName: params.Name,
+		ResourceType: params.Type,
 		OwnerGroupID: &params.OwnerGroupID, // This is the NEW way to set ownership.
-		Version: 1,
+		Version:      1,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -62,9 +62,9 @@ func (s *service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 			return nil, errors.New("attribute definition for 'description' not found")
 		}
 		attributesToSet = append(attributesToSet, &model.ResourceAttribute{
-			ResourceID:  resource.ID,
-			ID: def.ID,
-			Value: []byte(params.Description), // Assuming Value is a []byte for JSONB storage.
+			ResourceID: resource.ID,
+			ID:         def.ID,
+			Value:      []byte(params.Description), // Assuming Value is a []byte for JSONB storage.
 		})
 	}
 
@@ -75,9 +75,9 @@ func (s *service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 			return nil, errors.New("attribute definition for 'serial_number' not found")
 		}
 		attributesToSet = append(attributesToSet, &model.ResourceAttribute{
-			ResourceID:  resource.ID,
-			ID: def.ID,
-			Value: []byte(params.SerialNumber), // Assuming Value is a []byte for JSONB storage.
+			ResourceID: resource.ID,
+			ID:         def.ID,
+			Value:      []byte(params.SerialNumber), // Assuming Value is a []byte for JSONB storage.
 		})
 	}
 
@@ -95,16 +95,16 @@ func (s *service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params 
 // CreateResource creates a new, generic resource.
 func (s *service) CreateResource(ctx context.Context, params *CreateResource) (*model.Resource, error) {
 	resource := &model.Resource{
-		TenantID:      params.TenantID,
-		ResourceType:          params.Type,
-		ResourceName:          params.Name,
-		Code:          params.Code,
-		ResourceStatus:        params.Status,
-		Metadata:      params.Metadata,
-		OwnerGroupID:  params.OwnerGroupID,
-		Version: 1,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		TenantID:       params.TenantID,
+		ResourceType:   params.Type,
+		ResourceName:   params.Name,
+		Code:           params.Code,
+		ResourceStatus: params.Status,
+		Metadata:       params.Metadata,
+		OwnerGroupID:   params.OwnerGroupID,
+		Version:        1,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 	if params.ParentID != nil {
 		resource.ParentID = *params.ParentID
@@ -118,20 +118,20 @@ func (s *service) CreateResource(ctx context.Context, params *CreateResource) (*
 
 func (s *service) CreateResourceTx(ctx context.Context, params *CreateResource) (*model.Resource, error) {
 	resource := &model.Resource{
-		TenantID:      params.TenantID,
-		ResourceType:          params.Type,
-		ResourceName:          params.Name,
-		Code:          params.Code,
-		ResourceStatus:        params.Status,
-		Metadata:      params.Metadata,
-		OwnerGroupID:  params.OwnerGroupID,
-		Version: 1,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		TenantID:       params.TenantID,
+		ResourceType:   params.Type,
+		ResourceName:   params.Name,
+		Code:           params.Code,
+		ResourceStatus: params.Status,
+		Metadata:       params.Metadata,
+		OwnerGroupID:   params.OwnerGroupID,
+		Version:        1,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	if params.ParentID != nil {
-    	resource.ParentID = *params.ParentID
+		resource.ParentID = *params.ParentID
 	}
 
 	if err := s.resourceRepo.CreateResourceTx(ctx, resource); err != nil {
@@ -140,27 +140,27 @@ func (s *service) CreateResourceTx(ctx context.Context, params *CreateResource) 
 	return resource, nil
 }
 
-func (s *service)CreateResourceBatchTx(ctx context.Context, params []*CreateResource) ([]*model.Resource, error)  {
-	
-	var  resources []*model.Resource
+func (s *service) CreateResourceBatchTx(ctx context.Context, params []*CreateResource) ([]*model.Resource, error) {
+
+	var resources []*model.Resource
 	for _, params := range params {
 		resource := &model.Resource{
-			TenantID:      params.TenantID,
-			ResourceType:        params.Type,
-			ResourceName:          params.Name,
-			Code:          params.Code,
-			ResourceStatus:        params.Status,
-			Metadata:      params.Metadata,
-			OwnerGroupID:  params.OwnerGroupID,
-			Version: 1,
-			CreatedAt:     time.Now(),
-			UpdatedAt:     time.Now(),
+			TenantID:       params.TenantID,
+			ResourceType:   params.Type,
+			ResourceName:   params.Name,
+			Code:           params.Code,
+			ResourceStatus: params.Status,
+			Metadata:       params.Metadata,
+			OwnerGroupID:   params.OwnerGroupID,
+			Version:        1,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
 		}
 
 		if params.ParentID != nil {
-    		resource.ParentID = *params.ParentID
+			resource.ParentID = *params.ParentID
 		}
-		resources = append(resources, 	resource)
+		resources = append(resources, resource)
 	}
 
 	if err := s.resourceRepo.CreateResourceBatchTx(ctx, resources); err != nil {
@@ -203,7 +203,7 @@ func (s *service) UpdateResource(ctx context.Context, resourceID uint, req *Upda
 }
 
 // DeleteResource performs a soft delete on a resource.
-func (s *service) DeleteResource(ctx context.Context, tenantID  uuid.UUID, resourceID uint) error {
+func (s *service) DeleteResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) error {
 	// We could add a check here to ensure the resource exists before deleting.
 	// For now, we delegate this to the repository.
 	return s.resourceRepo.DeleteResource(ctx, tenantID, resourceID)
@@ -261,7 +261,7 @@ func (s *service) BatchCreateResources(ctx context.Context, resources []*model.R
 	return s.resourceRepo.BatchCreateResources(ctx, resources)
 }
 
-func (s *service) GetResourceByID(ctx context.Context, tenantID uuid.UUID,  resourceID uint) (*model.Resource, error) {
+func (s *service) GetResourceByID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error) {
 	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
 }
 
@@ -269,21 +269,19 @@ func (s *service) FindResourceByNameAndType(ctx context.Context, tenantID uuid.U
 	return s.resourceRepo.FindResourceByNameAndType(ctx, tenantID, name, resourceType)
 }
 
-
-func (s *service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition)error{
-		return s.attrDefRepo.BatchCreateAttributeDefinition(ctx, attrs)
+func (s *service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*model.AttributeDefinition) error {
+	return s.attrDefRepo.BatchCreateAttributeDefinition(ctx, attrs)
 }
 
 func (s *service) GetAttributesForResource(ctx context.Context, resourceID uint) (map[string]interface{}, error) {
 	return s.resAttrRepo.GetAttributesForResource(ctx, pkg.TenantIDFromContext(ctx), resourceID)
 }
 
-
-func (s *service)	FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uint)([]*model.AttributeDefinition, error){
+func (s *service) FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uint) ([]*model.AttributeDefinition, error) {
 	return s.attrDefRepo.FindAttributeDefinitionByResourceID(ctx, resourceID)
 } //TODO: 需要实现底层{}
 
-func (s *service)	BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error{
+func (s *service) BatchCreateResourceAttributes(ctx context.Context, attr []*model.ResourceAttribute) error {
 	return s.resAttrRepo.BatchCreateResourceAttributes(ctx, attr)
 }
 
@@ -291,21 +289,22 @@ func (s *service) GetAttributesByResourceID(ctx context.Context, resourceID uint
 	return s.resAttrRepo.GetAttributesByResourceID(ctx, resourceID)
 }
 
-	// UpdateParent changes the hierarchical parent of a given resource.
-func (s *service)UpdateParent(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) error{
+// UpdateParent changes the hierarchical parent of a given resource.
+func (s *service) UpdateParent(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) error {
 	return s.resourceRepo.UpdateParent(ctx, tenantID, resourceID, newParentID)
 }
 
-func (s *service) CreateConnection(ctx context.Context, sourceID, tragetID uint) error{
+func (s *service) CreateConnection(ctx context.Context, sourceID, tragetID uint) error {
 	res := &model.ResourceConnection{
-		SourceResourceID: sourceID ,
+		SourceResourceID: sourceID,
 		TargetResourceID: tragetID,
-		ConnectionType: model.ConnectionTypeConnectedThrough, //TODO: 这里需要参数传入
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ConnectionType:   model.ConnectionTypeConnectedThrough, //TODO: 这里需要参数传入
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 	return s.resourceConRepo.CreateConnection(ctx, res)
 }
+
 // UpsertAttributesForResource updates or inserts a batch of attributes for a given resource.
 func (s *service) UpsertAttributesForResource(ctx context.Context, resourceID uint, attributes map[string]interface{}) error {
 	// In a real implementation, you would first validate the attributes against their definitions.
@@ -317,7 +316,6 @@ func (s *service) UpsertAttributesForResource(ctx context.Context, resourceID ui
 func (s *service) ClearParent(ctx context.Context, resourceID uint) error {
 	return s.resourceRepo.UpdateParent(ctx, pkg.TenantIDFromContext(ctx), resourceID, 0)
 }
-
 
 func (s *service) GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
 	return s.resourceConRepo.GetConnectionByID(ctx, connectionID)
@@ -341,13 +339,12 @@ func (s *service) ReplaceAttributeDefinitions(ctx context.Context, resourceID ui
 	// Use a transaction to ensure atomicity of the delete-and-create operation.
 	return s.attrDefRepo.ReplaceAttributeDefinitions(ctx, resourceID, definitions)
 }
+
 // CreateConnection establishes a new technical connection between two resources.
 
-func(s *service)	GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error){
+func (s *service) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error) {
 	return s.resAttrRepo.GetResourcesAndAttributesByIDs(ctx, tenantID, resourceIDs)
-} 
-
-
+}
 
 /*
 NOTE ON ListUserGroups:
