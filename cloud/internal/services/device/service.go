@@ -147,12 +147,42 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 		return nil, nil
 	}
 
+	productID := reqs[0].ProductID
+	for _, req := range reqs {
+		if req.ProductID != productID {
+			return nil, ErrInvalidCreateRequest
+		}
+	}
+
+	seen := make(map[string]struct{}, len(reqs))
+	sees := make([]string, 0)
+	for _, req := range reqs {
+		if _, exists := seen[req.SerialNumber]; exists {
+			return nil, ErrSerialNumberExists
+		}
+
+		seen[req.SerialNumber] = struct{}{}
+		sees = append(sees, req.SerialNumber)
+	}
+
+	res, err := s.repo.GetBySerialNumbers(ctx, sees)
+	if err != nil{
+		return nil, fmt.Errorf("check existing serial numbers: %w", err)
+	}
+	if len(res) > 0{
+		return nil, ErrSerialNumberExists
+	}
+	
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("tenant ID not found in context")
+	}
+
 	resourceParams := make(
 		[]*resource.CreateResource,
 		0,
 		len(reqs),
 	)
-
 	for _, req := range reqs {
 		if err := validateCreateRequest(req); err != nil {
 			return nil, err
@@ -160,6 +190,7 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 		resourceParams = append(
 			resourceParams,
 			&resource.CreateResource{
+				TenantID: tenantID,
 				Type:     string(resource.ResourceTypeDevice),
 				Name:     req.SerialNumber,
 				ParentID: req.ParentResourceID,
@@ -182,7 +213,6 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 	)
 
 	for i, req := range reqs {
-
 		devices = append(devices, &model.Device{
 			ResourceID:        resources[i].ID,
 			ProductID:         req.ProductID,
@@ -195,14 +225,8 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 		})
 	}
 
-	if err := s.repo.CreateBatchTx(
-		ctx,
-		devices,
-	); err != nil {
-		return nil, fmt.Errorf(
-			"create devices: %w",
-			err,
-		)
+	if err := s.repo.CreateBatchTx(ctx,devices); err != nil {
+		return nil, fmt.Errorf("create devices: %w",err)
 	}
 
 	responses := make(

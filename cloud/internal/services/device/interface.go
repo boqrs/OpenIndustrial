@@ -17,6 +17,7 @@ type Repository interface {
 	List(ctx context.Context, req *ListDevicesRequest) ([]*model.Device, int64, error)
 	Update(ctx context.Context, entity *model.Device) error
 	Delete(ctx context.Context, id uint) error
+	GetBySerialNumbers(ctx context.Context,serialNumbers []string) ([]*model.Device, error)
 }
 
 type Service interface {

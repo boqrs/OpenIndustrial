@@ -143,22 +143,22 @@ func (s *service) CreateResourceTx(ctx context.Context, params *CreateResource) 
 func (s *service) CreateResourceBatchTx(ctx context.Context, params []*CreateResource) ([]*model.Resource, error) {
 
 	var resources []*model.Resource
-	for _, params := range params {
+	for _, param := range params {
 		resource := &model.Resource{
-			TenantID:       params.TenantID,
-			ResourceType:   params.Type,
-			ResourceName:   params.Name,
-			Code:           params.Code,
-			ResourceStatus: params.Status,
-			Metadata:       params.Metadata,
-			OwnerGroupID:   params.OwnerGroupID,
+			TenantID:       param.TenantID,
+			ResourceType:   param.Type,
+			ResourceName:   param.Name,
+			Code:           param.Code,
+			ResourceStatus: param.Status,
+			Metadata:       param.Metadata,
+			OwnerGroupID:   param.OwnerGroupID,
 			Version:        1,
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
 
-		if params.ParentID != nil {
-			resource.ParentID = *params.ParentID
+		if param.ParentID != nil {
+			resource.ParentID = *param.ParentID
 		}
 		resources = append(resources, resource)
 	}
