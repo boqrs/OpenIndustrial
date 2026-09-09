@@ -63,7 +63,7 @@ func (s *service) CreateResult(
 
 	entity := &model.ExecutionResult{
 		TenantID:          tenantID,
-		WorkOrderID:       req.WorkOrderID,
+		WorkOrderID:       existing.WorkOrderID,
 		ExecutionID:       req.ExecutionID,
 		ProducedQuantity:  req.ProducedQuantity,
 		QualifiedQuantity: req.QualifiedQuantity,

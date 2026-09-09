@@ -38,6 +38,10 @@ func (r *ResourceRepository) CreateResourceTx(ctx context.Context, res *model.Re
 	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Create(res).Error
 }
 
+func (r *ResourceRepository) CreateResourceBatchTx(ctx context.Context, res []*model.Resource) error {
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).CreateInBatches(res, len(res)).Error
+}
+
 func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID uuid.UUID, parentID uint) ([]*model.Resource, error) {
 	var resources []*model.Resource
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND parent_id = ?", tenantID, parentID).Find(&resources).Error
@@ -49,7 +53,7 @@ func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID uuid.U
 func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error) {
 	var res model.Resource
 	err := r.db.Get().WithContext(ctx).
-		Where("uuid = ? AND tenant_id = ?", resourceID, tenantID).
+		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
 		First(&res).Error
 	if err != nil {
 		return nil, err
@@ -85,7 +89,7 @@ func (r *ResourceRepository) UpdateResource(ctx context.Context, res *model.Reso
 // DeleteResource performs a soft delete on a resource using GORM.
 func (r *ResourceRepository) DeleteResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) error {
 	return r.db.Get().WithContext(ctx).
-		Where("uuid = ? AND tenant_id = ?", resourceID, tenantID).
+		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
 		Delete(&model.Resource{}).Error
 }
 

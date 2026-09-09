@@ -39,6 +39,19 @@ func (r *DeviceRepository) Create(
 		Error
 }
 
+func (r *DeviceRepository) CreateBatchTx(
+    ctx context.Context,
+    devices []*model.Device,
+) error {
+
+    if len(devices) == 0 {
+        return nil
+    }
+
+    return dbFromContext(ctx, r.db.Get()).CreateInBatches(&devices, len(devices)).
+        Error
+}
+
 func (r *DeviceRepository) GetByID(
 	ctx context.Context,
 	id uint,

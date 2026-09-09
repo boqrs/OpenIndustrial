@@ -17,6 +17,7 @@ import (
 type ResourceRepository interface {
 	CreateResource(ctx context.Context, resource *model.Resource) error
 	CreateResourceTx(ctx context.Context, resource *model.Resource) error	
+	CreateResourceBatchTx(ctx context.Context, res []*model.Resource) error
 	GetResourceByID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error)
 	UpdateResource(ctx context.Context, resource *model.Resource) error
 	DeleteResource(ctx context.Context, tenantID uuid.UUID,  resourceID uint) error
@@ -98,6 +99,7 @@ type Service interface{
 	CreateProduct(ctx context.Context, tenantID uuid.UUID, params *CreateProduct) (*model.Resource, error)
 	CreateResource(ctx context.Context, params *CreateResource) (*model.Resource, error)
 	CreateResourceTx(ctx context.Context, params *CreateResource) (*model.Resource, error)
+	CreateResourceBatchTx(ctx context.Context, params []*CreateResource) ([]*model.Resource, error) 
 	UpdateResource(ctx context.Context, resourceID uint, req *UpdateResource) (*model.Resource, error)
 	DeleteResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) error 
 	GetResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error)

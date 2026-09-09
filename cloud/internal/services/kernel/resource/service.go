@@ -101,11 +101,13 @@ func (s *service) CreateResource(ctx context.Context, params *CreateResource) (*
 		Code:          params.Code,
 		ResourceStatus:        params.Status,
 		Metadata:      params.Metadata,
-		ParentID:      *params.ParentID,
 		OwnerGroupID:  params.OwnerGroupID,
 		Version: 1,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
+	}
+	if params.ParentID != nil {
+		resource.ParentID = *params.ParentID
 	}
 
 	if err := s.resourceRepo.CreateResource(ctx, resource); err != nil {
@@ -122,11 +124,14 @@ func (s *service) CreateResourceTx(ctx context.Context, params *CreateResource) 
 		Code:          params.Code,
 		ResourceStatus:        params.Status,
 		Metadata:      params.Metadata,
-		ParentID:      *params.ParentID,
 		OwnerGroupID:  params.OwnerGroupID,
 		Version: 1,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
+	}
+
+	if params.ParentID != nil {
+    	resource.ParentID = *params.ParentID
 	}
 
 	if err := s.resourceRepo.CreateResourceTx(ctx, resource); err != nil {
@@ -135,6 +140,34 @@ func (s *service) CreateResourceTx(ctx context.Context, params *CreateResource) 
 	return resource, nil
 }
 
+func (s *service)CreateResourceBatchTx(ctx context.Context, params []*CreateResource) ([]*model.Resource, error)  {
+	
+	var  resources []*model.Resource
+	for _, params := range params {
+		resource := &model.Resource{
+			TenantID:      params.TenantID,
+			ResourceType:        params.Type,
+			ResourceName:          params.Name,
+			Code:          params.Code,
+			ResourceStatus:        params.Status,
+			Metadata:      params.Metadata,
+			OwnerGroupID:  params.OwnerGroupID,
+			Version: 1,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if params.ParentID != nil {
+    		resource.ParentID = *params.ParentID
+		}
+		resources = append(resources, 	resource)
+	}
+
+	if err := s.resourceRepo.CreateResourceBatchTx(ctx, resources); err != nil {
+		return nil, err
+	}
+	return resources, nil
+}
 
 // UpdateResource updates an existing resource. It uses optimistic locking.
 func (s *service) UpdateResource(ctx context.Context, resourceID uint, req *UpdateResource) (*model.Resource, error) {

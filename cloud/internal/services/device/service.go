@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	"fmt"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
@@ -113,6 +114,112 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	}
 
 	return s.toDeviceResponse(entity, res), nil
+}
+
+
+func validateCreateRequest(req *CreateDeviceFromExecutionResultRequest) error {
+	if req == nil {
+		return errors.New("invalid request")
+	}
+	if req.ProductID == 0 {
+		return errors.New("invalid product ID")
+	}
+	if req.WorkOrderID == 0 {
+		return errors.New("invalid work order ID")
+	}
+	if req.ExecutionID == 0 {
+		return errors.New("invalid execution ID")
+	}
+	if req.ExecutionResultID == 0 {
+		return errors.New("invalid execution result ID")
+	}
+	if req.SerialNumber == "" {
+		return errors.New("invalid serial number")
+	}
+	return nil
+}
+
+func (s *serviceImpl) CreateFromExecutionResultBatchTx(
+    ctx context.Context,
+    reqs []*CreateDeviceFromExecutionResultRequest,
+) ([]*DeviceResponse, error) {
+
+    if len(reqs) == 0 {
+        return nil, nil
+    }
+
+    resourceParams := make(
+        []*resource.CreateResource,
+        0,
+        len(reqs),
+    )
+
+    for _, req := range reqs {
+        if err := validateCreateRequest(req); err != nil {
+            return nil, err
+        }
+        resourceParams = append(
+            resourceParams,
+            &resource.CreateResource{
+                Type:     string(resource.ResourceTypeDevice),
+                Name:     req.SerialNumber,
+                ParentID: req.ParentResourceID,
+            },
+        )
+    }
+
+    resources, err := s.resourceSvc.CreateResourceBatchTx(ctx, resourceParams)
+    if err != nil {
+        return nil, fmt.Errorf(
+            "create device resources: %w",
+            err,
+        )
+    }
+
+    devices := make(
+        []*model.Device,
+        0,
+        len(reqs),
+    )
+
+    for i, req := range reqs {
+
+        devices = append(devices, &model.Device{
+            ResourceID:        resources[i].ID,
+            ProductID:         req.ProductID,
+            WorkOrderID:       req.WorkOrderID,
+            ExecutionID:       req.ExecutionID,
+            ExecutionResultID: req.ExecutionResultID,
+            SerialNumber:      req.SerialNumber,
+            HardwareID:        req.HardwareID,
+            Status:            model.StatusInactive,
+        })
+    }
+
+    if err := s.repo.CreateBatchTx(
+        ctx,
+        devices,
+    ); err != nil {
+        return nil, fmt.Errorf(
+            "create devices: %w",
+            err,
+        )
+    }
+
+    responses := make(
+        []*DeviceResponse,
+        0,
+        len(devices),
+    )
+
+    for i, d := range devices {
+        responses = append(
+            responses,
+            s.toDeviceResponse(d, resources[i]),
+        )
+    }
+
+    return responses, nil
 }
 
 func (s *serviceImpl) GetDevice(

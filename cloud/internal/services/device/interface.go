@@ -11,6 +11,7 @@ import (
 type Repository interface {
     Create(ctx context.Context, entity *model.Device) error
 	CreateTx(ctx context.Context, entity *model.Device) error
+	CreateBatchTx(ctx context.Context,devices []*model.Device) error
     GetByID(ctx context.Context, id uint) (*model.Device, error)
     GetByResourceID(ctx context.Context, resourceID uint) (*model.Device, error)
     GetBySerialNumber(ctx context.Context, serialNumber string) (*model.Device, error)
@@ -29,4 +30,5 @@ type Service interface {
     DeleteDevice(ctx context.Context,deviceID uint) error
 
     CreateFromExecutionResultTx(ctx context.Context,req *CreateDeviceFromExecutionResultRequest) (*DeviceResponse, error)
+	CreateFromExecutionResultBatchTx(ctx context.Context,reqs []*CreateDeviceFromExecutionResultRequest) ([]*DeviceResponse, error)
 }
