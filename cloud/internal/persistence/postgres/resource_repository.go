@@ -34,6 +34,10 @@ func (r *ResourceRepository) CreateResource(ctx context.Context, res *model.Reso
 	return r.db.Get().WithContext(ctx).Create(res).Error
 }
 
+func (r *ResourceRepository) CreateResourceTx(ctx context.Context, res *model.Resource) error {
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Create(res).Error
+}
+
 func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID uuid.UUID, parentID uint) ([]*model.Resource, error) {
 	var resources []*model.Resource
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND parent_id = ?", tenantID, parentID).Find(&resources).Error

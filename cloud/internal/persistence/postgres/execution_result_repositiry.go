@@ -18,11 +18,18 @@ func NewRepository(	db *database.DBProvider) *Repository {
 	}
 }
 
-func (r *Repository) Create(
+func (r *Repository) CreateTx(
 	ctx context.Context,
 	entity *model.ExecutionResult,
 ) error {
 	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Create(entity).Error
+}
+
+func (r *Repository) Create(
+	ctx context.Context,
+	entity *model.ExecutionResult,
+) error {
+	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
 func (r *Repository) GetByID(
@@ -65,9 +72,16 @@ func (r *Repository) GetByExecutionID(
 	return &entity, nil
 }
 
-func (r *Repository) Update(
+func (r *Repository) UpdateTx(
 	ctx context.Context,
 	entity *model.ExecutionResult,
 ) error {
 	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Save(entity).Error
+}
+
+func (r *Repository) Update(
+	ctx context.Context,
+	entity *model.ExecutionResult,
+) error {
+	return r.db.Get().WithContext(ctx).Save(entity).Error
 }

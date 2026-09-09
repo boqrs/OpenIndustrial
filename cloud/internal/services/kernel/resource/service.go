@@ -114,6 +114,28 @@ func (s *service) CreateResource(ctx context.Context, params *CreateResource) (*
 	return resource, nil
 }
 
+func (s *service) CreateResourceTx(ctx context.Context, params *CreateResource) (*model.Resource, error) {
+	resource := &model.Resource{
+		TenantID:      params.TenantID,
+		ResourceType:          params.Type,
+		ResourceName:          params.Name,
+		Code:          params.Code,
+		ResourceStatus:        params.Status,
+		Metadata:      params.Metadata,
+		ParentID:      *params.ParentID,
+		OwnerGroupID:  params.OwnerGroupID,
+		Version: 1,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := s.resourceRepo.CreateResourceTx(ctx, resource); err != nil {
+		return nil, err
+	}
+	return resource, nil
+}
+
+
 // UpdateResource updates an existing resource. It uses optimistic locking.
 func (s *service) UpdateResource(ctx context.Context, resourceID uint, req *UpdateResource) (*model.Resource, error) {
 	// 1. Get the existing resource to ensure it exists and to get its current state.

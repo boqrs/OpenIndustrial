@@ -79,7 +79,7 @@ func (s *service) CreateProductionExecution(
 	return s.uow.Execute(ctx, func(txCtx context.Context) error { 
 		// ------------------------------------------------------------ 
 		// // 1. Load ExecutionResult // ------------------------------------------------------------ 
-		result, err := s.executionResults.GetByID( txCtx, tenantID, executionResultID) 
+		result, err := s.executionResults.GetByID(txCtx, tenantID, executionResultID) 
 		if err != nil { 
 			return fmt.Errorf("get execution result: %w", err) 
 		} 
@@ -157,7 +157,7 @@ func (s *service) CreateProductionExecution(
 							 SerialNumber: item.SerialNumber, 
 							 HardwareID: item.HardwareID,
 							} 
-						if _, err := s.devices.CreateFromExecutionResult( txCtx, req, ); err != nil {
+						if _, err := s.devices.CreateFromExecutionResultTx(txCtx, req, ); err != nil {
 							 return fmt.Errorf( "create device for item %s: %w", item.ItemKey, err) 
 						} 
 					} 
@@ -168,14 +168,14 @@ func (s *service) CreateProductionExecution(
 					 now := time.Now()
 					 workOrder.Status = model.WorkOrderStatusCompleted 
 					 workOrder.CompletedAt = &now }
-					  if err := s.workOrders.Update( txCtx, workOrder, ); err != nil { 
+					  if err := s.workOrders.UpdateTx(txCtx, workOrder, ); err != nil { 
 						return fmt.Errorf( "update work order: %w", err, )
 					  } 
 // ------------------------------------------------------------ // 8. Confirm ExecutionResult // ------------------------------------------------------------ 
 					now := time.Now() 
 					result.Status = model.ExecutionResultStatusConfirmed 
 					result.ConfirmedAt = &now 
-					if err := s.executionResults.Update( txCtx, result, ); err != nil { 
+					if err := s.executionResults.UpdateTx( txCtx, result, ); err != nil { 
 							return fmt.Errorf( "confirm execution result: %w", err, ) 
 						} 
 							return nil }) 

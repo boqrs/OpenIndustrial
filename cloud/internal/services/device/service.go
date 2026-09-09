@@ -41,7 +41,7 @@ func NewService(repo Repository,resourceSvc resource.Service,productSvc product.
 }
 
 // CreateDevice orchestrates the creation of a new device.
-func (s *serviceImpl) CreateFromExecutionResult(
+func (s *serviceImpl) CreateFromExecutionResultTx(
 	ctx context.Context,
 	req *CreateDeviceFromExecutionResultRequest,
 ) (*DeviceResponse, error) {
@@ -91,7 +91,7 @@ func (s *serviceImpl) CreateFromExecutionResult(
 		ParentID: req.ParentResourceID,
 	}
 
-	res, err := s.resourceSvc.CreateResource(ctx, resourceReq)
+	res, err := s.resourceSvc.CreateResourceTx(ctx, resourceReq)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *serviceImpl) CreateFromExecutionResult(
 		Status:            model.DeviceStatusCreated,
 	}
 
-	if err := s.repo.Create(ctx, entity); err != nil {
+	if err := s.repo.CreateTx(ctx, entity); err != nil {
 		return nil, err
 	}
 

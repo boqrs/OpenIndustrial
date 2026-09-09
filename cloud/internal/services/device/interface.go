@@ -10,6 +10,7 @@ import (
 // Repository defines the persistence interface for devices.
 type Repository interface {
     Create(ctx context.Context, entity *model.Device) error
+	CreateTx(ctx context.Context, entity *model.Device) error
     GetByID(ctx context.Context, id uint) (*model.Device, error)
     GetByResourceID(ctx context.Context, resourceID uint) (*model.Device, error)
     GetBySerialNumber(ctx context.Context, serialNumber string) (*model.Device, error)
@@ -27,5 +28,5 @@ type Service interface {
 
     DeleteDevice(ctx context.Context,deviceID uint) error
 
-    CreateFromExecutionResult(ctx context.Context,req *CreateDeviceFromExecutionResultRequest) (*DeviceResponse, error)
+    CreateFromExecutionResultTx(ctx context.Context,req *CreateDeviceFromExecutionResultRequest) (*DeviceResponse, error)
 }

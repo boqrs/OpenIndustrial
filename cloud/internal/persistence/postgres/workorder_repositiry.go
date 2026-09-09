@@ -24,6 +24,10 @@ func (r *WorkOrderRepository) Create(ctx context.Context, entity *model.WorkOrde
 	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
+func (r *WorkOrderRepository) CreateTx(ctx context.Context, entity *model.WorkOrder) error {
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Create(entity).Error
+}
+
 func (r *WorkOrderRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.WorkOrder, error) {
 	var entity model.WorkOrder
 	err := r.db.Get().WithContext(ctx).
@@ -72,6 +76,10 @@ func (r *WorkOrderRepository) List(ctx context.Context, tenantID uuid.UUID, plan
 
 func (r *WorkOrderRepository) Update(ctx context.Context, entity *model.WorkOrder) error {
 	return r.db.Get().WithContext(ctx).Save(entity).Error
+}
+
+func (r *WorkOrderRepository) UpdateTx(ctx context.Context, entity *model.WorkOrder) error {
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Save(entity).Error
 }
 
 // SumQuantityByPlanID calculates the total planned quantity of all work orders for a given production plan.
