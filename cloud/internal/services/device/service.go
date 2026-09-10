@@ -142,11 +142,18 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 	ctx context.Context,
 	reqs []*CreateDeviceFromExecutionResultRequest,
 ) ([]*DeviceResponse, error) {
-
 	if len(reqs) == 0 {
 		return nil, nil
 	}
 
+	// 1. Validate every request first.
+	for _, req := range reqs {
+		if err := validateCreateRequest(req); err != nil {
+			return nil, err
+		}
+	}
+
+	// 2. All devices in one execution result must belong to the same product.
 	productID := reqs[0].ProductID
 	for _, req := range reqs {
 		if req.ProductID != productID {
@@ -154,39 +161,55 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 		}
 	}
 
+	// 3. Product must exist.
+	if _, err := s.productSvc.GetProductModel(ctx, productID); err != nil {
+		if errors.Is(err, product.ErrProductModelNotFound) {
+			return nil, ErrProductModelNotFound
+		}
+
+		return nil, err
+	}
+
+	// 4. Validate serial numbers inside the batch.
 	seen := make(map[string]struct{}, len(reqs))
-	sees := make([]string, 0)
+	serialNumbers := make([]string, 0, len(reqs))
+
 	for _, req := range reqs {
 		if _, exists := seen[req.SerialNumber]; exists {
 			return nil, ErrSerialNumberExists
 		}
 
 		seen[req.SerialNumber] = struct{}{}
-		sees = append(sees, req.SerialNumber)
+		serialNumbers = append(serialNumbers, req.SerialNumber)
 	}
 
-	res, err := s.repo.GetBySerialNumbers(ctx, sees)
-	if err != nil{
-		return nil, fmt.Errorf("check existing serial numbers: %w", err)
+	// 5. Validate serial numbers against existing devices.
+	existing, err := s.repo.GetBySerialNumbers(ctx, serialNumbers)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"check existing serial numbers: %w",
+			err,
+		)
 	}
-	if len(res) > 0{
+
+	if len(existing) > 0 {
 		return nil, ErrSerialNumberExists
 	}
-	
+
+	// 6. Tenant must exist in context.
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return nil, errors.New("tenant ID not found in context")
 	}
 
+	// 7. Create device resources.
 	resourceParams := make(
 		[]*resource.CreateResource,
 		0,
 		len(reqs),
 	)
+
 	for _, req := range reqs {
-		if err := validateCreateRequest(req); err != nil {
-			return nil, err
-		}
 		resourceParams = append(
 			resourceParams,
 			&resource.CreateResource{
@@ -198,7 +221,10 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 		)
 	}
 
-	resources, err := s.resourceSvc.CreateResourceBatchTx(ctx, resourceParams)
+	resources, err := s.resourceSvc.CreateResourceBatchTx(
+		ctx,
+		resourceParams,
+	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"create device resources: %w",
@@ -206,6 +232,7 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 		)
 	}
 
+	// 8. Create devices.
 	devices := make(
 		[]*model.Device,
 		0,
@@ -213,22 +240,31 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 	)
 
 	for i, req := range reqs {
-		devices = append(devices, &model.Device{
-			ResourceID:        resources[i].ID,
-			ProductID:         req.ProductID,
-			WorkOrderID:       req.WorkOrderID,
-			ExecutionID:       req.ExecutionID,
-			ExecutionResultID: req.ExecutionResultID,
-			SerialNumber:      req.SerialNumber,
-			HardwareID:        req.HardwareID,
-			Status:            model.StatusInactive,
-		})
+		devices = append(
+			devices,
+			&model.Device{
+				ResourceID:        resources[i].ID,
+				ProductID:         req.ProductID,
+				WorkOrderID:       req.WorkOrderID,
+				ExecutionID:       req.ExecutionID,
+				ExecutionResultID: req.ExecutionResultID,
+				SerialNumber:      req.SerialNumber,
+				HardwareID:        req.HardwareID,
+
+				// Keep the same initial state as single creation.
+				Status: model.DeviceStatusCreated,
+			},
+		)
 	}
 
-	if err := s.repo.CreateBatchTx(ctx,devices); err != nil {
-		return nil, fmt.Errorf("create devices: %w",err)
+	if err := s.repo.CreateBatchTx(ctx, devices); err != nil {
+		return nil, fmt.Errorf(
+			"create devices: %w",
+			err,
+		)
 	}
 
+	// 9. Build responses.
 	responses := make(
 		[]*DeviceResponse,
 		0,
@@ -244,6 +280,7 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 
 	return responses, nil
 }
+
 
 func (s *serviceImpl) GetDevice(
 	ctx context.Context,

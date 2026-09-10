@@ -6,6 +6,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct {
@@ -30,6 +31,33 @@ func (r *Repository) Create(
 	entity *model.ExecutionResult,
 ) error {
 	return r.db.Get().WithContext(ctx).Create(entity).Error
+}
+
+func (r *Repository) GetByIDForUpdateTx(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	id uint,
+) (*model.ExecutionResult, error) {
+	var entity model.ExecutionResult
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
+		Where(
+			"tenant_id = ? AND id = ?",
+			tenantID,
+			id,
+		).
+		First(&entity).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity, nil
 }
 
 func (r *Repository) GetByID(

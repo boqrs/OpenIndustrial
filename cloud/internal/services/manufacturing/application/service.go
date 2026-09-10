@@ -86,7 +86,7 @@ func (s *service) ConfirmExecutionResult(ctx context.Context, executionResultID 
 	return s.uow.Execute(ctx, func(txCtx context.Context) error {
 		// ------------------------------------------------------------
 		// // 1. Load ExecutionResult // ------------------------------------------------------------
-		result, err := s.executionResults.GetByID(txCtx, tenantID, executionResultID)
+		result, err := s.executionResults.GetByIDForUpdateTx(txCtx, tenantID, executionResultID)
 		if err != nil {
 			return fmt.Errorf("get execution result: %w", err)
 		}
