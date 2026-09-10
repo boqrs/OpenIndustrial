@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	//"github.com/boqrs/OpenIndustrial/cloud/internal/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
+	"gorm.io/gorm/clause"
 )
 
 type executionRepository struct {
@@ -50,6 +50,33 @@ func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uui
 	var entity model.ProductionExecution
 
 	err := r.db.Get().WithContext(ctx).
+		Where(
+			"tenant_id = ? AND id = ?",
+			tenantID,
+			id,
+		).
+		First(&entity).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity, nil
+}
+
+func (r *Repository) GetExecutionByIDForUpdateTx(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	id uint,
+) (*model.ProductionExecution, error) {
+	var entity model.ProductionExecution
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
 		Where(
 			"tenant_id = ? AND id = ?",
 			tenantID,

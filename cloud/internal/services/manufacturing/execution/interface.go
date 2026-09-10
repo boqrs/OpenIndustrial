@@ -12,6 +12,7 @@ type Repository interface {
 	// Execution methods
 	CreateExecution(ctx context.Context, execution *model.ProductionExecution, operations []*model.ExecutionOperation) error
 	GetExecutionByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error)
+	GetExecutionByIDForUpdateTx(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error)
 	ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error)
 	UpdateExecution(ctx context.Context, execution *model.ProductionExecution) error
 	CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error)

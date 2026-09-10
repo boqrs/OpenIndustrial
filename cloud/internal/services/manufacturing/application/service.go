@@ -128,7 +128,7 @@ func (s *service) ConfirmExecutionResult(ctx context.Context, executionResultID 
 		if exec.WorkOrderID != result.WorkOrderID {
 			return fmt.Errorf("%w: execution work order mismatch", ErrExecutionResultInvalid)
 		} // ------------------------------------------------------------ // 4. Load WorkOrder // ------------------------------------------------------------
-		workOrder, err := s.workOrders.GetByID(txCtx, tenantID, result.WorkOrderID)
+		workOrder, err := s.workOrders.GetByIDForUpdateTx(txCtx, tenantID, result.WorkOrderID)
 		if err != nil {
 			return fmt.Errorf("get work order: %w", err)
 		}
@@ -438,7 +438,7 @@ func (s *service) StartProductionExecution(
 		// 注意：这里直接修改 execution。
 		// execution repository 的 UpdateExecution 必须通过
 		// dbFromContext(ctx, ...) 获取当前 transaction。
-		entity, err := s.executionRepository.GetExecutionByID(
+		entity, err := s.executionRepository.GetExecutionByIDForUpdateTx(
 			txCtx,
 			tenantID,
 			executionID,

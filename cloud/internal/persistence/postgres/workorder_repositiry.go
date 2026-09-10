@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	//"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
+	"gorm.io/gorm/clause"
 )
 
 type WorkOrderRepository struct {
@@ -39,6 +39,33 @@ func (r *WorkOrderRepository) GetByID(ctx context.Context, tenantID uuid.UUID, i
 		// }
 		return nil, err
 	}
+	return &entity, nil
+}
+
+func (r *WorkOrderRepository) GetByIDForUpdateTx(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	id uint,
+) (*model.WorkOrder, error) {
+	var entity model.WorkOrder
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
+		Where(
+			"tenant_id = ? AND id = ?",
+			tenantID,
+			id,
+		).
+		First(&entity).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &entity, nil
 }
 
