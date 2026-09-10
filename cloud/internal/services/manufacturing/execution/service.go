@@ -97,29 +97,27 @@ func NewService(
 	}
 }
 
-// -----------------------------------------------------------------------------
-// Execution
-// -----------------------------------------------------------------------------
-
-// CreateExecution creates one actual production execution from a WorkOrder.
-//
-// The caller only provides the WorkOrder. Product and Routing are derived from
-// the WorkOrder to prevent the execution from becoming detached from the
-// production task.
-func (s *serviceImpl) CreateExecution(
+func (s *serviceImpl) createExecution(
 	ctx context.Context,
 	req *CreateExecutionRequest,
+	useTx bool,
 ) (*ExecutionResponse, error) {
 
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return nil, fmt.Errorf("tenant ID not found in context")
 	}
+
 	if req == nil {
 		return nil, ErrInvalidExecutionState
 	}
+
 	if req.WorkOrderID == 0 {
 		return nil, ErrWorkOrderNotFound
+	}
+
+	if req.ResourceID == 0 {
+		return nil, fmt.Errorf("execution resource ID is required")
 	}
 
 	wo, err := s.workOrderSvc.GetByID(
@@ -131,9 +129,12 @@ func (s *serviceImpl) CreateExecution(
 		return nil, err
 	}
 
+	if wo == nil {
+		return nil, ErrWorkOrderNotFound
+	}
+
 	if wo.Status != model.WorkOrderStatusReleased &&
 		wo.Status != model.WorkOrderStatusInProgress {
-
 		return nil, ErrWorkOrderNotExecutable
 	}
 
@@ -145,9 +146,9 @@ func (s *serviceImpl) CreateExecution(
 		return nil, err
 	}
 
-	// // -------------------------------------------------------------------------
-	// // 5. Validate Routing
-	// // -------------------------------------------------------------------------
+	if rt == nil {
+		return nil, ErrRoutingNotFound
+	}
 
 	if rt.Status != model.RoutingStatusActive {
 		return nil, ErrRoutingNotActive
@@ -156,10 +157,6 @@ func (s *serviceImpl) CreateExecution(
 	if rt.ProductID != wo.ProductID {
 		return nil, ErrRoutingProductMismatch
 	}
-
-	// -------------------------------------------------------------------------
-	// 6. Load Routing Operations
-	// -------------------------------------------------------------------------
 
 	routingOperations, err := s.routingSvc.ListOperations(
 		ctx,
@@ -176,29 +173,15 @@ func (s *serviceImpl) CreateExecution(
 		return nil, ErrRoutingHasNoOperations
 	}
 
-	// -------------------------------------------------------------------------
-	// 7. Create ProductionExecution
-	// -------------------------------------------------------------------------
-
 	entity := &model.ProductionExecution{
+		ResourceID:     req.ResourceID,
 		TenantID:       tenantID,
 		WorkOrderID:    wo.ID,
 		ProductID:      wo.ProductID,
 		RoutingID:      wo.RoutingID,
 		RoutingVersion: rt.Version,
-		//DeviceID:       req.DeviceID,
-		Status: model.ProductionExecutionStatusPending,
+		Status:         model.ProductionExecutionStatusPending,
 	}
-
-	// -------------------------------------------------------------------------
-	// 8. Create ExecutionOperation snapshots
-	//
-	// The execution operation is a snapshot of the routing operation at the
-	// time execution is created.
-	//
-	// This is important because Routing is a definition while Execution is
-	// historical production data.
-	// -------------------------------------------------------------------------
 
 	operations := make(
 		[]*model.ExecutionOperation,
@@ -207,11 +190,17 @@ func (s *serviceImpl) CreateExecution(
 	)
 
 	for _, op := range routingOperations {
-
 		if op == nil {
 			continue
 		}
-		parameters := append([]byte(nil), op.Parameters...)
+
+		parameters := append(
+			[]byte(nil),
+			op.Parameters...,
+		)
+
+		workstationID := op.WorkStationID
+
 		operations = append(
 			operations,
 			&model.ExecutionOperation{
@@ -220,7 +209,7 @@ func (s *serviceImpl) CreateExecution(
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
-				WorkstationID:      &op.WorkStationID,
+				WorkstationID:      &workstationID,
 				Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},
@@ -231,25 +220,54 @@ func (s *serviceImpl) CreateExecution(
 		return nil, ErrRoutingHasNoOperations
 	}
 
-	// -------------------------------------------------------------------------
-	// 9. Persist
-	//
-	// Repository owns persistence details. We deliberately do not introduce
-	// transaction handling here.
-	// -------------------------------------------------------------------------
-
-	if err := s.repository.CreateExecution(
-		ctx,
-		entity,
-		operations,
-	); err != nil {
-		return nil, fmt.Errorf(
-			"failed to create execution: %w",
-			err,
-		)
+	if useTx {
+		if err := s.repository.CreateExecutionTx(
+			ctx,
+			entity,
+			operations,
+		); err != nil {
+			return nil, fmt.Errorf(
+				"failed to create execution: %w",
+				err,
+			)
+		}
+	} else {
+		if err := s.repository.CreateExecution(
+			ctx,
+			entity,
+			operations,
+		); err != nil {
+			return nil, fmt.Errorf(
+				"failed to create execution: %w",
+				err,
+			)
+		}
 	}
 
 	return toExecutionResponse(entity), nil
+}
+
+// -----------------------------------------------------------------------------
+// Execution
+// -----------------------------------------------------------------------------
+
+// CreateExecution creates one actual production execution from a WorkOrder.
+//
+// The caller only provides the WorkOrder. Product and Routing are derived from
+// the WorkOrder to prevent the execution from becoming detached from the
+// production task.
+func (s *serviceImpl) CreateExecution(
+	ctx context.Context,
+	req *CreateExecutionRequest,
+) (*ExecutionResponse, error) {
+	return s.createExecution(ctx, req, false)
+}
+
+func (s *serviceImpl) CreateExecutionTx(
+	ctx context.Context,
+	req *CreateExecutionRequest,
+) (*ExecutionResponse, error) {
+	return s.createExecution(ctx, req, true)
 }
 
 // GetExecution returns one execution.
@@ -320,144 +338,48 @@ func (s *serviceImpl) ListExecutions(
 	return responses, nil
 }
 
-// StartExecution starts an execution.
-//
-// If the associated WorkOrder is still Released, starting the first execution
-// also starts the WorkOrder.
-// func (s *serviceImpl) StartExecution(
-// 	ctx context.Context,
-// 	id uint,
-// ) error {
-
-// 	tenantID := pkg.TenantIDFromContext(ctx)
-// 	if tenantID == uuid.Nil {
-// 		return fmt.Errorf("tenant ID not found in context")
-// 	}
-// 	// -------------------------------------------------------------------------
-// 	// 1. Load execution
-// 	// -------------------------------------------------------------------------
-
-// 	exec, err := s.repository.GetExecutionByID(
-// 		ctx,
-// 		tenantID,
-// 		id,
-// 	)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if exec == nil {
-// 		return ErrExecutionNotFound
-// 	}
-
-// 	// -------------------------------------------------------------------------
-// 	// 2. Validate execution state
-// 	// -------------------------------------------------------------------------
-
-// 	if exec.Status != model.ProductionExecutionStatusPending {
-// 		return ErrInvalidExecutionState
-// 	}
-
-// 	// -------------------------------------------------------------------------
-// 	// 3. Load WorkOrder
-// 	// -------------------------------------------------------------------------
-
-// 	wo, err := s.workOrderSvc.GetByID(
-// 		ctx,
-// 		tenantID,
-// 		exec.WorkOrderID,
-// 	)
-// 	if err != nil {
-// 		return ErrWorkOrderNotFound
-// 	}
-
-// 	if wo.Status != model.WorkOrderStatusReleased &&
-// 		wo.Status != model.WorkOrderStatusInProgress {
-
-// 		return ErrWorkOrderNotExecutable
-// 	}
-
-// 	// -------------------------------------------------------------------------
-// 	// 5. Start WorkOrder if necessary
-// 	// -------------------------------------------------------------------------
-
-// 	if wo.Status == model.WorkOrderStatusReleased {
-
-// 		if err := s.workOrderSvc.Start(
-// 			ctx,
-// 			tenantID,
-// 			exec.WorkOrderID,
-// 		); err != nil {
-// 			return fmt.Errorf(
-// 				"failed to start associated work order: %w",
-// 				err,
-// 			)
-// 		}
-// 	}
-
-// 	// -------------------------------------------------------------------------
-// 	// 6. Start execution
-// 	// -------------------------------------------------------------------------
-
-// 	now := time.Now()
-
-// 	exec.Status = model.ProductionExecutionStatusInProgress
-// 	exec.StartedAt = &now
-
-// 	if err := s.repository.UpdateExecution(
-// 		ctx,
-// 		exec,
-// 	); err != nil {
-// 		return fmt.Errorf(
-// 			"failed to start execution: %w",
-// 			err,
-// 		)
-// 	}
-
-// 	return nil
-// }
-
-// CancelExecution cancels an execution.
 func (s *serviceImpl) CancelExecution(
 	ctx context.Context,
 	id uint,
 ) error {
-
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return fmt.Errorf("tenant ID not found in context")
 	}
-	exec, err := s.repository.GetExecutionByID(
-		ctx,
-		tenantID,
-		id,
-	)
-	if err != nil {
-		return err
-	}
 
-	if exec == nil {
-		return ErrExecutionNotFound
-	}
-
-	if exec.Status != model.ProductionExecutionStatusPending &&
-		exec.Status != model.ProductionExecutionStatusInProgress {
-		return ErrInvalidExecutionState
-	}
-
-	exec.Status = model.ProductionExecutionStatusCancelled
-
-	if err := s.repository.UpdateExecution(
-		ctx,
-		exec,
-	); err != nil {
-		return fmt.Errorf(
-			"failed to cancel execution: %w",
-			err,
+	return withExecutionTransaction(ctx, func(txCtx context.Context) error {
+		exec, err := s.repository.GetExecutionByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
 		)
-	}
+		if err != nil {
+			return err
+		}
 
-	return nil
+		if exec == nil {
+			return ErrExecutionNotFound
+		}
+
+		if exec.Status != model.ProductionExecutionStatusPending &&
+			exec.Status != model.ProductionExecutionStatusInProgress {
+			return ErrInvalidExecutionState
+		}
+
+		exec.Status = model.ProductionExecutionStatusCancelled
+
+		if err := s.repository.UpdateExecution(
+			txCtx,
+			exec,
+		); err != nil {
+			return fmt.Errorf(
+				"failed to cancel execution: %w",
+				err,
+			)
+		}
+
+		return nil
+	})
 }
 
 // StartOperation starts an execution operation.
@@ -758,7 +680,7 @@ func (s *serviceImpl) CompleteOperation(
 
 	if err := s.tryCompleteExecution(
 		ctx,
-		executionID,
+		exec,
 	); err != nil {
 		return fmt.Errorf(
 			"failed to complete execution: %w",
@@ -917,21 +839,8 @@ func (s *serviceImpl) ListOperations(
 
 func (s *serviceImpl) tryCompleteExecution(
 	ctx context.Context,
-	executionID uint,
+	exec *model.ProductionExecution,
 ) error {
-
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return fmt.Errorf("tenant ID not found in context")
-	}
-	exec, err := s.repository.GetExecutionByID(
-		ctx,
-		tenantID,
-		executionID,
-	)
-	if err != nil {
-		return err
-	}
 
 	if exec == nil {
 		return ErrExecutionNotFound
@@ -943,7 +852,7 @@ func (s *serviceImpl) tryCompleteExecution(
 
 	operations, err := s.repository.ListOperations(
 		ctx,
-		executionID,
+		exec.ID,
 	)
 	if err != nil {
 		return fmt.Errorf(
@@ -957,21 +866,15 @@ func (s *serviceImpl) tryCompleteExecution(
 	}
 
 	for _, op := range operations {
-
 		if op == nil {
 			continue
 		}
 
 		if op.Status != model.ExecutionOperationStatusCompleted &&
 			op.Status != model.ExecutionOperationStatusSkipped {
-
 			return nil
 		}
 	}
-
-	// -------------------------------------------------------------------------
-	// All operations completed.
-	// -------------------------------------------------------------------------
 
 	now := time.Now()
 

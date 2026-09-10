@@ -14,6 +14,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/executionresult"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
@@ -33,6 +34,7 @@ var (
 
 type service struct {
 	uow                 postgres.UnitOfWork
+	resources           resource.Service
 	workOrders          workorder.Repository
 	routings            routing.Repository
 	executions          execution.Service
@@ -42,9 +44,10 @@ type service struct {
 }
 
 // NewService creates a new manufacturing application service.
-func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults executionresult.Repository, executionRepository execution.Repository, devices device.Service) Service {
+func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults executionresult.Repository, executionRepository execution.Repository, devices device.Service, resources resource.Service) Service {
 	return &service{
 		uow:                 uow,
+		resources:           resources,
 		workOrders:          workOrders,
 		routings:            routings,
 		executions:          executions,
@@ -59,11 +62,90 @@ func (s *service) CreateProductionExecution(
 	workOrderID uint,
 ) (*execution.ExecutionResponse, error) {
 
-	req := &execution.CreateExecutionRequest{
-		WorkOrderID: workOrderID,
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("tenant ID not found in context")
 	}
 
-	return s.executions.CreateExecution(ctx, req)
+	if workOrderID == 0 {
+		return nil, execution.ErrWorkOrderNotFound
+	}
+
+	returnResult := (*execution.ExecutionResponse)(nil)
+
+	err := s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+
+			workOrder, err := s.workOrders.GetByIDForUpdateTx(
+				txCtx,
+				tenantID,
+				workOrderID,
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"get work order: %w",
+					err,
+				)
+			}
+
+			if workOrder == nil {
+				return execution.ErrWorkOrderNotFound
+			}
+
+			if workOrder.Status != model.WorkOrderStatusReleased &&
+				workOrder.Status != model.WorkOrderStatusInProgress {
+				return execution.ErrWorkOrderNotExecutable
+			}
+
+			// Execution is a Resource-backed entity.
+			resourceEntity, err := s.resources.CreateResourceTx(
+				txCtx,
+				&resource.CreateResource{
+					Type:     "PRODUCTION_EXECUTION",
+					Name:     fmt.Sprintf("Execution-%d", workOrder.ID),
+					Status:   "pending",
+					TenantID: tenantID,
+				},
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"create execution resource: %w",
+					err,
+				)
+			}
+
+			if resourceEntity == nil || resourceEntity.ID == 0 {
+				return errors.New(
+					"create execution resource returned invalid resource",
+				)
+			}
+
+			result, err := s.executions.CreateExecutionTx(
+				txCtx,
+				&execution.CreateExecutionRequest{
+					WorkOrderID: workOrder.ID,
+					ResourceID:  resourceEntity.ID,
+				},
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"create execution: %w",
+					err,
+				)
+			}
+
+			returnResult = result
+
+			return nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return returnResult, nil
 }
 
 // ConfirmExecutionResult confirms the final production result.
@@ -535,4 +617,56 @@ func (s *service) FailProductionOperation(
 			result,
 		)
 	})
+}
+
+func (s *service) CancelProductionExecution(
+	ctx context.Context,
+	executionID uint,
+) error {
+
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New("tenant ID not found in context")
+	}
+
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+
+			exec, err := s.executionRepository.GetExecutionByIDForUpdateTx(
+				txCtx,
+				tenantID,
+				executionID,
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"get execution for update: %w",
+					err,
+				)
+			}
+
+			if exec == nil {
+				return execution.ErrExecutionNotFound
+			}
+
+			if exec.Status != model.ProductionExecutionStatusPending &&
+				exec.Status != model.ProductionExecutionStatusInProgress {
+				return execution.ErrInvalidExecutionState
+			}
+
+			exec.Status = model.ProductionExecutionStatusCancelled
+
+			if err := s.executionRepository.UpdateExecution(
+				txCtx,
+				exec,
+			); err != nil {
+				return fmt.Errorf(
+					"cancel execution: %w",
+					err,
+				)
+			}
+
+			return nil
+		},
+	)
 }

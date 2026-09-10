@@ -9,10 +9,9 @@ import (
 
 type ExecutionResponse struct {
 	ID             uint                            `json:"id"`
-	ResourceID     uint                            `json:"resourceUuid"`
+	ResourceID     uint                            `json:"resourceId"`
 	TenantID       uuid.UUID                       `json:"tenantId"`
 	WorkOrderID    uint                            `json:"workOrderId"`
-	DeviceID       *uint                           `json:"deviceId,omitempty"`
 	Status         model.ProductionExecutionStatus `json:"status"`
 	StartedAt      *time.Time                      `json:"startedAt,omitempty"`
 	CompletedAt    *time.Time                      `json:"completedAt,omitempty"`

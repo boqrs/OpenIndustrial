@@ -59,7 +59,6 @@ func (h *Handler) GetExecution(ctx *gin.Context) ginx.Render {
 
 type listExecutionsRequest struct {
 	WorkOrderID *uint                            `form:"workOrderID"`
-	DeviceID    *uint                            `form:"deviceID"`
 	Status      *model.ProductionExecutionStatus `form:"status"`
 }
 
@@ -76,19 +75,6 @@ func (h *Handler) ListExecutions(ctx *gin.Context) ginx.Render {
 	}
 	return ginx.Success(result)
 }
-
-// StartExecution starts a production execution.
-// func (h *Handler) StartExecution(ctx *gin.Context) ginx.Render {
-// 	id, err := parseUintParam(ctx, "id")
-// 	if err != nil {
-// 		return ginx.Error(err)
-// 	}
-
-// 	if err := h.service.StartExecution(ctx.Request.Context(), id); err != nil {
-// 		return ginx.Error(err)
-// 	}
-// 	return ginx.Success(nil)
-// }
 
 // CancelExecution cancels a production execution.
 func (h *Handler) CancelExecution(ctx *gin.Context) ginx.Render {

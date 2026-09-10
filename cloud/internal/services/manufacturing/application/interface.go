@@ -13,4 +13,5 @@ type Service interface {
 	StartProductionOperation(ctx context.Context, executionID uint, operationID uint) error
 	FailProductionOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
 	CompleteProductionOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
+	CancelProductionExecution(ctx context.Context, executionID uint) error
 }

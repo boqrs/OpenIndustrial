@@ -46,6 +46,52 @@ func (r *executionRepository) CreateExecution(ctx context.Context, entity *model
 		})
 }
 
+func (r *executionRepository) createExecution(
+	db *gorm.DB,
+	entity *model.ProductionExecution,
+	operations []*model.ExecutionOperation,
+) error {
+	if entity == nil {
+		return gorm.ErrInvalidData
+	}
+
+	if err := db.Create(entity).Error; err != nil {
+		return err
+	}
+
+	if len(operations) == 0 {
+		return nil
+	}
+
+	for _, operation := range operations {
+		if operation == nil {
+			continue
+		}
+
+		operation.ExecutionID = entity.ID
+	}
+
+	if err := db.Create(&operations).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CreateExecutionTx creates an execution and its operations using the
+// transaction already stored in the context by UnitOfWork.
+func (r *executionRepository) CreateExecutionTx(
+	ctx context.Context,
+	entity *model.ProductionExecution,
+	operations []*model.ExecutionOperation,
+) error {
+	return r.createExecution(
+		dbFromContext(ctx, r.db.Get()),
+		entity,
+		operations,
+	)
+}
+
 func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error) {
 	var entity model.ProductionExecution
 
