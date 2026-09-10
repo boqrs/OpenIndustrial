@@ -22,6 +22,7 @@ type Repository interface {
 	ListOperations(ctx context.Context, executionID uint) ([]*model.ExecutionOperation, error)
 	UpdateOperation(ctx context.Context, operation *model.ExecutionOperation) error
 	GetCurrentOperation(ctx context.Context, executionID uint) (*model.ExecutionOperation, error)
+	GetOperationForUpdateTx(ctx context.Context, executionID uint, operationID uint) (*model.ExecutionOperation, error)
 }
 
 // --- Service Interface ---

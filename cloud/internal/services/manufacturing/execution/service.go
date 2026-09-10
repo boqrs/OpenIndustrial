@@ -460,26 +460,32 @@ func (s *serviceImpl) CancelExecution(
 	return nil
 }
 
-// -----------------------------------------------------------------------------
-// Operation
-// -----------------------------------------------------------------------------
-// An operation cannot start until its immediately preceding operation has
-// completed or been skipped.
+// StartOperation starts an execution operation.
+//
+// An operation can only start when:
+//   - the execution is in progress;
+//   - the operation is pending;
+//   - the immediately preceding operation is completed or skipped;
+//   - the corresponding executor exists;
+//   - the executor accepts the operation parameters.
+//
+// The operation row is loaded with FOR UPDATE. The caller is expected to
+// invoke this method inside a transaction.
 func (s *serviceImpl) StartOperation(
 	ctx context.Context,
 	executionID uint,
 	operationID uint,
 ) error {
-
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return fmt.Errorf("tenant ID not found in context")
 	}
+
 	// -------------------------------------------------------------------------
-	// 1. Validate Execution
+	// 1. Lock and validate Execution
 	// -------------------------------------------------------------------------
 
-	exec, err := s.repository.GetExecutionByID(
+	exec, err := s.repository.GetExecutionByIDForUpdateTx(
 		ctx,
 		tenantID,
 		executionID,
@@ -497,10 +503,10 @@ func (s *serviceImpl) StartOperation(
 	}
 
 	// -------------------------------------------------------------------------
-	// 2. Load Operation
+	// 2. Lock and load Operation
 	// -------------------------------------------------------------------------
 
-	op, err := s.repository.GetOperation(
+	op, err := s.repository.GetOperationForUpdateTx(
 		ctx,
 		executionID,
 		operationID,
@@ -525,41 +531,58 @@ func (s *serviceImpl) StartOperation(
 	// 4. Validate previous operation
 	// -------------------------------------------------------------------------
 
-	// Fetch all sibling operations to determine the correct execution order.
-	operations, err := s.repository.ListOperations(ctx, executionID)
+	operations, err := s.repository.ListOperations(
+		ctx,
+		executionID,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to list execution operations for sequence validation: %w", err)
+		return fmt.Errorf(
+			"failed to list execution operations for sequence validation: %w",
+			err,
+		)
 	}
 
-	// Sort operations by sequence to establish the definitive order.
-	sort.Slice(operations, func(i, j int) bool {
-		return operations[i].Sequence < operations[j].Sequence
-	})
+	sort.Slice(
+		operations,
+		func(i, j int) bool {
+			return operations[i].Sequence < operations[j].Sequence
+		},
+	)
 
-	// Find the index of the current operation in the sorted list.
 	currentIndex := -1
+
 	for i, operation := range operations {
+		if operation == nil {
+			continue
+		}
+
 		if operation.ID == op.ID {
 			currentIndex = i
 			break
 		}
 	}
 
-	// If the operation is not the first one in the sequence, check its predecessor.
+	if currentIndex == -1 {
+		return fmt.Errorf(
+			"consistency error: current operation ID %d not found in execution %d",
+			op.ID,
+			executionID,
+		)
+	}
+
 	if currentIndex > 0 {
 		previousOperation := operations[currentIndex-1]
 
-		// A required preceding operation must be completed or skipped.
-		if previousOperation.Status != model.ExecutionOperationStatusCompleted &&
-			previousOperation.Status != model.ExecutionOperationStatusSkipped {
+		if previousOperation == nil {
 			return fmt.Errorf(
-				"previous operation %d is not completed or skipped",
-				previousOperation.ID,
+				"consistency error: previous operation is nil",
 			)
 		}
-	} else if currentIndex == -1 {
-		// This should not happen if the operation was loaded correctly before.
-		return fmt.Errorf("consistency error: current operation ID %d not found in its own execution %d", op.ID, executionID)
+
+		if previousOperation.Status != model.ExecutionOperationStatusCompleted &&
+			previousOperation.Status != model.ExecutionOperationStatusSkipped {
+			return ErrPriorOperationIncomplete
+		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -579,8 +602,12 @@ func (s *serviceImpl) StartOperation(
 	// -------------------------------------------------------------------------
 
 	var parameters map[string]any
+
 	if len(op.Parameters) > 0 {
-		if err := json.Unmarshal(op.Parameters, &parameters); err != nil {
+		if err := json.Unmarshal(
+			op.Parameters,
+			&parameters,
+		); err != nil {
 			return fmt.Errorf(
 				"invalid operation parameters for operation %d: %w",
 				op.ID,
@@ -598,10 +625,13 @@ func (s *serviceImpl) StartOperation(
 	}
 
 	// -------------------------------------------------------------------------
-	// 7. Validate Operation with Executor
+	// 7. Validate with Executor
 	// -------------------------------------------------------------------------
 
-	if err := executor.Validate(ctx, input); err != nil {
+	if err := executor.Validate(
+		ctx,
+		input,
+	); err != nil {
 		return fmt.Errorf(
 			"operation %d validation failed: %w",
 			op.ID,
@@ -610,7 +640,7 @@ func (s *serviceImpl) StartOperation(
 	}
 
 	// -------------------------------------------------------------------------
-	// 5. Start Operation
+	// 8. Start Operation
 	// -------------------------------------------------------------------------
 
 	now := time.Now()
@@ -633,24 +663,26 @@ func (s *serviceImpl) StartOperation(
 
 // CompleteOperation completes an execution operation.
 //
-// Once the last operation is completed, the Execution itself is automatically
-// completed.
+// When all operations belonging to the execution are completed or skipped,
+// the execution itself is automatically marked as completed.
+//
+// The caller is expected to invoke this method inside a transaction.
 func (s *serviceImpl) CompleteOperation(
 	ctx context.Context,
 	executionID uint,
 	operationID uint,
 	result map[string]any,
 ) error {
-
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return fmt.Errorf("tenant ID not found in context")
 	}
+
 	// -------------------------------------------------------------------------
-	// 1. Validate Execution
+	// 1. Lock and validate Execution
 	// -------------------------------------------------------------------------
 
-	exec, err := s.repository.GetExecutionByID(
+	exec, err := s.repository.GetExecutionByIDForUpdateTx(
 		ctx,
 		tenantID,
 		executionID,
@@ -668,10 +700,10 @@ func (s *serviceImpl) CompleteOperation(
 	}
 
 	// -------------------------------------------------------------------------
-	// 2. Load Operation
+	// 2. Lock and load Operation
 	// -------------------------------------------------------------------------
 
-	op, err := s.repository.GetOperation(
+	op, err := s.repository.GetOperationForUpdateTx(
 		ctx,
 		executionID,
 		operationID,
@@ -685,7 +717,7 @@ func (s *serviceImpl) CompleteOperation(
 	}
 
 	// -------------------------------------------------------------------------
-	// 3. Validate state
+	// 3. Validate Operation state
 	// -------------------------------------------------------------------------
 
 	if op.Status != model.ExecutionOperationStatusInProgress {
@@ -693,19 +725,23 @@ func (s *serviceImpl) CompleteOperation(
 	}
 
 	// -------------------------------------------------------------------------
-	// 4. Complete Operation
+	// 4. Persist Operation result
 	// -------------------------------------------------------------------------
+
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("marshal operation result: %w", err)
+		return fmt.Errorf(
+			"marshal operation result: %w",
+			err,
+		)
 	}
+
 	now := time.Now()
+
 	op.Status = model.ExecutionOperationStatusCompleted
 	op.CompletedAt = &now
-	// The current model/repository does not currently expose a guaranteed
-	// Result persistence field in this service contract. Keep the result at
-	// the application boundary until that capability is intentionally added.
 	op.Result = resultJSON
+
 	if err := s.repository.UpdateOperation(
 		ctx,
 		op,
@@ -733,20 +769,26 @@ func (s *serviceImpl) CompleteOperation(
 	return nil
 }
 
-// FailOperation marks an execution operation as failed.
+// FailOperation marks an execution operation as failed and fails the whole
+// execution.
+//
+// The caller is expected to invoke this method inside a transaction.
 func (s *serviceImpl) FailOperation(
 	ctx context.Context,
 	executionID uint,
 	operationID uint,
 	result map[string]any,
 ) error {
-
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return fmt.Errorf("tenant ID not found in context")
 	}
 
-	exec, err := s.repository.GetExecutionByID(
+	// -------------------------------------------------------------------------
+	// 1. Lock and validate Execution
+	// -------------------------------------------------------------------------
+
+	exec, err := s.repository.GetExecutionByIDForUpdateTx(
 		ctx,
 		tenantID,
 		executionID,
@@ -763,22 +805,34 @@ func (s *serviceImpl) FailOperation(
 		return ErrInvalidExecutionState
 	}
 
-	op, err := s.repository.GetOperation(
+	// -------------------------------------------------------------------------
+	// 2. Lock and load Operation
+	// -------------------------------------------------------------------------
+
+	op, err := s.repository.GetOperationForUpdateTx(
 		ctx,
 		executionID,
 		operationID,
 	)
 	if err != nil {
-		return err
+		return ErrOperationNotFound
 	}
 
 	if op == nil {
 		return ErrOperationNotFound
 	}
 
+	// -------------------------------------------------------------------------
+	// 3. Validate Operation state
+	// -------------------------------------------------------------------------
+
 	if op.Status != model.ExecutionOperationStatusInProgress {
 		return ErrInvalidOperationState
 	}
+
+	// -------------------------------------------------------------------------
+	// 4. Persist Operation failure result
+	// -------------------------------------------------------------------------
 
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
@@ -804,7 +858,10 @@ func (s *serviceImpl) FailOperation(
 		)
 	}
 
-	// Operation failure makes the whole execution failed.
+	// -------------------------------------------------------------------------
+	// 5. Fail Execution
+	// -------------------------------------------------------------------------
+
 	exec.Status = model.ProductionExecutionStatusFailed
 	exec.CompletedAt = &now
 

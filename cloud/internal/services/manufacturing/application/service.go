@@ -378,6 +378,11 @@ func stringValue(value any) (string, bool) {
 	}
 }
 
+// StartProductionExecution starts a production execution.
+//
+// The Execution row is locked first, followed by the associated WorkOrder.
+// This prevents concurrent requests from starting the same execution twice
+// and keeps the lock order consistent with other manufacturing workflows.
 func (s *service) StartProductionExecution(
 	ctx context.Context,
 	executionID uint,
@@ -388,9 +393,17 @@ func (s *service) StartProductionExecution(
 	}
 
 	return s.uow.Execute(ctx, func(txCtx context.Context) error {
-		exec, err := s.executions.GetExecution(txCtx, executionID)
+		// -----------------------------------------------------------------
+		// 1. Lock Execution
+		// -----------------------------------------------------------------
+
+		exec, err := s.executionRepository.GetExecutionByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			executionID,
+		)
 		if err != nil {
-			return fmt.Errorf("get execution: %w", err)
+			return fmt.Errorf("get execution for update: %w", err)
 		}
 
 		if exec == nil {
@@ -401,13 +414,17 @@ func (s *service) StartProductionExecution(
 			return execution.ErrInvalidExecutionState
 		}
 
-		workOrder, err := s.workOrders.GetByID(
+		// -----------------------------------------------------------------
+		// 2. Lock WorkOrder
+		// -----------------------------------------------------------------
+
+		workOrder, err := s.workOrders.GetByIDForUpdateTx(
 			txCtx,
 			tenantID,
 			exec.WorkOrderID,
 		)
 		if err != nil {
-			return fmt.Errorf("get work order: %w", err)
+			return fmt.Errorf("get work order for update: %w", err)
 		}
 
 		if workOrder == nil {
@@ -419,13 +436,20 @@ func (s *service) StartProductionExecution(
 			return execution.ErrWorkOrderNotExecutable
 		}
 
-		if workOrder.Status == model.WorkOrderStatusReleased {
-			now := time.Now()
+		// -----------------------------------------------------------------
+		// 3. Start WorkOrder if necessary
+		// -----------------------------------------------------------------
 
+		now := time.Now()
+
+		if workOrder.Status == model.WorkOrderStatusReleased {
 			workOrder.Status = model.WorkOrderStatusInProgress
 			workOrder.StartedAt = &now
 
-			if err := s.workOrders.UpdateTx(txCtx, workOrder); err != nil {
+			if err := s.workOrders.UpdateTx(
+				txCtx,
+				workOrder,
+			); err != nil {
 				return fmt.Errorf(
 					"start work order: %w",
 					err,
@@ -433,26 +457,16 @@ func (s *service) StartProductionExecution(
 			}
 		}
 
-		now := time.Now()
+		// -----------------------------------------------------------------
+		// 4. Start Execution
+		// -----------------------------------------------------------------
 
-		// 注意：这里直接修改 execution。
-		// execution repository 的 UpdateExecution 必须通过
-		// dbFromContext(ctx, ...) 获取当前 transaction。
-		entity, err := s.executionRepository.GetExecutionByIDForUpdateTx(
-			txCtx,
-			tenantID,
-			executionID,
-		)
-		if err != nil {
-			return fmt.Errorf("get execution: %w", err)
-		}
-
-		entity.Status = model.ProductionExecutionStatusInProgress
-		entity.StartedAt = &now
+		exec.Status = model.ProductionExecutionStatusInProgress
+		exec.StartedAt = &now
 
 		if err := s.executionRepository.UpdateExecution(
 			txCtx,
-			entity,
+			exec,
 		); err != nil {
 			return fmt.Errorf(
 				"start execution: %w",
@@ -461,5 +475,64 @@ func (s *service) StartProductionExecution(
 		}
 
 		return nil
+	})
+}
+
+// StartProductionOperation starts one execution operation.
+//
+// The operation state transition is executed inside a transaction so the
+// operation row can be locked with FOR UPDATE and the state transition is
+// atomic.
+func (s *service) StartProductionOperation(
+	ctx context.Context,
+	executionID uint,
+	operationID uint,
+) error {
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		return s.executions.StartOperation(
+			txCtx,
+			executionID,
+			operationID,
+		)
+	})
+}
+
+// CompleteProductionOperation completes one execution operation.
+//
+// Completing an operation may also complete the whole ProductionExecution.
+// Both state changes must happen in the same transaction.
+func (s *service) CompleteProductionOperation(
+	ctx context.Context,
+	executionID uint,
+	operationID uint,
+	result map[string]any,
+) error {
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		return s.executions.CompleteOperation(
+			txCtx,
+			executionID,
+			operationID,
+			result,
+		)
+	})
+}
+
+// FailProductionOperation marks one execution operation as failed.
+//
+// Operation failure also fails the whole ProductionExecution. Both updates
+// must happen atomically.
+func (s *service) FailProductionOperation(
+	ctx context.Context,
+	executionID uint,
+	operationID uint,
+	result map[string]any,
+) error {
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		return s.executions.FailOperation(
+			txCtx,
+			executionID,
+			operationID,
+			result,
+		)
 	})
 }

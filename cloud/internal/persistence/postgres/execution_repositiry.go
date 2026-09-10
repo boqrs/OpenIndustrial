@@ -235,3 +235,29 @@ func (r *executionRepository) Create(ctx context.Context, tx *gorm.DB, exec *mod
 
 	return nil
 }
+func (r *executionRepository) GetOperationForUpdateTx(
+	ctx context.Context,
+	executionID uint,
+	operationID uint,
+) (*model.ExecutionOperation, error) {
+	var entity model.ExecutionOperation
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
+		Where(
+			"execution_id = ? AND id = ?",
+			executionID,
+			operationID,
+		).
+		First(&entity).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity, nil
+}
