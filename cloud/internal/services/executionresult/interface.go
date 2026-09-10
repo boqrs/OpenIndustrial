@@ -21,6 +21,6 @@ type Service interface {
 	CreateResult(ctx context.Context, req *CreateResultRequest) (*Response, error)
 	GetResult(ctx context.Context, id uint) (*Response, error)
 	GetResultByExecutionID(ctx context.Context, executionID uint) (*Response, error)
-	ConfirmResult(ctx context.Context, id uint) error
+	//ConfirmResult(ctx context.Context, id uint) error
 	CancelResult(ctx context.Context, id uint) error
 }
