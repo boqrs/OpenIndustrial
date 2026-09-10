@@ -3,7 +3,7 @@ package execution
 import "github.com/google/uuid"
 
 type CreateExecutionRequest struct {
-	WorkOrderID uint  `json:"workOrderId"`
+	WorkOrderID uint `json:"workOrderId"`
 	//DeviceID    *uint `json:"deviceId,omitempty"`
 }
 

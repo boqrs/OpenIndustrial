@@ -29,7 +29,7 @@ type Service interface {
 	CreateExecution(ctx context.Context, req *CreateExecutionRequest) (*ExecutionResponse, error)
 	GetExecution(ctx context.Context, id uint) (*ExecutionResponse, error)
 	ListExecutions(ctx context.Context, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*ExecutionResponse, error)
-	StartExecution(ctx context.Context, id uint) error
+	//StartExecution(ctx context.Context, id uint) error
 	CancelExecution(ctx context.Context, id uint) error
 
 	// Operation methods

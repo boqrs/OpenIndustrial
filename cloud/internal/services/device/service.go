@@ -281,7 +281,6 @@ func (s *serviceImpl) CreateFromExecutionResultBatchTx(
 	return responses, nil
 }
 
-
 func (s *serviceImpl) GetDevice(
 	ctx context.Context,
 	deviceID uint,

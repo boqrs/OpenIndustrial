@@ -33,7 +33,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	//{
 	execGroup.Handle(http.MethodGet, "/executions", h.ListExecutions)
 	execGroup.Handle(http.MethodGet, "/executions/:id", h.GetExecution)
-	execGroup.Handle(http.MethodPost, "/executions/:id/start", h.StartExecution)
+	//execGroup.Handle(http.MethodPost, "/executions/:id/start", h.StartExecution)
 	execGroup.Handle(http.MethodPost, "/executions/:id/cancel", h.CancelExecution)
 
 	execGroup.Handle(http.MethodGet, "/executions/:id/operations", h.ListOperations)
@@ -78,17 +78,17 @@ func (h *Handler) ListExecutions(ctx *gin.Context) ginx.Render {
 }
 
 // StartExecution starts a production execution.
-func (h *Handler) StartExecution(ctx *gin.Context) ginx.Render {
-	id, err := parseUintParam(ctx, "id")
-	if err != nil {
-		return ginx.Error(err)
-	}
+// func (h *Handler) StartExecution(ctx *gin.Context) ginx.Render {
+// 	id, err := parseUintParam(ctx, "id")
+// 	if err != nil {
+// 		return ginx.Error(err)
+// 	}
 
-	if err := h.service.StartExecution(ctx.Request.Context(), id); err != nil {
-		return ginx.Error(err)
-	}
-	return ginx.Success(nil)
-}
+// 	if err := h.service.StartExecution(ctx.Request.Context(), id); err != nil {
+// 		return ginx.Error(err)
+// 	}
+// 	return ginx.Success(nil)
+// }
 
 // CancelExecution cancels a production execution.
 func (h *Handler) CancelExecution(ctx *gin.Context) ginx.Render {

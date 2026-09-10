@@ -32,30 +32,31 @@ var (
 )
 
 type service struct {
-	uow              postgres.UnitOfWork
-	workOrders       workorder.Repository
-	routings         routing.Repository
-	executions       execution.Service
-	executionResults executionresult.Repository
-	devices          device.Service
+	uow                 postgres.UnitOfWork
+	workOrders          workorder.Repository
+	routings            routing.Repository
+	executions          execution.Service
+	executionResults    executionresult.Repository
+	executionRepository execution.Repository
+	devices             device.Service
 }
 
 // NewService creates a new manufacturing application service.
-func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults executionresult.Repository, devices device.Service) Service {
+func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults executionresult.Repository, executionRepository execution.Repository, devices device.Service) Service {
 	return &service{
-		uow:              uow,
-		workOrders:       workOrders,
-		routings:         routings,
-		executions:       executions,
-		executionResults: executionResults,
-		devices:          devices,
+		uow:                 uow,
+		workOrders:          workOrders,
+		routings:            routings,
+		executions:          executions,
+		executionResults:    executionResults,
+		executionRepository: executionRepository,
+		devices:             devices,
 	}
 }
 
 func (s *service) CreateProductionExecution(
 	ctx context.Context,
 	workOrderID uint,
-	deviceID *uint,
 ) (*execution.ExecutionResponse, error) {
 
 	req := &execution.CreateExecutionRequest{
@@ -375,4 +376,90 @@ func stringValue(value any) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func (s *service) StartProductionExecution(
+	ctx context.Context,
+	executionID uint,
+) error {
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New("tenant ID not found in context")
+	}
+
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		exec, err := s.executions.GetExecution(txCtx, executionID)
+		if err != nil {
+			return fmt.Errorf("get execution: %w", err)
+		}
+
+		if exec == nil {
+			return execution.ErrExecutionNotFound
+		}
+
+		if exec.Status != model.ProductionExecutionStatusPending {
+			return execution.ErrInvalidExecutionState
+		}
+
+		workOrder, err := s.workOrders.GetByID(
+			txCtx,
+			tenantID,
+			exec.WorkOrderID,
+		)
+		if err != nil {
+			return fmt.Errorf("get work order: %w", err)
+		}
+
+		if workOrder == nil {
+			return execution.ErrWorkOrderNotFound
+		}
+
+		if workOrder.Status != model.WorkOrderStatusReleased &&
+			workOrder.Status != model.WorkOrderStatusInProgress {
+			return execution.ErrWorkOrderNotExecutable
+		}
+
+		if workOrder.Status == model.WorkOrderStatusReleased {
+			now := time.Now()
+
+			workOrder.Status = model.WorkOrderStatusInProgress
+			workOrder.StartedAt = &now
+
+			if err := s.workOrders.UpdateTx(txCtx, workOrder); err != nil {
+				return fmt.Errorf(
+					"start work order: %w",
+					err,
+				)
+			}
+		}
+
+		now := time.Now()
+
+		// 注意：这里直接修改 execution。
+		// execution repository 的 UpdateExecution 必须通过
+		// dbFromContext(ctx, ...) 获取当前 transaction。
+		entity, err := s.executionRepository.GetExecutionByID(
+			txCtx,
+			tenantID,
+			executionID,
+		)
+		if err != nil {
+			return fmt.Errorf("get execution: %w", err)
+		}
+
+		entity.Status = model.ProductionExecutionStatusInProgress
+		entity.StartedAt = &now
+
+		if err := s.executionRepository.UpdateExecution(
+			txCtx,
+			entity,
+		); err != nil {
+			return fmt.Errorf(
+				"start execution: %w",
+				err,
+			)
+		}
+
+		return nil
+	})
 }

@@ -128,7 +128,7 @@ func (s *serviceImpl) CreateExecution(
 		req.WorkOrderID,
 	)
 	if err != nil {
-		return nil, ErrWorkOrderNotFound
+		return nil, err
 	}
 
 	if wo.Status != model.WorkOrderStatusReleased &&
@@ -142,7 +142,7 @@ func (s *serviceImpl) CreateExecution(
 		wo.RoutingID,
 	)
 	if err != nil {
-		return nil, ErrRoutingNotFound
+		return nil, err
 	}
 
 	// // -------------------------------------------------------------------------
@@ -187,7 +187,7 @@ func (s *serviceImpl) CreateExecution(
 		RoutingID:      wo.RoutingID,
 		RoutingVersion: rt.Version,
 		//DeviceID:       req.DeviceID,
-		Status:         model.ProductionExecutionStatusPending,
+		Status: model.ProductionExecutionStatusPending,
 	}
 
 	// -------------------------------------------------------------------------
@@ -324,98 +324,98 @@ func (s *serviceImpl) ListExecutions(
 //
 // If the associated WorkOrder is still Released, starting the first execution
 // also starts the WorkOrder.
-func (s *serviceImpl) StartExecution(
-	ctx context.Context,
-	id uint,
-) error {
+// func (s *serviceImpl) StartExecution(
+// 	ctx context.Context,
+// 	id uint,
+// ) error {
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return fmt.Errorf("tenant ID not found in context")
-	}
-	// -------------------------------------------------------------------------
-	// 1. Load execution
-	// -------------------------------------------------------------------------
+// 	tenantID := pkg.TenantIDFromContext(ctx)
+// 	if tenantID == uuid.Nil {
+// 		return fmt.Errorf("tenant ID not found in context")
+// 	}
+// 	// -------------------------------------------------------------------------
+// 	// 1. Load execution
+// 	// -------------------------------------------------------------------------
 
-	exec, err := s.repository.GetExecutionByID(
-		ctx,
-		tenantID,
-		id,
-	)
-	if err != nil {
-		return err
-	}
+// 	exec, err := s.repository.GetExecutionByID(
+// 		ctx,
+// 		tenantID,
+// 		id,
+// 	)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if exec == nil {
-		return ErrExecutionNotFound
-	}
+// 	if exec == nil {
+// 		return ErrExecutionNotFound
+// 	}
 
-	// -------------------------------------------------------------------------
-	// 2. Validate execution state
-	// -------------------------------------------------------------------------
+// 	// -------------------------------------------------------------------------
+// 	// 2. Validate execution state
+// 	// -------------------------------------------------------------------------
 
-	if exec.Status != model.ProductionExecutionStatusPending {
-		return ErrInvalidExecutionState
-	}
+// 	if exec.Status != model.ProductionExecutionStatusPending {
+// 		return ErrInvalidExecutionState
+// 	}
 
-	// -------------------------------------------------------------------------
-	// 3. Load WorkOrder
-	// -------------------------------------------------------------------------
+// 	// -------------------------------------------------------------------------
+// 	// 3. Load WorkOrder
+// 	// -------------------------------------------------------------------------
 
-	wo, err := s.workOrderSvc.GetByID(
-		ctx,
-		tenantID,
-		exec.WorkOrderID,
-	)
-	if err != nil {
-		return ErrWorkOrderNotFound
-	}
+// 	wo, err := s.workOrderSvc.GetByID(
+// 		ctx,
+// 		tenantID,
+// 		exec.WorkOrderID,
+// 	)
+// 	if err != nil {
+// 		return ErrWorkOrderNotFound
+// 	}
 
-	if wo.Status != model.WorkOrderStatusReleased &&
-		wo.Status != model.WorkOrderStatusInProgress {
+// 	if wo.Status != model.WorkOrderStatusReleased &&
+// 		wo.Status != model.WorkOrderStatusInProgress {
 
-		return ErrWorkOrderNotExecutable
-	}
+// 		return ErrWorkOrderNotExecutable
+// 	}
 
-	// -------------------------------------------------------------------------
-	// 5. Start WorkOrder if necessary
-	// -------------------------------------------------------------------------
+// 	// -------------------------------------------------------------------------
+// 	// 5. Start WorkOrder if necessary
+// 	// -------------------------------------------------------------------------
 
-	if wo.Status == model.WorkOrderStatusReleased {
+// 	if wo.Status == model.WorkOrderStatusReleased {
 
-		if err := s.workOrderSvc.Start(
-			ctx,
-			tenantID,
-			exec.WorkOrderID,
-		); err != nil {
-			return fmt.Errorf(
-				"failed to start associated work order: %w",
-				err,
-			)
-		}
-	}
+// 		if err := s.workOrderSvc.Start(
+// 			ctx,
+// 			tenantID,
+// 			exec.WorkOrderID,
+// 		); err != nil {
+// 			return fmt.Errorf(
+// 				"failed to start associated work order: %w",
+// 				err,
+// 			)
+// 		}
+// 	}
 
-	// -------------------------------------------------------------------------
-	// 6. Start execution
-	// -------------------------------------------------------------------------
+// 	// -------------------------------------------------------------------------
+// 	// 6. Start execution
+// 	// -------------------------------------------------------------------------
 
-	now := time.Now()
+// 	now := time.Now()
 
-	exec.Status = model.ProductionExecutionStatusInProgress
-	exec.StartedAt = &now
+// 	exec.Status = model.ProductionExecutionStatusInProgress
+// 	exec.StartedAt = &now
 
-	if err := s.repository.UpdateExecution(
-		ctx,
-		exec,
-	); err != nil {
-		return fmt.Errorf(
-			"failed to start execution: %w",
-			err,
-		)
-	}
+// 	if err := s.repository.UpdateExecution(
+// 		ctx,
+// 		exec,
+// 	); err != nil {
+// 		return fmt.Errorf(
+// 			"failed to start execution: %w",
+// 			err,
+// 		)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // CancelExecution cancels an execution.
 func (s *serviceImpl) CancelExecution(
@@ -440,9 +440,8 @@ func (s *serviceImpl) CancelExecution(
 		return ErrExecutionNotFound
 	}
 
-	if exec.Status == model.ProductionExecutionStatusCompleted ||
-		exec.Status == model.ProductionExecutionStatusCancelled {
-
+	if exec.Status != model.ProductionExecutionStatusPending &&
+		exec.Status != model.ProductionExecutionStatusInProgress {
 		return ErrInvalidExecutionState
 	}
 
@@ -948,10 +947,10 @@ func toExecutionResponse(
 	}
 
 	return &ExecutionResponse{
-		ID:          entity.ID,
-		ResourceID:  entity.ResourceID,
-		TenantID:    entity.TenantID,
-		WorkOrderID: entity.WorkOrderID,
+		ID:             entity.ID,
+		ResourceID:     entity.ResourceID,
+		TenantID:       entity.TenantID,
+		WorkOrderID:    entity.WorkOrderID,
 		Status:         entity.Status,
 		StartedAt:      entity.StartedAt,
 		CompletedAt:    entity.CompletedAt,

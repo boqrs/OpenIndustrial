@@ -7,6 +7,7 @@ import (
 )
 
 type Service interface {
-	CreateProductionExecution(ctx context.Context, workOrderID uint, deviceID *uint) (*execution.ExecutionResponse, error)
+	CreateProductionExecution(ctx context.Context, workOrderID uint) (*execution.ExecutionResponse, error)
 	ConfirmExecutionResult(ctx context.Context, executionResultID uint) error
+	StartProductionExecution(ctx context.Context, executionID uint) error
 }

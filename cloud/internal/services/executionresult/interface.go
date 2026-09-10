@@ -14,7 +14,7 @@ type Repository interface {
 	GetByExecutionID(ctx context.Context, tenantID uuid.UUID, executionID uint) (*model.ExecutionResult, error)
 	Update(ctx context.Context, entity *model.ExecutionResult) error
 	UpdateTx(ctx context.Context, entity *model.ExecutionResult) error
-	GetByIDForUpdateTx(ctx context.Context,tenantID uuid.UUID,id uint) (*model.ExecutionResult, error)
+	GetByIDForUpdateTx(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ExecutionResult, error)
 }
 
 type Service interface {

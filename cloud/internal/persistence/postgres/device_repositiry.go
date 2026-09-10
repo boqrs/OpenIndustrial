@@ -199,9 +199,9 @@ func (r *DeviceRepository) Delete(
 }
 
 func (r *DeviceRepository) GetBySerialNumbers(
-    ctx context.Context,
-    serialNumbers []string,
-) ([]*model.Device, error){
+	ctx context.Context,
+	serialNumbers []string,
+) ([]*model.Device, error) {
 	var resp []*model.Device
 	if err := r.db.Get().WithContext(ctx).Where("serial_number in (?)", serialNumbers).Find(&resp).Error; err != nil {
 		return nil, err
