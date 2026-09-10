@@ -65,7 +65,7 @@ func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uui
 	return &entity, nil
 }
 
-func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, deviceID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error) {
+func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error) {
 	var entities []*model.ProductionExecution
 
 	query := r.db.Get().WithContext(ctx).
@@ -77,12 +77,6 @@ func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uuid.
 	if workOrderID != nil {
 		query = query.Where(
 			"work_order_id = ?", *workOrderID,
-		)
-	}
-
-	if deviceID != nil {
-		query = query.Where(
-			"device_id = ?", *deviceID,
 		)
 	}
 

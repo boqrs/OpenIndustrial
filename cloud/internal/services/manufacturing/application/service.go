@@ -60,7 +60,6 @@ func (s *service) CreateProductionExecution(
 
 	req := &execution.CreateExecutionRequest{
 		WorkOrderID: workOrderID,
-		DeviceID:    deviceID,
 	}
 
 	return s.executions.CreateExecution(ctx, req)

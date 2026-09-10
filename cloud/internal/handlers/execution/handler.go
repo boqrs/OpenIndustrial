@@ -70,7 +70,7 @@ func (h *Handler) ListExecutions(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("invalid query parameters: %w", err))
 	}
 
-	result, err := h.service.ListExecutions(ctx.Request.Context(), req.WorkOrderID, req.DeviceID, req.Status)
+	result, err := h.service.ListExecutions(ctx.Request.Context(), req.WorkOrderID, req.Status)
 	if err != nil {
 		return ginx.Error(err)
 	}

@@ -16,7 +16,6 @@ type OperationInput struct {
 	ExecutionOperationID uint
 	WorkOrderID          uint
 	ProductID            uint
-	DeviceID             *uint
 	Parameters           map[string]any
 }
 

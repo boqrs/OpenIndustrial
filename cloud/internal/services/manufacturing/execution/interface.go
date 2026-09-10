@@ -12,7 +12,7 @@ type Repository interface {
 	// Execution methods
 	CreateExecution(ctx context.Context, execution *model.ProductionExecution, operations []*model.ExecutionOperation) error
 	GetExecutionByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error)
-	ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, deviceID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error)
+	ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error)
 	UpdateExecution(ctx context.Context, execution *model.ProductionExecution) error
 	CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error)
 
@@ -28,7 +28,7 @@ type Service interface {
 	// Execution methods
 	CreateExecution(ctx context.Context, req *CreateExecutionRequest) (*ExecutionResponse, error)
 	GetExecution(ctx context.Context, id uint) (*ExecutionResponse, error)
-	ListExecutions(ctx context.Context, workOrderID *uint, deviceID *uint, status *model.ProductionExecutionStatus) ([]*ExecutionResponse, error)
+	ListExecutions(ctx context.Context, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*ExecutionResponse, error)
 	StartExecution(ctx context.Context, id uint) error
 	CancelExecution(ctx context.Context, id uint) error
 

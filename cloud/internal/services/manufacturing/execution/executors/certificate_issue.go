@@ -32,10 +32,6 @@ func (e *CertificateIssueExecutor) Validate(
 		return errors.New("operation input is nil")
 	}
 
-	if input.DeviceID == nil || *input.DeviceID == 0 {
-		return errors.New("device ID is required")
-	}
-
 	if e.ca == nil {
 		return errors.New("certificate authority is not configured")
 	}
@@ -62,7 +58,7 @@ func (e *CertificateIssueExecutor) Execute(
 	issued, err := e.ca.IssueCertificate(
 		ctx,
 		security.IssueCertificateRequest{
-			ResourceID: *input.DeviceID,
+			ResourceID: input.WorkOrderID,
 			CSR:        csr,
 		},
 	)

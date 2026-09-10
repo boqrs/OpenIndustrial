@@ -186,7 +186,7 @@ func (s *serviceImpl) CreateExecution(
 		ProductID:      wo.ProductID,
 		RoutingID:      wo.RoutingID,
 		RoutingVersion: rt.Version,
-		DeviceID:       req.DeviceID,
+		//DeviceID:       req.DeviceID,
 		Status:         model.ProductionExecutionStatusPending,
 	}
 
@@ -283,7 +283,6 @@ func (s *serviceImpl) GetExecution(
 func (s *serviceImpl) ListExecutions(
 	ctx context.Context,
 	workOrderID *uint,
-	deviceID *uint,
 	status *model.ProductionExecutionStatus,
 ) ([]*ExecutionResponse, error) {
 
@@ -295,7 +294,6 @@ func (s *serviceImpl) ListExecutions(
 		ctx,
 		tenantID,
 		workOrderID,
-		deviceID,
 		status,
 	)
 	if err != nil {
@@ -597,7 +595,6 @@ func (s *serviceImpl) StartOperation(
 		ExecutionOperationID: op.ID,
 		WorkOrderID:          exec.WorkOrderID,
 		ProductID:            exec.ProductID,
-		DeviceID:             exec.DeviceID,
 		Parameters:           parameters,
 	}
 
@@ -955,8 +952,6 @@ func toExecutionResponse(
 		ResourceID:  entity.ResourceID,
 		TenantID:    entity.TenantID,
 		WorkOrderID: entity.WorkOrderID,
-		DeviceID:    entity.DeviceID,
-		//Quantity:       entity.Quantity,
 		Status:         entity.Status,
 		StartedAt:      entity.StartedAt,
 		CompletedAt:    entity.CompletedAt,

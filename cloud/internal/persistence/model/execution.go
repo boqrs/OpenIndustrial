@@ -31,7 +31,6 @@ type ProductionExecution struct {
 	// RoutingVersion is the routing version actually used
 	// by this execution.
 	RoutingVersion int                       `gorm:"not null"`
-	DeviceID       *uint                     `gorm:"index"`
 	Status         ProductionExecutionStatus `gorm:"type:varchar(50);not null;default:'pending';index"`
 	StartedAt      *time.Time
 	CompletedAt    *time.Time
