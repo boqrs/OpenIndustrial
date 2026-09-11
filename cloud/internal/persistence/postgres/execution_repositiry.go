@@ -111,7 +111,7 @@ func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uui
 	return &entity, nil
 }
 
-func (r *Repository) GetExecutionByIDForUpdateTx(
+func (r *executionRepository) GetExecutionByIDForUpdateTx(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	id uint,

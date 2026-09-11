@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
@@ -33,10 +34,11 @@ type service struct {
 	certificates CertificateRepository
 	ca           CertificateAuthority
 	mqtt         MQTTProvider
-	tx           TransactionManager
+	//tx           TransactionManager
+	uow UnitOfWork
 }
 
-func NewService(resources resource.ResourceRepository, credentials CredentialRepository, identities IdentityRepository, certificates CertificateRepository, ca CertificateAuthority, mqtt MQTTProvider, tx TransactionManager) Service {
+func NewService(resources resource.ResourceRepository, credentials CredentialRepository, identities IdentityRepository, certificates CertificateRepository, ca CertificateAuthority, mqtt MQTTProvider, uow UnitOfWork) Service {
 
 	return &service{
 		resources:    resources,
@@ -45,7 +47,7 @@ func NewService(resources resource.ResourceRepository, credentials CredentialRep
 		certificates: certificates,
 		ca:           ca,
 		mqtt:         mqtt,
-		tx:           tx,
+		uow:          uow,
 	}
 }
 
@@ -244,7 +246,7 @@ func (s *service) ProvisionDevice(ctx context.Context, req ProvisionDeviceReques
 
 	var result *ProvisionDeviceResponse
 
-	err = s.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
+	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
 
 		credential, err := s.credentials.GetForUpdate(txCtx, req.ID)
 		if err != nil {
@@ -350,18 +352,10 @@ func (s *service) ProvisionDevice(ctx context.Context, req ProvisionDeviceReques
 			)
 		}
 
-		credential.Status =
-			model.CredentialStatusConsumed
-
-		credential.CreatedAt = time.Now()
-
+		credential.Status = model.CredentialStatusConsumed
 		credential.UpdatedAt = now
 
-		if err := s.credentials.Update(
-			txCtx,
-			credential,
-		); err != nil {
-
+		if err := s.credentials.Update(txCtx, credential); err != nil {
 			_ = s.ca.RevokeCertificate(
 				ctx,
 				issued.CertificateID,

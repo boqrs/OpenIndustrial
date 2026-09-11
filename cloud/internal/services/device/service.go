@@ -9,7 +9,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource" // 正确且唯一的服务依赖
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 	"github.com/google/uuid"
 )
@@ -27,17 +26,14 @@ type serviceImpl struct {
 	repo        Repository
 	resourceSvc resource.Service
 	productSvc  product.Service
-	securitySvc security.Service
-	// txManager transaction.Manager // Assuming a transaction manager exists
 }
 
 // NewService creates a new device service implementation.
-func NewService(repo Repository, resourceSvc resource.Service, productSvc product.Service, securitySvc security.Service) Service {
+func NewService(repo Repository, resourceSvc resource.Service, productSvc product.Service) Service {
 	return &serviceImpl{
 		repo:        repo,
 		resourceSvc: resourceSvc,
 		productSvc:  productSvc,
-		securitySvc: securitySvc,
 	}
 }
 

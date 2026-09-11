@@ -75,8 +75,8 @@ type MQTTProvider interface {
 	Protocol() string
 }
 
-type TransactionManager interface {
-	WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+type UnitOfWork interface {
+	Execute(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 /************************设备生命周期***********************************/

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution/executors"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
@@ -79,6 +80,7 @@ type serviceImpl struct {
 	workOrderSvc     workorder.Service
 	routingSvc       routing.Service
 	executorRegistry *executors.OperationExecutorRegistry
+	uow              postgres.UnitOfWork
 }
 
 // NewService creates the production execution service.
@@ -87,6 +89,7 @@ func NewService(
 	workOrderSvc workorder.Service,
 	routingService routing.Service,
 	executorRegistry *executors.OperationExecutorRegistry,
+	uow postgres.UnitOfWork,
 ) Service {
 
 	return &serviceImpl{
@@ -94,6 +97,7 @@ func NewService(
 		workOrderSvc:     workOrderSvc,
 		routingSvc:       routingService,
 		executorRegistry: executorRegistry,
+		uow:              uow,
 	}
 }
 
@@ -347,7 +351,7 @@ func (s *serviceImpl) CancelExecution(
 		return fmt.Errorf("tenant ID not found in context")
 	}
 
-	return withExecutionTransaction(ctx, func(txCtx context.Context) error {
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
 		exec, err := s.repository.GetExecutionByIDForUpdateTx(
 			txCtx,
 			tenantID,
