@@ -172,7 +172,7 @@ func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uuid.
 }
 
 func (r *executionRepository) UpdateExecution(ctx context.Context, entity *model.ProductionExecution) error {
-	return r.db.Get().WithContext(ctx).
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Save(entity).
 		Error
 }
@@ -266,21 +266,6 @@ func (r *executionRepository) GetCurrentOperation(ctx context.Context, execution
 	return &entity, nil
 }
 
-// Create implements execution.Repository.
-// It creates the ProductionExecution and its associated ExecutionOperations in a single transaction.
-func (r *executionRepository) Create(ctx context.Context, tx *gorm.DB, exec *model.ProductionExecution) error {
-	// Use the provided transaction 'tx' to ensure atomicity.
-	db := tx.WithContext(ctx)
-
-	// GORM's Create will automatically handle the main object (ProductionExecution)
-	// and its associated objects (the slice of ExecutionOperation) because of the
-	// model struct tags defining the relationship.
-	if err := db.Create(exec).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
 func (r *executionRepository) GetOperationForUpdateTx(
 	ctx context.Context,
 	executionID uint,
