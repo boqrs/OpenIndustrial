@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
-	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/executionresult"
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/executionresult"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
 )

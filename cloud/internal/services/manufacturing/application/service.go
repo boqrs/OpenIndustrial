@@ -13,7 +13,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/executionresult"
+	//"github.com/boqrs/OpenIndustrial/cloud/internal/services/executionresult"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
@@ -38,13 +38,13 @@ type service struct {
 	workOrders          workorder.Repository
 	routings            routing.Repository
 	executions          execution.Service
-	executionResults    executionresult.Repository
+	executionResults    Repository
 	executionRepository execution.Repository
 	devices             device.Service
 }
 
 // NewService creates a new manufacturing application service.
-func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults executionresult.Repository, executionRepository execution.Repository, devices device.Service, resources resource.Service) Service {
+func NewService(uow postgres.UnitOfWork, workOrders workorder.Repository, routings routing.Repository, executions execution.Service, executionResults Repository, executionRepository execution.Repository, devices device.Service, resources resource.Service) Service {
 	return &service{
 		uow:                 uow,
 		resources:           resources,

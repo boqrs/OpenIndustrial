@@ -20,13 +20,17 @@ import (
 	bomh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/execution"
+	exh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/executionresult"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/identity"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/manufacturing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/material"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/planning"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
 	routing "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/routing"
+
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
@@ -44,12 +48,12 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution/executors"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/executionresult"
 	materialSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
 	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	routSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 
-	executionresult "github.com/boqrs/OpenIndustrial/cloud/internal/services/executionresult"
 	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 )
 
@@ -577,6 +581,21 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	bomh.NewHandler(
 		bomService,
+		authService,
+	).RouterRegister(router)
+
+	planning.NewHandler(
+		planningService,
+		authService,
+	).RouterRegister(router)
+
+	exh.NewHandler(
+		executionResultService,
+		authService,
+	).RouterRegister(router)
+
+	manufacturing.NewHandler(
+		manufacturingApplicationService,
 		authService,
 	).RouterRegister(router)
 
