@@ -269,7 +269,6 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	materialRepo := postgres.NewMaterialRepository(dbProv)
 	routingRepo := postgres.NewRoutingRepository(dbProv)
 	executionRepo := postgres.NewExecutionRepository(dbProv)
-	materialRepo := postgres.NewMaterialRepository(dbProv)
 
 	// ExecutionResult repository currently exposes NewRepository.
 	executionResultRepo := postgres.NewRepository(dbProv)
