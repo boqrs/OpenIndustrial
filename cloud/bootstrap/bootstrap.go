@@ -17,16 +17,18 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/config"
 
+	bomh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/identity"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/material"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
+	routing "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/routing"
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 
 	dSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
@@ -42,6 +44,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution/executors"
+	materialSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
 	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	routSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
@@ -266,6 +269,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	materialRepo := postgres.NewMaterialRepository(dbProv)
 	routingRepo := postgres.NewRoutingRepository(dbProv)
 	executionRepo := postgres.NewExecutionRepository(dbProv)
+	materialRepo := postgres.NewMaterialRepository(dbProv)
 
 	// ExecutionResult repository currently exposes NewRepository.
 	executionResultRepo := postgres.NewRepository(dbProv)
@@ -352,6 +356,10 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		productionPlanRepo,
 		productService,
 		factoryService,
+	)
+
+	materialService := materialSrv.NewService(
+		materialRepo,
 	)
 
 	// =========================================================================
@@ -548,6 +556,28 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	execution.NewHandler(
 		executionService,
+		authService,
+	).RouterRegister(router)
+
+	// -------------------------------------------------------------------------
+	// Routing
+	// -------------------------------------------------------------------------
+	routing.NewHandler(
+		routingService,
+		authService,
+	).RouterRegister(router)
+
+	// -------------------------------------------------------------------------
+	// Material
+	// -------------------------------------------------------------------------
+
+	material.NewHandler(
+		materialService,
+		authService,
+	).RouterRegister(router)
+
+	bomh.NewHandler(
+		bomService,
 		authService,
 	).RouterRegister(router)
 
