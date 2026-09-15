@@ -19,7 +19,6 @@ import (
 
 	bomh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/execution"
 	exh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/executionresult"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/identity"
@@ -544,21 +543,6 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	wh.NewHandler(
 		workOrderService,
-		authService,
-	).RouterRegister(router)
-
-	// -------------------------------------------------------------------------
-	// Execution
-	// -------------------------------------------------------------------------
-	//
-	// Existing execution handler currently consumes execution.Service directly.
-	// Cross-domain operations such as StartProductionExecution /
-	// ConfirmExecutionResult are exposed through the manufacturing application
-	// service when their corresponding handlers are introduced.
-	// -------------------------------------------------------------------------
-
-	execution.NewHandler(
-		executionService,
 		authService,
 	).RouterRegister(router)
 
