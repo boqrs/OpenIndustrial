@@ -27,6 +27,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/planning"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
 	routing "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/routing"
 
@@ -38,7 +39,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	fSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	idtSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
-
+wmsSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 	rSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
@@ -261,6 +262,11 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	userRepo := postgres.NewUserRepository(dbProv)
 	roleRepo := postgres.NewRoleRepository(dbProv)
 	groupRepo := postgres.NewGroupRepository(dbProv)
+	// -------------------------------------------------------------------------
+// WMS
+// -------------------------------------------------------------------------
+
+wmsRepo := postgres.NewWMSRepository(dbProv)
 
 	// -------------------------------------------------------------------------
 	// Manufacturing
@@ -484,6 +490,16 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	)
 
 	// =========================================================================
+// 8.5 WMS
+// =========================================================================
+
+wmsService := wmsSrv.NewService(
+	uow,
+    wmsRepo,
+    deviceRepo,
+)
+
+	// =========================================================================
 	// 18. HTTP Handlers
 	// =========================================================================
 
@@ -527,6 +543,15 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	factory.NewHandler(
 		factoryService,
 	).RouterRegister(router)
+
+	// -------------------------------------------------------------------------
+// WMS
+// -------------------------------------------------------------------------
+
+wms.NewHandler(
+    wmsService,
+ //   authService,
+).RouterRegister(router)
 
 	// -------------------------------------------------------------------------
 	// Identity

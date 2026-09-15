@@ -13,7 +13,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
-	//"github.com/boqrs/OpenIndustrial/cloud/internal/services/executionresult"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
