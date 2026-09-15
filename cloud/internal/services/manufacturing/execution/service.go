@@ -574,7 +574,7 @@ func (s *serviceImpl) StartOperation(
 	op.Status = model.ExecutionOperationStatusInProgress
 	op.StartedAt = &now
 
-	if err := s.repository.UpdateOperation(
+	if err := s.repository.UpdateOperationTx(
 		ctx,
 		op,
 	); err != nil {
@@ -668,7 +668,7 @@ func (s *serviceImpl) CompleteOperation(
 	op.CompletedAt = &now
 	op.Result = resultJSON
 
-	if err := s.repository.UpdateOperation(
+	if err := s.repository.UpdateOperationTx(
 		ctx,
 		op,
 	); err != nil {
@@ -774,7 +774,7 @@ func (s *serviceImpl) FailOperation(
 	op.CompletedAt = &now
 	op.Result = resultJSON
 
-	if err := s.repository.UpdateOperation(
+	if err := s.repository.UpdateOperationTx(
 		ctx,
 		op,
 	); err != nil {

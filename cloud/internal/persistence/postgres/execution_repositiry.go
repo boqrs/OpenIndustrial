@@ -172,6 +172,12 @@ func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uuid.
 }
 
 func (r *executionRepository) UpdateExecution(ctx context.Context, entity *model.ProductionExecution) error {
+	return r.db.Get().WithContext(ctx).
+		Save(entity).
+		Error
+}
+
+func (r *executionRepository) UpdateExecutionTx(ctx context.Context, entity *model.ProductionExecution) error {
 	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Save(entity).
 		Error
@@ -224,6 +230,12 @@ func (r *executionRepository) ListOperations(ctx context.Context, executionID ui
 
 func (r *executionRepository) UpdateOperation(ctx context.Context, entity *model.ExecutionOperation) error {
 	return r.db.Get().WithContext(ctx).
+		Save(entity).
+		Error
+}
+
+func (r *executionRepository) UpdateOperationTx(ctx context.Context, entity *model.ExecutionOperation) error {
+	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Save(entity).
 		Error
 }

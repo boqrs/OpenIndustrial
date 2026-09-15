@@ -63,7 +63,7 @@ func (h *Handler) StartProductionOperation(ctx *gin.Context) ginx.Render {
 	}
 	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
+		return ginx.Error(err)
 	}
 	if err := h.service.StartProductionOperation(ctx.Request.Context(), executionID, operationID); err != nil {
 		return ginx.Error(err)
@@ -82,13 +82,11 @@ func (h *Handler) CompleteProductionOperation(ctx *gin.Context) ginx.Render {
 	}
 	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
+		return ginx.Error(err)
 	}
 	var req operationResultRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil { // Some operations may not produce a result.
-		if err.Error() != "EOF" {
-			return ginx.Error(fmt.Errorf("invalid request payload: %w", err))
-		}
+		return ginx.Error(err)
 	}
 	if err := h.service.CompleteProductionOperation(ctx.Request.Context(), executionID, operationID, req.Result); err != nil {
 		return ginx.Error(err)
@@ -103,13 +101,12 @@ func (h *Handler) FailProductionOperation(ctx *gin.Context) ginx.Render {
 	}
 	operationID, err := parseUintParam(ctx, "op_id")
 	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid operation ID format: %w", err))
+		return ginx.Error(err)
 	}
 	var req operationResultRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		if err.Error() != "EOF" {
-			return ginx.Error(fmt.Errorf("invalid request payload: %w", err))
-		}
+		return ginx.Error(err)
+		
 	}
 	if err := h.service.FailProductionOperation(ctx.Request.Context(), executionID, operationID, req.Result); err != nil {
 		return ginx.Error(err)
