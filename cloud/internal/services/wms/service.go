@@ -2,62 +2,84 @@ package wms
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
-	"errors"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 )
+
 var (
-	ErrWarehouseNotFound = errors.New("warehouse not found")
-	ErrLocationNotFound  = errors.New("warehouse location not found")
+	ErrWarehouseNotFound = errors.New(
+		"warehouse not found",
+	)
 
-	ErrInventoryNotFound = errors.New("device inventory not found")
+	ErrLocationNotFound = errors.New(
+		"warehouse location not found",
+	)
 
-	ErrShipmentNotFound = errors.New("shipment not found")
+	ErrInventoryNotFound = errors.New(
+		"device inventory not found",
+	)
 
-	ErrTrackingEventNotFound = errors.New("tracking event not found")
+	ErrShipmentNotFound = errors.New(
+		"shipment not found",
+	)
 
-	ErrDeviceNotFound = errors.New("device not found")
+	ErrTrackingEventNotFound = errors.New(
+		"tracking event not found",
+	)
 
-	ErrDeviceAlreadyInStock = errors.New("device is already in stock")
+	ErrDeviceNotFound = errors.New(
+		"device not found",
+	)
 
-	ErrDeviceNotInStock = errors.New("device is not in stock")
+	ErrDeviceAlreadyInStock = errors.New(
+		"device is already in stock",
+	)
 
-	ErrLocationNotBelongToWarehouse =
-		errors.New("location does not belong to warehouse")
+	ErrDeviceNotInStock = errors.New(
+		"device is not in stock",
+	)
 
-	ErrShipmentAlreadyShipped =
-		errors.New("shipment has already been shipped")
+	ErrLocationNotBelongToWarehouse = errors.New(
+		"location does not belong to warehouse",
+	)
 
-	ErrShipmentCancelled =
-		errors.New("shipment has been cancelled")
+	ErrShipmentAlreadyShipped = errors.New(
+		"shipment has already been shipped",
+	)
 
-	ErrShipmentDelivered =
-		errors.New("shipment has already been delivered")
+	ErrShipmentCancelled = errors.New(
+		"shipment has been cancelled",
+	)
 
-	ErrInvalidShipmentStatus =
-		errors.New("invalid shipment status")
+	ErrShipmentDelivered = errors.New(
+		"shipment has already been delivered",
+	)
 
-	ErrDuplicateDevice =
-		errors.New("duplicate device in shipment")
+	ErrInvalidShipmentStatus = errors.New(
+		"invalid shipment status",
+	)
 
-	ErrEmptyShipment =
-		errors.New("shipment must contain at least one device")
+	ErrDuplicateDevice = errors.New(
+		"duplicate device in shipment",
+	)
+
+	ErrEmptyShipment = errors.New(
+		"shipment must contain at least one device",
+	)
 )
 
 type service struct {
-	uow postgres.UnitOfWork
-
+	uow        UnitOfWork
 	repository Repository
-
-	devices device.Repository
+	devices    device.Repository
 }
 
 func NewService(
-	uow postgres.UnitOfWork,
+	uow UnitOfWork,
 	repository Repository,
 	devices device.Repository,
 ) Service {
@@ -127,24 +149,25 @@ func (s *service) CreateLocation(
 		return nil, ErrLocationNotFound
 	}
 
-	warehouse, err := s.repository.GetWarehouseByID(
-		ctx,
-		req.WarehouseID,
-	)
-	if err != nil {
-		return nil, err
+	if req.WarehouseID == 0 {
+		return nil, ErrWarehouseNotFound
 	}
 
-	_ = warehouse
+	if req.Code == "" || req.Name == "" {
+		return nil, ErrLocationNotFound
+	}
+
+	if _, err := s.repository.GetWarehouseByID(
+		ctx,
+		req.WarehouseID,
+	); err != nil {
+		return nil, err
+	}
 
 	location := &model.WarehouseLocation{
 		WarehouseID: req.WarehouseID,
 		Code:        strings.TrimSpace(req.Code),
 		Name:        strings.TrimSpace(req.Name),
-	}
-
-	if location.Code == "" || location.Name == "" {
-		return nil, ErrLocationNotFound
 	}
 
 	if err := s.repository.CreateLocation(ctx, location); err != nil {
@@ -179,23 +202,33 @@ func (s *service) StockIn(
 	req *StockInRequest,
 ) (*InventoryResponse, error) {
 
-	if req == nil {
+	if req == nil || req.DeviceID == 0 {
 		return nil, ErrDeviceNotFound
 	}
 
-	if _, err := s.devices.GetByID(ctx, req.DeviceID); err != nil {
+	if req.WarehouseID == 0 {
+		return nil, ErrWarehouseNotFound
+	}
+
+	if req.LocationID == 0 {
+		return nil, ErrLocationNotFound
+	}
+
+	// WMS never creates Device.
+	// It only verifies that MES has already created it.
+	if _, err := s.devices.GetByID(
+		ctx,
+		req.DeviceID,
+	); err != nil {
 		return nil, ErrDeviceNotFound
 	}
 
-	warehouse, err := s.repository.GetWarehouseByID(
+	if _, err := s.repository.GetWarehouseByID(
 		ctx,
 		req.WarehouseID,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
-
-	_ = warehouse
 
 	location, err := s.repository.GetLocationByID(
 		ctx,
@@ -209,35 +242,60 @@ func (s *service) StockIn(
 		return nil, ErrLocationNotBelongToWarehouse
 	}
 
-	inboundAt := time.Now()
+	inboundAt := time.Now().UTC()
+
 	if req.InboundAt != nil {
 		inboundAt = req.InboundAt.UTC()
 	}
 
 	var result *model.DeviceInventory
 
-	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
+	err = s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
 
-		inventory, err := s.repository.GetInventoryByDeviceIDForUpdateTx(
-			txCtx,
-			req.DeviceID,
-		)
+			inventory, err := s.repository.
+				GetInventoryByDeviceIDForUpdateTx(
+					txCtx,
+					req.DeviceID,
+				)
 
-		if err != nil {
-			if err != ErrInventoryNotFound {
-				return err
+			if err != nil {
+
+				if err != ErrInventoryNotFound {
+					return err
+				}
+
+				inventory = &model.DeviceInventory{
+					DeviceID:    req.DeviceID,
+					WarehouseID: req.WarehouseID,
+					LocationID:  req.LocationID,
+					Status:      model.InventoryStatusInStock,
+					InboundAt:   inboundAt,
+				}
+
+				if err := s.repository.CreateInventoryTx(
+					txCtx,
+					inventory,
+				); err != nil {
+					return err
+				}
+
+				result = inventory
+				return nil
 			}
 
-			inventory = &model.DeviceInventory{
-				DeviceID:    req.DeviceID,
-				WarehouseID: req.WarehouseID,
-				LocationID:  req.LocationID,
-				Status:      model.InventoryStatusInStock,
-				InboundAt:   inboundAt,
-				OutboundAt:  nil,
+			if inventory.Status == model.InventoryStatusInStock {
+				return ErrDeviceAlreadyInStock
 			}
 
-			if err := s.repository.CreateInventoryTx(
+			inventory.WarehouseID = req.WarehouseID
+			inventory.LocationID = req.LocationID
+			inventory.Status = model.InventoryStatusInStock
+			inventory.InboundAt = inboundAt
+			inventory.OutboundAt = nil
+
+			if err := s.repository.UpdateInventoryTx(
 				txCtx,
 				inventory,
 			); err != nil {
@@ -245,30 +303,10 @@ func (s *service) StockIn(
 			}
 
 			result = inventory
+
 			return nil
-		}
-
-		if inventory.Status == model.InventoryStatusInStock {
-			return ErrDeviceAlreadyInStock
-		}
-
-		inventory.WarehouseID = req.WarehouseID
-		inventory.LocationID = req.LocationID
-		inventory.Status = model.InventoryStatusInStock
-		inventory.InboundAt = inboundAt
-		inventory.OutboundAt = nil
-
-		if err := s.repository.UpdateInventoryTx(
-			txCtx,
-			inventory,
-		); err != nil {
-			return err
-		}
-
-		result = inventory
-
-		return nil
-	})
+		},
+	)
 
 	if err != nil {
 		return nil, err
@@ -294,13 +332,22 @@ func (s *service) CreateShipment(
 	trackingNumber := strings.TrimSpace(req.TrackingNumber)
 
 	if carrier == "" || trackingNumber == "" {
-		return nil, ErrShipmentNotFound
+		return nil, ErrInvalidShipmentStatus
 	}
 
-	deviceIDs := make([]uint, 0, len(req.DeviceIDs))
-	seen := make(map[uint]struct{}, len(req.DeviceIDs))
+	deviceIDs := make(
+		[]uint,
+		0,
+		len(req.DeviceIDs),
+	)
+
+	seen := make(
+		map[uint]struct{},
+		len(req.DeviceIDs),
+	)
 
 	for _, deviceID := range req.DeviceIDs {
+
 		if deviceID == 0 {
 			return nil, ErrDeviceNotFound
 		}
@@ -311,43 +358,77 @@ func (s *service) CreateShipment(
 
 		seen[deviceID] = struct{}{}
 
-		if _, err := s.devices.GetByID(ctx, deviceID); err != nil {
+		// Device must already exist.
+		if _, err := s.devices.GetByID(
+			ctx,
+			deviceID,
+		); err != nil {
 			return nil, ErrDeviceNotFound
 		}
 
-		deviceIDs = append(deviceIDs, deviceID)
+		// A shipment is only allowed to be created
+		// for devices that are currently in stock.
+		inventory, err := s.repository.GetInventoryByDeviceID(
+			ctx,
+			deviceID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if inventory.Status != model.InventoryStatusInStock {
+			return nil, ErrDeviceNotInStock
+		}
+
+		deviceIDs = append(
+			deviceIDs,
+			deviceID,
+		)
 	}
 
 	shipment := &model.Shipment{
-		ExternalOrderID: strings.TrimSpace(req.ExternalOrderID),
-		Carrier:         carrier,
-		TrackingNumber:  trackingNumber,
-		Status:          model.ShipmentStatusCreated,
+		ExternalOrderID: strings.TrimSpace(
+			req.ExternalOrderID,
+		),
+		Carrier:        carrier,
+		TrackingNumber: trackingNumber,
+		Status:         model.ShipmentStatusCreated,
 	}
 
-	items := make([]*model.ShipmentItem, 0, len(deviceIDs))
+	items := make(
+		[]*model.ShipmentItem,
+		0,
+		len(deviceIDs),
+	)
 
-	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
+	err := s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
 
-		if err := s.repository.CreateShipmentTx(
-			txCtx,
-			shipment,
-		); err != nil {
-			return err
-		}
+			if err := s.repository.CreateShipmentTx(
+				txCtx,
+				shipment,
+			); err != nil {
+				return err
+			}
 
-		for _, deviceID := range deviceIDs {
-			items = append(items, &model.ShipmentItem{
-				ShipmentID: shipment.ID,
-				DeviceID:   deviceID,
-			})
-		}
+			for _, deviceID := range deviceIDs {
 
-		return s.repository.CreateShipmentItemsTx(
-			txCtx,
-			items,
-		)
-	})
+				items = append(
+					items,
+					&model.ShipmentItem{
+						ShipmentID: shipment.ID,
+						DeviceID:   deviceID,
+					},
+				)
+			}
+
+			return s.repository.CreateShipmentItemsTx(
+				txCtx,
+				items,
+			)
+		},
+	)
 
 	if err != nil {
 		return nil, err
@@ -365,87 +446,105 @@ func (s *service) CreateShipment(
 	}, nil
 }
 
-// StockOut changes a shipment from created -> shipped
-// and all corresponding devices from in_stock -> shipped.
+// StockOut changes:
 //
-// Shipment creation and stock-out are intentionally separate:
-// this allows the logistics order to exist before the actual warehouse handoff.
+// Shipment:
+//
+//	CREATED -> IN_TRANSIT
+//
+// DeviceInventory:
+//
+//	IN_STOCK -> SHIPPED
+//
+// The entire operation is transactional.
 func (s *service) StockOut(
 	ctx context.Context,
 	shipmentID uint,
 ) error {
 
-	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
 
-		shipment, err := s.repository.GetShipmentByIDForUpdateTx(
-			txCtx,
-			shipmentID,
-		)
-		if err != nil {
-			return err
-		}
+			shipment, err := s.repository.
+				GetShipmentByIDForUpdateTx(
+					txCtx,
+					shipmentID,
+				)
 
-		switch shipment.Status {
-		case model.ShipmentStatusCreated:
-			// valid
+			if err != nil {
+				return err
+			}
 
-		case model.ShipmentStatusCancelled:
-			return ErrShipmentCancelled
+			switch shipment.Status {
 
-		case model.ShipmentStatusDelivered:
-			return ErrShipmentDelivered
+			case model.ShipmentStatusCreated:
+				// valid
 
-		default:
-			return ErrShipmentAlreadyShipped
-		}
+			case model.ShipmentStatusCancelled:
+				return ErrShipmentCancelled
 
-		items, err := s.repository.ListShipmentItems(
-			txCtx,
-			shipmentID,
-		)
-		if err != nil {
-			return err
-		}
+			case model.ShipmentStatusDelivered:
+				return ErrShipmentDelivered
 
-		if len(items) == 0 {
-			return ErrEmptyShipment
-		}
+			default:
+				return ErrShipmentAlreadyShipped
+			}
 
-		now := time.Now()
-
-		for _, item := range items {
-
-			inventory, err := s.repository.GetInventoryByDeviceIDForUpdateTx(
+			items, err := s.repository.ListShipmentItems(
 				txCtx,
-				item.DeviceID,
+				shipmentID,
 			)
 			if err != nil {
 				return err
 			}
 
-			if inventory.Status != model.InventoryStatusInStock {
-				return ErrDeviceNotInStock
+			if len(items) == 0 {
+				return ErrEmptyShipment
 			}
 
-			inventory.Status = model.InventoryStatusShipped
-			inventory.OutboundAt = &now
+			now := time.Now().UTC()
 
-			if err := s.repository.UpdateInventoryTx(
+			for _, item := range items {
+
+				inventory, err := s.repository.
+					GetInventoryByDeviceIDForUpdateTx(
+						txCtx,
+						item.DeviceID,
+					)
+
+				if err != nil {
+					return err
+				}
+
+				if inventory.Status != model.InventoryStatusInStock {
+					return ErrDeviceNotInStock
+				}
+
+				inventory.Status =
+					model.InventoryStatusShipped
+
+				inventory.OutboundAt = &now
+
+				if err := s.repository.UpdateInventoryTx(
+					txCtx,
+					inventory,
+				); err != nil {
+					return err
+				}
+			}
+
+			shipment.Status =
+				model.ShipmentStatusInTransit
+
+			shipment.ShippedAt = &now
+
+			return s.repository.UpdateShipmentTx(
 				txCtx,
-				inventory,
-			); err != nil {
-				return err
-			}
-		}
-
-		shipment.Status = model.ShipmentStatusInTransit
-		shipment.ShippedAt = &now
-
-		return s.repository.UpdateShipmentTx(
-			txCtx,
-			shipment,
-		)
-	})
+				shipment,
+			)
+		},
+	)
 }
 
 func (s *service) GetShipment(
@@ -497,77 +596,116 @@ func (s *service) AddTrackingEvent(
 		return ErrInvalidShipmentStatus
 	}
 
-	status, valid := req.Status.ToModel()
-	if !valid {
+	status := req.Status
+
+	switch status {
+
+	case ShipmentStatusRequest(model.ShipmentStatusCreated.String()),
+		ShipmentStatusRequest(model.ShipmentStatusInTransit.String()),
+		ShipmentStatusRequest(model.ShipmentStatusOutForDelivery.String()),
+		ShipmentStatusRequest(model.ShipmentStatusDelivered.String()),
+		ShipmentStatusRequest(model.ShipmentStatusException.String()),
+		ShipmentStatusRequest(model.ShipmentStatusCancelled.String()):
+
+	default:
 		return ErrInvalidShipmentStatus
 	}
 
-	occurredAt := time.Now()
+	occurredAt := time.Now().UTC()
+
 	if req.OccurredAt != nil {
 		occurredAt = req.OccurredAt.UTC()
 	}
 
-	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
 
-		shipment, err := s.repository.GetShipmentByIDForUpdateTx(
-			txCtx,
-			shipmentID,
-		)
-		if err != nil {
-			return err
-		}
+			shipment, err := s.repository.
+				GetShipmentByIDForUpdateTx(
+					txCtx,
+					shipmentID,
+				)
 
-		if req.ExternalEventID != "" {
-			existing, err := s.repository.GetTrackingEventByExternalID(
-				txCtx,
-				shipmentID,
-				req.ExternalEventID,
-			)
-
-			if err == nil && existing != nil {
-				return nil
-			}
-
-			if err != ErrTrackingEventNotFound {
+			if err != nil {
 				return err
 			}
-		}
 
-		event := &model.ShipmentTrackingEvent{
-			ShipmentID:     shipmentID,
-			ExternalEventID: strings.TrimSpace(req.ExternalEventID),
-			Status:         model.ShipmentStatus(status),
-			OccurredAt:     occurredAt,
-			Location:       strings.TrimSpace(req.Location),
-			Description:    strings.TrimSpace(req.Description),
-		}
+			externalEventID :=
+				strings.TrimSpace(
+					req.ExternalEventID,
+				)
 
-		if err := s.repository.CreateTrackingEventTx(
-			txCtx,
-			event,
-		); err != nil {
-			return err
-		}
+			// Idempotency.
+			if externalEventID != "" {
 
-		shipment.Status = model.ShipmentStatus(status)
+				existing, err :=
+					s.repository.GetTrackingEventByExternalID(
+						txCtx,
+						shipmentID,
+						externalEventID,
+					)
 
-		switch shipment.Status {
-		case model.ShipmentStatusDelivered:
-			deliveredAt := occurredAt
-			shipment.DeliveredAt = &deliveredAt
+				if err == nil && existing != nil {
+					return nil
+				}
 
-		case model.ShipmentStatusCancelled:
-			// Nothing else to update.
+				if err != ErrTrackingEventNotFound {
+					return err
+				}
+			}
 
-		default:
-			// Keep existing delivered timestamp unchanged.
-		}
+			// Terminal shipment states cannot be downgraded.
+			if shipment.Status == model.ShipmentStatusDelivered {
+				return ErrShipmentDelivered
+			}
 
-		return s.repository.UpdateShipmentTx(
-			txCtx,
-			shipment,
-		)
-	})
+			if shipment.Status == model.ShipmentStatusCancelled {
+				return ErrShipmentCancelled
+			}
+
+			event := &model.ShipmentTrackingEvent{
+				ShipmentID:      shipmentID,
+				ExternalEventID: externalEventID,
+				Status:          model.ShipmentStatus(status),
+				OccurredAt:      occurredAt,
+				Location: strings.TrimSpace(
+					req.Location,
+				),
+				Description: strings.TrimSpace(
+					req.Description,
+				),
+			}
+
+			if err := s.repository.CreateTrackingEventTx(
+				txCtx,
+				event,
+			); err != nil {
+				return err
+			}
+
+			shipment.Status = model.ShipmentStatus(status)
+
+			switch status {
+
+			case ShipmentStatusRequest(model.ShipmentStatusDelivered.String()):
+
+				deliveredAt := occurredAt
+				shipment.DeliveredAt = &deliveredAt
+
+			case ShipmentStatusRequest(model.ShipmentStatusCancelled.String()):
+				// terminal state
+
+			default:
+				// keep DeliveredAt untouched
+			}
+
+			return s.repository.UpdateShipmentTx(
+				txCtx,
+				shipment,
+			)
+		},
+	)
 }
 
 func (s *service) ListTrackingEvents(
@@ -597,6 +735,7 @@ func (s *service) ListTrackingEvents(
 	)
 
 	for _, event := range events {
+
 		result = append(
 			result,
 			trackingEventToResponse(event),
@@ -607,12 +746,13 @@ func (s *service) ListTrackingEvents(
 }
 
 // -----------------------------------------------------------------------------
-// Response mapping
+// Response Mapping
 // -----------------------------------------------------------------------------
 
 func warehouseToResponse(
 	warehouse *model.Warehouse,
 ) *WarehouseResponse {
+
 	return &WarehouseResponse{
 		ID:        warehouse.ID,
 		Code:      warehouse.Code,
@@ -626,6 +766,7 @@ func warehouseToResponse(
 func locationToResponse(
 	location *model.WarehouseLocation,
 ) *LocationResponse {
+
 	return &LocationResponse{
 		ID:          location.ID,
 		WarehouseID: location.WarehouseID,
@@ -639,6 +780,7 @@ func locationToResponse(
 func inventoryToResponse(
 	inventory *model.DeviceInventory,
 ) *InventoryResponse {
+
 	return &InventoryResponse{
 		ID:          inventory.ID,
 		DeviceID:    inventory.DeviceID,
@@ -663,12 +805,16 @@ func shipmentItemsToResponse(
 	)
 
 	for _, item := range items {
-		result = append(result, &ShipmentItemResponse{
-			ID:         item.ID,
-			ShipmentID: item.ShipmentID,
-			DeviceID:   item.DeviceID,
-			CreatedAt:  item.CreatedAt,
-		})
+
+		result = append(
+			result,
+			&ShipmentItemResponse{
+				ID:         item.ID,
+				ShipmentID: item.ShipmentID,
+				DeviceID:   item.DeviceID,
+				CreatedAt:  item.CreatedAt,
+			},
+		)
 	}
 
 	return result
@@ -677,6 +823,7 @@ func shipmentItemsToResponse(
 func trackingEventToResponse(
 	event *model.ShipmentTrackingEvent,
 ) *TrackingEventResponse {
+
 	return &TrackingEventResponse{
 		ID:              event.ID,
 		ShipmentID:      event.ShipmentID,

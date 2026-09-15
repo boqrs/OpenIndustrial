@@ -5,24 +5,26 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-type WMSRepository struct {
+type wmsRepository struct {
 	db *database.DBProvider
 }
 
-func NewWMSRepository(db *database.DBProvider) *WMSRepository {
-	return &WMSRepository{
+func NewWMSRepository(db *database.DBProvider) wms.Repository {
+	return &wmsRepository{
 		db: db,
 	}
 }
 
-// -----------------------------------------------------------------------------
+// ============================================================
 // Warehouse
-// -----------------------------------------------------------------------------
+// ============================================================
 
-func (r *WMSRepository) CreateWarehouse(
+func (r *wmsRepository) CreateWarehouse(
 	ctx context.Context,
 	warehouse *model.Warehouse,
 ) error {
@@ -32,7 +34,7 @@ func (r *WMSRepository) CreateWarehouse(
 		Error
 }
 
-func (r *WMSRepository) GetWarehouseByID(
+func (r *wmsRepository) GetWarehouseByID(
 	ctx context.Context,
 	id uint,
 ) (*model.Warehouse, error) {
@@ -40,25 +42,20 @@ func (r *WMSRepository) GetWarehouseByID(
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("id = ?", id).
-		First(&warehouse).
+		First(&warehouse, id).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrWarehouseNotFound
-		// }
 		return nil, err
 	}
 
 	return &warehouse, nil
 }
 
-// -----------------------------------------------------------------------------
-// Warehouse Location
-// -----------------------------------------------------------------------------
+// ============================================================
+// Location
+// ============================================================
 
-func (r *WMSRepository) CreateLocation(
+func (r *wmsRepository) CreateLocation(
 	ctx context.Context,
 	location *model.WarehouseLocation,
 ) error {
@@ -68,7 +65,7 @@ func (r *WMSRepository) CreateLocation(
 		Error
 }
 
-func (r *WMSRepository) GetLocationByID(
+func (r *wmsRepository) GetLocationByID(
 	ctx context.Context,
 	id uint,
 ) (*model.WarehouseLocation, error) {
@@ -76,26 +73,20 @@ func (r *WMSRepository) GetLocationByID(
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("id = ?", id).
-		First(&location).
+		First(&location, id).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrLocationNotFound
-		// }
-
 		return nil, err
 	}
 
 	return &location, nil
 }
 
-// -----------------------------------------------------------------------------
-// Device Inventory
-// -----------------------------------------------------------------------------
+// ============================================================
+// Inventory
+// ============================================================
 
-func (r *WMSRepository) GetInventoryByDeviceID(
+func (r *wmsRepository) GetInventoryByDeviceID(
 	ctx context.Context,
 	deviceID uint,
 ) (*model.DeviceInventory, error) {
@@ -106,19 +97,14 @@ func (r *WMSRepository) GetInventoryByDeviceID(
 		Where("device_id = ?", deviceID).
 		First(&inventory).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrInventoryNotFound
-		// }
-
 		return nil, err
 	}
 
 	return &inventory, nil
 }
 
-func (r *WMSRepository) GetInventoryByDeviceIDForUpdateTx(
+func (r *wmsRepository) GetInventoryByDeviceIDForUpdateTx(
 	ctx context.Context,
 	deviceID uint,
 ) (*model.DeviceInventory, error) {
@@ -132,19 +118,14 @@ func (r *WMSRepository) GetInventoryByDeviceIDForUpdateTx(
 		Where("device_id = ?", deviceID).
 		First(&inventory).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrInventoryNotFound
-		// }
-
 		return nil, err
 	}
 
 	return &inventory, nil
 }
 
-func (r *WMSRepository) CreateInventoryTx(
+func (r *wmsRepository) CreateInventoryTx(
 	ctx context.Context,
 	inventory *model.DeviceInventory,
 ) error {
@@ -154,7 +135,7 @@ func (r *WMSRepository) CreateInventoryTx(
 		Error
 }
 
-func (r *WMSRepository) UpdateInventoryTx(
+func (r *wmsRepository) UpdateInventoryTx(
 	ctx context.Context,
 	inventory *model.DeviceInventory,
 ) error {
@@ -164,11 +145,11 @@ func (r *WMSRepository) UpdateInventoryTx(
 		Error
 }
 
-// -----------------------------------------------------------------------------
+// ============================================================
 // Shipment
-// -----------------------------------------------------------------------------
+// ============================================================
 
-func (r *WMSRepository) CreateShipmentTx(
+func (r *wmsRepository) CreateShipmentTx(
 	ctx context.Context,
 	shipment *model.Shipment,
 ) error {
@@ -178,7 +159,7 @@ func (r *WMSRepository) CreateShipmentTx(
 		Error
 }
 
-func (r *WMSRepository) CreateShipmentItemsTx(
+func (r *wmsRepository) CreateShipmentItemsTx(
 	ctx context.Context,
 	items []*model.ShipmentItem,
 ) error {
@@ -188,11 +169,11 @@ func (r *WMSRepository) CreateShipmentItemsTx(
 
 	return dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
-		CreateInBatches(items, len(items)).
+		Create(&items).
 		Error
 }
 
-func (r *WMSRepository) GetShipmentByID(
+func (r *wmsRepository) GetShipmentByID(
 	ctx context.Context,
 	id uint,
 ) (*model.Shipment, error) {
@@ -200,22 +181,16 @@ func (r *WMSRepository) GetShipmentByID(
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("id = ?", id).
-		First(&shipment).
+		First(&shipment, id).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrShipmentNotFound
-		// }
-
 		return nil, err
 	}
 
 	return &shipment, nil
 }
 
-func (r *WMSRepository) GetShipmentByIDForUpdateTx(
+func (r *wmsRepository) GetShipmentByIDForUpdateTx(
 	ctx context.Context,
 	id uint,
 ) (*model.Shipment, error) {
@@ -226,34 +201,27 @@ func (r *WMSRepository) GetShipmentByIDForUpdateTx(
 		Clauses(clause.Locking{
 			Strength: "UPDATE",
 		}).
-		Where("id = ?", id).
-		First(&shipment).
+		First(&shipment, id).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrShipmentNotFound
-		// }
-
 		return nil, err
 	}
 
 	return &shipment, nil
 }
 
-func (r *WMSRepository) ListShipmentItems(
+func (r *wmsRepository) ListShipmentItems(
 	ctx context.Context,
 	shipmentID uint,
 ) ([]*model.ShipmentItem, error) {
 	var items []*model.ShipmentItem
 
-	err := r.db.Get().
+	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
 		Where("shipment_id = ?", shipmentID).
 		Order("id ASC").
 		Find(&items).
 		Error
-
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +229,7 @@ func (r *WMSRepository) ListShipmentItems(
 	return items, nil
 }
 
-func (r *WMSRepository) UpdateShipmentTx(
+func (r *wmsRepository) UpdateShipmentTx(
 	ctx context.Context,
 	shipment *model.Shipment,
 ) error {
@@ -271,18 +239,18 @@ func (r *WMSRepository) UpdateShipmentTx(
 		Error
 }
 
-// -----------------------------------------------------------------------------
-// Tracking Events
-// -----------------------------------------------------------------------------
+// ============================================================
+// Tracking
+// ============================================================
 
-func (r *WMSRepository) GetTrackingEventByExternalID(
+func (r *wmsRepository) GetTrackingEventByExternalID(
 	ctx context.Context,
 	shipmentID uint,
 	externalEventID string,
 ) (*model.ShipmentTrackingEvent, error) {
 	var event model.ShipmentTrackingEvent
 
-	err := r.db.Get().
+	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
 		Where(
 			"shipment_id = ? AND external_event_id = ?",
@@ -291,19 +259,14 @@ func (r *WMSRepository) GetTrackingEventByExternalID(
 		).
 		First(&event).
 		Error
-
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, wms.ErrTrackingEventNotFound
-		// }
-
 		return nil, err
 	}
 
 	return &event, nil
 }
 
-func (r *WMSRepository) CreateTrackingEventTx(
+func (r *wmsRepository) CreateTrackingEventTx(
 	ctx context.Context,
 	event *model.ShipmentTrackingEvent,
 ) error {
@@ -313,7 +276,7 @@ func (r *WMSRepository) CreateTrackingEventTx(
 		Error
 }
 
-func (r *WMSRepository) ListTrackingEvents(
+func (r *wmsRepository) ListTrackingEvents(
 	ctx context.Context,
 	shipmentID uint,
 ) ([]*model.ShipmentTrackingEvent, error) {
@@ -322,14 +285,19 @@ func (r *WMSRepository) ListTrackingEvents(
 	err := r.db.Get().
 		WithContext(ctx).
 		Where("shipment_id = ?", shipmentID).
-		Order("occurred_at ASC").
-		Order("id ASC").
+		Order("occurred_at ASC, id ASC").
 		Find(&events).
 		Error
-
 	if err != nil {
 		return nil, err
 	}
 
 	return events, nil
 }
+
+// Compile-time interface check.
+var _ wms.Repository = (*wmsRepository)(nil)
+
+// Keep gorm imported explicitly for repository-level error handling
+// compatibility with the rest of the postgres package.
+var _ = gorm.ErrRecordNotFound

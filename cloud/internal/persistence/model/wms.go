@@ -27,11 +27,11 @@ type ShipmentStatus string
 
 const (
 	ShipmentStatusCreated        ShipmentStatus = "created"
-	ShipmentStatusInTransit     ShipmentStatus = "in_transit"
+	ShipmentStatusInTransit      ShipmentStatus = "in_transit"
 	ShipmentStatusOutForDelivery ShipmentStatus = "out_for_delivery"
-	ShipmentStatusDelivered     ShipmentStatus = "delivered"
-	ShipmentStatusException     ShipmentStatus = "exception"
-	ShipmentStatusCancelled     ShipmentStatus = "cancelled"
+	ShipmentStatusDelivered      ShipmentStatus = "delivered"
+	ShipmentStatusException      ShipmentStatus = "exception"
+	ShipmentStatusCancelled      ShipmentStatus = "cancelled"
 )
 
 func (s ShipmentStatus) String() string {
@@ -88,7 +88,7 @@ type DeviceInventory struct {
 	DeviceID uint `gorm:"not null;uniqueIndex"`
 
 	WarehouseID uint `gorm:"not null;index"`
-	LocationID uint `gorm:"not null;index"`
+	LocationID  uint `gorm:"not null;index"`
 
 	Status InventoryStatus `gorm:"type:varchar(50);not null;index"`
 
@@ -114,7 +114,7 @@ type Shipment struct {
 
 	Status ShipmentStatus `gorm:"type:varchar(50);not null;index"`
 
-	ShippedAt  *time.Time
+	ShippedAt   *time.Time
 	DeliveredAt *time.Time
 
 	CreatedAt time.Time

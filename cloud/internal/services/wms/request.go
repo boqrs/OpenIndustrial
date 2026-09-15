@@ -47,12 +47,12 @@ type TrackingEventRequest struct {
 type ShipmentStatusRequest string
 
 const (
-	ShipmentStatusRequestCreated         ShipmentStatusRequest = "created"
-	ShipmentStatusRequestInTransit       ShipmentStatusRequest = "in_transit"
-	ShipmentStatusRequestOutForDelivery  ShipmentStatusRequest = "out_for_delivery"
-	ShipmentStatusRequestDelivered       ShipmentStatusRequest = "delivered"
-	ShipmentStatusRequestException       ShipmentStatusRequest = "exception"
-	ShipmentStatusRequestCancelled       ShipmentStatusRequest = "cancelled"
+	ShipmentStatusRequestCreated        ShipmentStatusRequest = "created"
+	ShipmentStatusRequestInTransit      ShipmentStatusRequest = "in_transit"
+	ShipmentStatusRequestOutForDelivery ShipmentStatusRequest = "out_for_delivery"
+	ShipmentStatusRequestDelivered      ShipmentStatusRequest = "delivered"
+	ShipmentStatusRequestException      ShipmentStatusRequest = "exception"
+	ShipmentStatusRequestCancelled      ShipmentStatusRequest = "cancelled"
 )
 
 func (s ShipmentStatusRequest) ToModel() (string, bool) {

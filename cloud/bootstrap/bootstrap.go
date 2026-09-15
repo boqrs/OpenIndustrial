@@ -27,9 +27,9 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/planning"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
 	routing "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/routing"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
 
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
@@ -39,10 +39,10 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	fSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	idtSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
-wmsSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 	rSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
+	wmsSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/application"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
@@ -263,10 +263,10 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	roleRepo := postgres.NewRoleRepository(dbProv)
 	groupRepo := postgres.NewGroupRepository(dbProv)
 	// -------------------------------------------------------------------------
-// WMS
-// -------------------------------------------------------------------------
+	// WMS
+	// -------------------------------------------------------------------------
 
-wmsRepo := postgres.NewWMSRepository(dbProv)
+	wmsRepo := postgres.NewWMSRepository(dbProv)
 
 	// -------------------------------------------------------------------------
 	// Manufacturing
@@ -490,14 +490,14 @@ wmsRepo := postgres.NewWMSRepository(dbProv)
 	)
 
 	// =========================================================================
-// 8.5 WMS
-// =========================================================================
+	// 8.5 WMS
+	// =========================================================================
 
-wmsService := wmsSrv.NewService(
-	uow,
-    wmsRepo,
-    deviceRepo,
-)
+	wmsService := wmsSrv.NewService(
+		uow,
+		wmsRepo,
+		deviceRepo,
+	)
 
 	// =========================================================================
 	// 18. HTTP Handlers
@@ -545,13 +545,13 @@ wmsService := wmsSrv.NewService(
 	).RouterRegister(router)
 
 	// -------------------------------------------------------------------------
-// WMS
-// -------------------------------------------------------------------------
+	// WMS
+	// -------------------------------------------------------------------------
 
-wms.NewHandler(
-    wmsService,
- //   authService,
-).RouterRegister(router)
+	wms.NewHandler(
+		wmsService,
+		//   authService,
+	).RouterRegister(router)
 
 	// -------------------------------------------------------------------------
 	// Identity
