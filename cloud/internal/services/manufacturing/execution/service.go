@@ -958,3 +958,160 @@ func toOperationResponse(
 
 	return response
 }
+
+// ExecuteOperation executes the executor associated with an in-progress
+// execution operation.
+//
+// StartOperation and ExecuteOperation are intentionally separated:
+//
+//	StartOperation:
+//	    Pending -> InProgress
+//
+//	ExecuteOperation:
+//	    invokes the actual executor
+//
+// Synchronous executors can be completed immediately after execution.
+// External/asynchronous operations should not call this method to obtain
+// their final production result; they should complete through
+// CompleteOperation().
+func (s *serviceImpl) ExecuteOperation(
+	ctx context.Context,
+	executionID uint,
+	operationID uint,
+) error {
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID not found in context")
+	}
+
+	// -------------------------------------------------------------------------
+	// 1. Load Execution
+	// -------------------------------------------------------------------------
+
+	exec, err := s.repository.GetExecutionByIDForUpdateTx(
+		ctx,
+		tenantID,
+		executionID,
+	)
+	if err != nil {
+		return err
+	}
+
+	if exec == nil {
+		return ErrExecutionNotFound
+	}
+
+	if exec.Status != model.ProductionExecutionStatusInProgress {
+		return ErrInvalidExecutionState
+	}
+
+	// -------------------------------------------------------------------------
+	// 2. Lock and load Operation
+	// -------------------------------------------------------------------------
+
+	op, err := s.repository.GetOperationForUpdateTx(
+		ctx,
+		executionID,
+		operationID,
+	)
+	if err != nil {
+		return ErrOperationNotFound
+	}
+
+	if op == nil {
+		return ErrOperationNotFound
+	}
+
+	if op.Status != model.ExecutionOperationStatusInProgress {
+		return ErrInvalidOperationState
+	}
+
+	// -------------------------------------------------------------------------
+	// 3. Resolve Executor
+	// -------------------------------------------------------------------------
+
+	executor, ok := s.executorRegistry.Get(op.Code)
+	if !ok {
+		return fmt.Errorf(
+			"executor not found for operation code: %s",
+			op.Code,
+		)
+	}
+
+	// -------------------------------------------------------------------------
+	// 4. Decode Parameters
+	// -------------------------------------------------------------------------
+
+	var parameters map[string]any
+
+	if len(op.Parameters) > 0 {
+		if err := json.Unmarshal(
+			op.Parameters,
+			&parameters,
+		); err != nil {
+			return fmt.Errorf(
+				"invalid operation parameters for operation %d: %w",
+				op.ID,
+				err,
+			)
+		}
+	}
+
+	input := &executors.OperationInput{
+		ExecutionID:          exec.ID,
+		ExecutionOperationID: op.ID,
+		WorkOrderID:          exec.WorkOrderID,
+		ProductID:            exec.ProductID,
+		Parameters:           parameters,
+	}
+
+	// -------------------------------------------------------------------------
+	// 5. Asynchronous operation
+	// -------------------------------------------------------------------------
+
+	if asyncExecutor, ok := executor.(executors.AsynchronousOperationExecutor); ok &&
+		asyncExecutor.Asynchronous() {
+		return nil
+	}
+
+	// -------------------------------------------------------------------------
+	// 5. Execute
+	// -------------------------------------------------------------------------
+
+	output, err := executor.Execute(
+		ctx,
+		input,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"operation %d execution failed: %w",
+			op.ID,
+			err,
+		)
+	}
+
+	// -------------------------------------------------------------------------
+	// 6. No output means executor expects external completion
+	// -------------------------------------------------------------------------
+
+	if output == nil {
+		return nil
+	}
+
+	// -------------------------------------------------------------------------
+	// 7. Persist synchronous executor result
+	// -------------------------------------------------------------------------
+
+	result := output.Result
+
+	if result == nil {
+		result = map[string]any{}
+	}
+
+	return s.CompleteOperation(
+		ctx,
+		executionID,
+		operationID,
+		result,
+	)
+}

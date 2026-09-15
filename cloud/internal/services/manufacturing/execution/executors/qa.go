@@ -48,6 +48,10 @@ func (e *FunctionTestExecutor) Validate(
 	return nil
 }
 
+func (e *FunctionTestExecutor) Asynchronous() bool {
+	return true
+}
+
 func (e *FunctionTestExecutor) Execute(
 	ctx context.Context,
 	input *OperationInput,

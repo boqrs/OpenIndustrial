@@ -22,6 +22,12 @@ type OperationExecutor interface {
 	Execute(ctx context.Context, input *OperationInput) (*OperationOutput, error)
 }
 
+type AsynchronousOperationExecutor interface {
+	OperationExecutor
+
+	Asynchronous() bool
+}
+
 // --- Executor Registry ---
 
 // OperationExecutorRegistry holds a map of registered OperationExecutor
