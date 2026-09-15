@@ -12,7 +12,7 @@ type CertificateIssueExecutor struct {
 	ca security.CertificateAuthority
 }
 
-func NewCertificateIssueExecutor(
+func NewCAIssueExecutor(
 	ca security.CertificateAuthority,
 ) *CertificateIssueExecutor {
 	return &CertificateIssueExecutor{
@@ -21,7 +21,7 @@ func NewCertificateIssueExecutor(
 }
 
 func (e *CertificateIssueExecutor) Type() string {
-	return OperationTypeCertificateIssue
+	return OperationTypeCAIssue
 }
 
 func (e *CertificateIssueExecutor) Validate(
@@ -36,6 +36,22 @@ func (e *CertificateIssueExecutor) Validate(
 		return errors.New("certificate authority is not configured")
 	}
 
+	if input.ExecutionID == 0 {
+		return errors.New("execution ID is required")
+	}
+
+	if input.ExecutionOperationID == 0 {
+		return errors.New("execution operation ID is required")
+	}
+
+	if input.WorkOrderID == 0 {
+		return errors.New("work order ID is required")
+	}
+
+	if input.Parameters == nil {
+		return errors.New("operation parameters are required")
+	}
+
 	csr, ok := input.Parameters["csr"].(string)
 	if !ok || csr == "" {
 		return errors.New("csr is required")
@@ -48,7 +64,6 @@ func (e *CertificateIssueExecutor) Execute(
 	ctx context.Context,
 	input *OperationInput,
 ) (*OperationOutput, error) {
-
 	if err := e.Validate(ctx, input); err != nil {
 		return nil, err
 	}
@@ -71,17 +86,17 @@ func (e *CertificateIssueExecutor) Execute(
 
 	return &OperationOutput{
 		Result: map[string]any{
-			"certificateId": issued.CertificateID,
-			"certificate":   issued.CertificatePEM,
-			"serialNumber":  issued.SerialNumber,
-			"fingerprint":   issued.Fingerprint,
-			"subject":       issued.Subject,
-			"issuer":        issued.Issuer,
-			"notBefore":     issued.NotBefore,
-			"notAfter":      issued.NotAfter,
+			"certificate_id": issued.CertificateID,
+			"certificate":    issued.CertificatePEM,
+			"serial_number":  issued.SerialNumber,
+			"fingerprint":    issued.Fingerprint,
+			"subject":        issued.Subject,
+			"issuer":         issued.Issuer,
+			"not_before":     issued.NotBefore,
+			"not_after":      issued.NotAfter,
 		},
 		References: map[string]any{
-			"certificateId": issued.CertificateID,
+			"certificate_id": issued.CertificateID,
 		},
 	}, nil
 }

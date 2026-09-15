@@ -106,7 +106,7 @@ func (h *Handler) FailProductionOperation(ctx *gin.Context) ginx.Render {
 	var req operationResultRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(err)
-		
+
 	}
 	if err := h.service.FailProductionOperation(ctx.Request.Context(), executionID, operationID, req.Result); err != nil {
 		return ginx.Error(err)

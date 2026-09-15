@@ -81,10 +81,24 @@ func BuildOperationExecutorRegistry(
 ) *OperationExecutorRegistry {
 
 	registry := NewOperationExecutorRegistry()
-	//TODO: 建议硬编码 直接在这里初始化所有执行器
-	registry.Register(NewSNGenerateExecutor(snGenerator))
 
-	registry.Register(NewCertificateIssueExecutor(ca))
+	if snGenerator != nil {
+		_ = registry.Register(
+			NewSNGenerateExecutor(snGenerator),
+		)
+	}
+
+	_ = registry.Register(
+		NewSNWriteExecutor(),
+	)
+
+	_ = registry.Register(
+		NewCAIssueExecutor(ca),
+	)
+
+	_ = registry.Register(
+		NewFunctionTestExecutor(),
+	)
 
 	return registry
 }

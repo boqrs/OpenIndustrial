@@ -16,14 +16,14 @@ type Repository interface {
 	GetExecutionByIDForUpdateTx(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error)
 	ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error)
 	UpdateExecution(ctx context.Context, execution *model.ProductionExecution) error
-	UpdateExecutionTx(ctx context.Context,execution *model.ProductionExecution) error
+	UpdateExecutionTx(ctx context.Context, execution *model.ProductionExecution) error
 	CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error)
 
 	// Operation methods
 	GetOperation(ctx context.Context, executionID, operationID uint) (*model.ExecutionOperation, error)
 	ListOperations(ctx context.Context, executionID uint) ([]*model.ExecutionOperation, error)
 	UpdateOperation(ctx context.Context, operation *model.ExecutionOperation) error
-	UpdateOperationTx(ctx context.Context,operation *model.ExecutionOperation) error
+	UpdateOperationTx(ctx context.Context, operation *model.ExecutionOperation) error
 	GetCurrentOperation(ctx context.Context, executionID uint) (*model.ExecutionOperation, error)
 	GetOperationForUpdateTx(ctx context.Context, executionID uint, operationID uint) (*model.ExecutionOperation, error)
 }
