@@ -30,6 +30,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/product"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/resource"
 	routing "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/routing"
+	salesorderHandler "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/salesorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
 
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
@@ -56,6 +57,7 @@ import (
 	wmsSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 
 	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
+	salesorderSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/salesorder"
 )
 
 type InfraCloseFunc func() error
@@ -282,6 +284,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	// ExecutionResult repository currently exposes NewRepository.
 	executionResultRepo := postgres.NewRepository(dbProv)
+	salesOrderRepo := postgres.NewSalesOrderRepository(dbProv)
 
 	// =========================================================================
 	// 7. Kernel Services
@@ -442,6 +445,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		uow,
 	)
 
+	salesOrderService := salesorderSrv.NewService(
+		uow,
+		salesOrderRepo,
+		customerRepo,
+	)
+
 	// =========================================================================
 	// 16. Manufacturing - ExecutionResult
 	// =========================================================================
@@ -576,6 +585,11 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// -------------------------------------------------------------------------
 	routing.NewHandler(
 		routingService,
+		authService,
+	).RouterRegister(router)
+
+	salesorderHandler.NewHandler(
+		salesOrderService,
 		authService,
 	).RouterRegister(router)
 
