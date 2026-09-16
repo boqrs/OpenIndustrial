@@ -499,10 +499,6 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		deviceRepo,
 	)
 
-	// =========================================================================
-	// 18. HTTP Handlers
-	// =========================================================================
-
 	// -------------------------------------------------------------------------
 	// Product
 	// -------------------------------------------------------------------------
@@ -607,21 +603,6 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		manufacturingApplicationService,
 		authService,
 	).RouterRegister(router)
-
-	// =========================================================================
-	// Keep the application service alive as part of the composition root.
-	// =========================================================================
-	//
-	// It is intentionally not registered to an HTTP handler here yet because
-	// the current handler layer does not expose the complete manufacturing
-	// application API.
-	//
-	// Once the manufacturing application handler is introduced, this is the
-	// service that should be injected there.
-	// =========================================================================
-
-	_ = executionResultService
-	_ = manufacturingApplicationService
 
 	// =========================================================================
 	// 19. Shutdown
