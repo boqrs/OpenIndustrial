@@ -18,6 +18,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/config"
 
 	bomh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/bom"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/customer"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
 	exh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/executionresult"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
@@ -35,6 +36,7 @@ import (
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 
+	customerSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/customer"
 	dSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	fSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
@@ -42,8 +44,6 @@ import (
 	rSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
-	wmsSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/application"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
@@ -53,6 +53,7 @@ import (
 	plSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	routSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	woSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	wmsSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 
 	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 )
@@ -236,7 +237,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	attrDefRepo := postgres.NewAttributeDefinitionRepository(dbProv)
 	resAttrRepo := postgres.NewResourceAttributeRepository(dbProv)
 	resConnRepo := postgres.NewResourceConnectionsRepository(dbProv)
-
+	customerRepo := postgres.NewCustomerRepository(dbProv)
 	// -------------------------------------------------------------------------
 	// Security
 	// -------------------------------------------------------------------------
@@ -328,7 +329,10 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		deviceRepo,
 		resourceService,
 		productService,
-		//securityService,
+	)
+
+	customerService := customerSrv.NewService(
+		customerRepo,
 	)
 
 	factoryService := fSrv.NewService(
@@ -596,6 +600,11 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	exh.NewHandler(
 		executionResultService,
+		authService,
+	).RouterRegister(router)
+
+	customer.NewHandler(
+		customerService,
 		authService,
 	).RouterRegister(router)
 

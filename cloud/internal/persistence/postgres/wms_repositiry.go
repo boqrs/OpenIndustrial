@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/nexus/database"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
+	"github.com/boqrs/nexus/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
