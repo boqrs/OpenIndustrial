@@ -44,3 +44,7 @@ type Device struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+func (Device) TableName() string {
+	return "devices"
+}

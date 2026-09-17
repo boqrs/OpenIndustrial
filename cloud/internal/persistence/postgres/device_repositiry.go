@@ -104,7 +104,7 @@ func (r *DeviceRepository) GetBySerialNumber(
 ) (*model.Device, error) {
 	var d model.Device
 
-	err := r.db.Get().
+	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
 		Where("serial_number = ?", serialNumber).
 		First(&d).
