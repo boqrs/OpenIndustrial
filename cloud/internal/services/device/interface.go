@@ -10,14 +10,12 @@ import (
 type Repository interface {
 	Create(ctx context.Context, entity *model.Device) error
 	CreateTx(ctx context.Context, entity *model.Device) error
-	//CreateBatchTx(ctx context.Context, devices []*model.Device) error
 	GetByID(ctx context.Context, id uint) (*model.Device, error)
 	GetByResourceID(ctx context.Context, resourceID uint) (*model.Device, error)
 	GetBySerialNumber(ctx context.Context, serialNumber string) (*model.Device, error)
 	List(ctx context.Context, req *ListDevicesRequest) ([]*model.Device, int64, error)
 	Update(ctx context.Context, entity *model.Device) error
 	Delete(ctx context.Context, id uint) error
-	//(ctx context.Context, serialNumbers []string) ([]*model.Device, error)
 }
 
 type Service interface {

@@ -361,6 +361,23 @@ func (s *service) ConfirmExecutionResult(
 			)
 		}
 
+		if workOrder.Status != model.WorkOrderStatusReleased && workOrder.Status != model.WorkOrderStatusInProgress {
+			return execution.ErrWorkOrderNotExecutable
+		}
+		existingCount, err := s.executionRepository.CountExecutions(txCtx, tenantID, workOrder.ID)
+		if err != nil {
+			return fmt.Errorf("count production executions: %w", err)
+		}
+		if existingCount >= workOrder.PlannedQuantity {
+			return ErrWorkOrderQuantityExceeded
+		}
+
+		// A confirmed result must never make the WorkOrder
+		// exceed its planned production quantity.
+		if workOrder.CompletedQuantity+result.QualifiedQuantity > workOrder.PlannedQuantity {
+			return fmt.Errorf("%w: completed=%d qualified=%d planned=%d", ErrExecutionResultInvalid, workOrder.CompletedQuantity, result.QualifiedQuantity, workOrder.PlannedQuantity)
+		}
+
 		// 5. Qualified product → Device.
 		if result.QualifiedQuantity == 1 {
 			operations, err :=

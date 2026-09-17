@@ -1,3 +1,7 @@
+-- =============================================================================
+-- Devices
+-- =============================================================================
+
 CREATE TABLE IF NOT EXISTS devices (
     id BIGSERIAL PRIMARY KEY,
 
@@ -16,11 +20,14 @@ CREATE TABLE IF NOT EXISTS devices (
     -- Runtime state
     status VARCHAR(50) NOT NULL,
 
-    activated_at TIMESTAMPTZ,
-    last_online_at TIMESTAMPTZ,
+    activated_at TIMESTAMPTZ NULL,
+    last_online_at TIMESTAMPTZ NULL,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_devices_resource_id
+        UNIQUE (resource_id),
 
     CONSTRAINT fk_devices_resource
         FOREIGN KEY (resource_id)
@@ -48,9 +55,6 @@ CREATE TABLE IF NOT EXISTS devices (
         ON DELETE RESTRICT
 );
 
-CREATE INDEX IF NOT EXISTS idx_devices_resource_id
-    ON devices(resource_id);
-
 CREATE INDEX IF NOT EXISTS idx_devices_product_id
     ON devices(product_id);
 
@@ -71,3 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_devices_hardware_id
 
 CREATE INDEX IF NOT EXISTS idx_devices_status
     ON devices(status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS
+idx_devices_execution_id_unique
+ON devices(execution_id);

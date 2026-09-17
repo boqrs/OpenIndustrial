@@ -39,19 +39,6 @@ func (r *DeviceRepository) Create(
 		Error
 }
 
-func (r *DeviceRepository) CreateBatchTx(
-	ctx context.Context,
-	devices []*model.Device,
-) error {
-
-	if len(devices) == 0 {
-		return nil
-	}
-
-	return dbFromContext(ctx, r.db.Get()).CreateInBatches(&devices, len(devices)).
-		Error
-}
-
 func (r *DeviceRepository) GetByID(
 	ctx context.Context,
 	id uint,
@@ -196,16 +183,4 @@ func (r *DeviceRepository) Delete(
 		Where("id = ?", id).
 		Delete(&model.Device{}).
 		Error
-}
-
-func (r *DeviceRepository) GetBySerialNumbers(
-	ctx context.Context,
-	serialNumbers []string,
-) ([]*model.Device, error) {
-	var resp []*model.Device
-	if err := r.db.Get().WithContext(ctx).Where("serial_number in (?)", serialNumbers).Find(&resp).Error; err != nil {
-		return nil, err
-	}
-
-	return resp, nil
 }
