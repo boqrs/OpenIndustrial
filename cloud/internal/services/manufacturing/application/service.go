@@ -170,7 +170,18 @@ func extractDeviceIdentity(
 			continue
 		}
 
-		if value, ok := stringValue(operation.Result["serial_number"]); ok {
+		var result map[string]any
+
+		if err := json.Unmarshal(operation.Result, &result); err != nil {
+			return nil, fmt.Errorf(
+				"%w: invalid result of operation %d: %v",
+				ErrExecutionResultInvalid,
+				operation.ID,
+				err,
+			)
+		}
+
+		if value, ok := stringValue(result["serial_number"]); ok {
 			if identity.SerialNumber != "" &&
 				identity.SerialNumber != value {
 				return nil, fmt.Errorf(
@@ -182,7 +193,7 @@ func extractDeviceIdentity(
 			identity.SerialNumber = value
 		}
 
-		if value, ok := stringValue(operation.Result["hardware_id"]); ok {
+		if value, ok := stringValue(result["hardware_id"]); ok {
 			if identity.HardwareID != "" &&
 				identity.HardwareID != value {
 				return nil, fmt.Errorf(
