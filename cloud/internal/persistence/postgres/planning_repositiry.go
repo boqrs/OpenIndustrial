@@ -9,6 +9,7 @@ import (
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // productionPlanRepository implements the planning.Repository interface.
@@ -65,4 +66,25 @@ func (r *productionPlanRepository) List(ctx context.Context, tenantID uuid.UUID,
 
 func (r *productionPlanRepository) Update(ctx context.Context, entity *model.ProductionPlan) error {
 	return r.db.Get().WithContext(ctx).Save(entity).Error
+}
+
+func (r *productionPlanRepository) GetByIDForUpdateTx(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	id uint,
+) (*model.ProductionPlan, error) {
+	var entity model.ProductionPlan
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("tenant_id = ?", tenantID).
+		First(&entity, id).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity, nil
 }

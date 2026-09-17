@@ -23,6 +23,7 @@ type Repository interface {
 
 	GetByIDForUpdateTx(ctx context.Context, id uint) (*model.SalesOrder, error)
 	UpdateTx(ctx context.Context, order *model.SalesOrder) error
+	GetItemByIDForUpdateTx(ctx context.Context, id uint) (*model.SalesOrderItem, error)
 }
 
 type Service interface {

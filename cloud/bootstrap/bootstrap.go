@@ -17,6 +17,7 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/config"
 
+	allocationHandler "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/allocation"
 	bomh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/customer"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
@@ -36,7 +37,6 @@ import (
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
-
 	customerSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/customer"
 	dSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
@@ -45,6 +45,7 @@ import (
 	rSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	secSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
+	allocationSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/allocation"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/application"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	execSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
@@ -274,7 +275,8 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// -------------------------------------------------------------------------
 	// Manufacturing
 	// -------------------------------------------------------------------------
-
+	productionPlanAllocationRepo :=
+		postgres.NewProductionPlanAllocationRepository(dbProv)
 	productionPlanRepo := postgres.NewProductionPlanRepository(dbProv)
 	workOrderRepo := postgres.NewWorkOrderRepository(dbProv)
 	bomRepo := postgres.NewBOMRepository(dbProv)
@@ -451,6 +453,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		customerRepo,
 	)
 
+	allocationService := allocationSrv.NewService(
+		uow,
+		productionPlanAllocationRepo,
+		productionPlanRepo,
+		salesOrderRepo,
+	)
 	// =========================================================================
 	// 16. Manufacturing - ExecutionResult
 	// =========================================================================
@@ -590,6 +598,11 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	salesorderHandler.NewHandler(
 		salesOrderService,
+		authService,
+	).RouterRegister(router)
+
+	allocationHandler.NewHandler(
+		allocationService,
 		authService,
 	).RouterRegister(router)
 

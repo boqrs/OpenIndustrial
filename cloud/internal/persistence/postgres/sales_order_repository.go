@@ -226,3 +226,22 @@ func (r *salesOrderRepository) UpdateTx(
 		}).
 		Error
 }
+
+func (r *salesOrderRepository) GetItemByIDForUpdateTx(
+	ctx context.Context,
+	id uint,
+) (*model.SalesOrderItem, error) {
+	var item model.SalesOrderItem
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&item, id).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &item, nil
+}
