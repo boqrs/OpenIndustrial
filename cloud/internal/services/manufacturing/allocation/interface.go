@@ -63,4 +63,10 @@ type Service interface {
 		tenantID uuid.UUID,
 		productionPlanID uint,
 	) ([]*Response, error)
+
+	GetAllocatedQuantityByProductionPlanID(
+		ctx context.Context,
+		tenantID uuid.UUID,
+		productionPlanID uint,
+	) (int64, error)
 }

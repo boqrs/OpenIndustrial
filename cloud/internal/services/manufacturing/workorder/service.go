@@ -5,25 +5,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/allocation"
 	bomSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	routingSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
-	"github.com/google/uuid"
 )
 
 var (
-	ErrInvalidWorkOrder       = errors.New("invalid work order data")
-	ErrWorkOrderNotFound      = errors.New("work order not found")
-	ErrInvalidWorkOrderState  = errors.New("invalid work order state for this operation")
-	ErrPlanProductMismatch    = errors.New("work order product does not match production plan product")
-	ErrQuantityExceedsPlan    = errors.New("work order quantity exceeds remaining quantity of the production plan")
-	ErrBOMProductMismatch     = errors.New("bom does not belong to the specified product")
-	ErrBOMNotReleased         = errors.New("bom is not in released status")
-	ErrRoutingProductMismatch = errors.New("routing does not belong to the specified product")
-	ErrRoutingNotActive       = errors.New("routing is not active")
+	ErrInvalidWorkOrder          = errors.New("invalid work order data")
+	ErrWorkOrderNotFound         = errors.New("work order not found")
+	ErrInvalidWorkOrderState     = errors.New("invalid work order state for this operation")
+	ErrPlanProductMismatch       = errors.New("work order product does not match production plan product")
+	ErrQuantityExceedsPlan       = errors.New("work order quantity exceeds remaining quantity of the production plan")
+	ErrBOMProductMismatch        = errors.New("bom does not belong to the specified product")
+	ErrBOMNotReleased            = errors.New("bom is not in released status")
+	ErrRoutingProductMismatch    = errors.New("routing does not belong to the specified product")
+	ErrRoutingNotActive          = errors.New("routing is not active")
+	ErrQuantityExceedsAllocation = errors.New("work order quantity exceeds remaining allocated quantity")
 )
 
 type serviceImpl struct {
@@ -31,94 +34,206 @@ type serviceImpl struct {
 	psrv       planning.Service
 	bsrv       bomSrv.Service
 	rsrv       routingSrv.Service
+	alSrv      allocation.Service
+	uow        postgres.UnitOfWork
 }
 
-func NewService(repository Repository, productionPlanService planning.Service, bomService bomSrv.Service, routingService routingSrv.Service) Service {
+func NewService(
+	repository Repository,
+	productionPlanService planning.Service,
+	bomService bomSrv.Service,
+	routingService routingSrv.Service,
+	alSrv allocation.Service,
+	uow postgres.UnitOfWork) Service {
 	return &serviceImpl{
 		repository: repository,
 		psrv:       productionPlanService,
 		bsrv:       bomService,
 		rsrv:       routingService,
+		alSrv:      alSrv,
+		uow:        uow,
 	}
 }
 
-func (s *serviceImpl) Create(ctx context.Context, tenantID uuid.UUID, req *CreateRequest) (*Response, error) {
+func (s *serviceImpl) Create(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	req *CreateRequest,
+) (*Response, error) {
 	if req == nil {
 		return nil, ErrInvalidWorkOrder
 	}
-	if req.ProductionPlanID == 0 || req.ProductionLineID == 0 || req.ProductID == 0 || req.BOMID == 0 || req.RoutingID == 0 || req.Code == "" || req.PlannedQuantity <= 0 {
+
+	if tenantID == uuid.Nil ||
+		req.ProductionPlanID == 0 ||
+		req.ProductionLineID == 0 ||
+		req.ProductID == 0 ||
+		req.BOMID == 0 ||
+		req.RoutingID == 0 ||
+		req.Code == "" ||
+		req.PlannedQuantity <= 0 {
 		return nil, ErrInvalidWorkOrder
 	}
 
-	// 1. Validate Production Plan
-	plan, err := s.psrv.GetProductionPlanByID(ctx, req.ProductionPlanID) // Assuming GetByID exists
+	/*
+		Important:
+
+		WorkOrder creation must be serialized by ProductionPlan.
+
+		Otherwise two concurrent requests can both observe the same
+		remaining allocation and over-create WorkOrders.
+	*/
+
+	var result *model.WorkOrder
+
+	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
+		plan, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			req.ProductionPlanID,
+		)
+		if err != nil {
+			return err
+		}
+
+		if plan.ProductID != req.ProductID {
+			return ErrPlanProductMismatch
+		}
+
+		if plan.PlannedQuantity <= 0 {
+			return ErrQuantityExceedsPlan
+		}
+
+		if plan.Status != model.WorkOrderStatusReleased &&
+			plan.Status != model.WorkOrderStatusInProgress {
+			return ErrInvalidWorkOrderState
+		}
+
+		// -------------------------------------------------------------
+		// Validate Sales Order allocation.
+		// -------------------------------------------------------------
+
+		allocatedQuantity, err := s.alSrv.GetAllocatedQuantityByProductionPlanID(
+			txCtx,
+			tenantID,
+			req.ProductionPlanID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to get production plan allocation: %w",
+				err,
+			)
+		}
+
+		if allocatedQuantity <= 0 {
+			return ErrQuantityExceedsAllocation
+		}
+
+		// -------------------------------------------------------------
+		// Validate existing WorkOrder quantity.
+		// -------------------------------------------------------------
+
+		existingWorkOrderQuantity, err :=
+			s.repository.SumQuantityByPlanID(
+				txCtx,
+				tenantID,
+				req.ProductionPlanID,
+			)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to calculate work order quantity: %w",
+				err,
+			)
+		}
+
+		if existingWorkOrderQuantity+req.PlannedQuantity >
+			allocatedQuantity {
+			return ErrQuantityExceedsAllocation
+		}
+
+		// -------------------------------------------------------------
+		// Validate BOM.
+		// -------------------------------------------------------------
+
+		bom, err := s.bsrv.GetByID(
+			txCtx,
+			tenantID,
+			req.BOMID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to get bom: %w",
+				err,
+			)
+		}
+
+		if bom.ProductID != req.ProductID {
+			return ErrBOMProductMismatch
+		}
+
+		if bom.Status != "released" {
+			return ErrBOMNotReleased
+		}
+
+		// -------------------------------------------------------------
+		// Validate Routing.
+		// -------------------------------------------------------------
+
+		routing, err := s.rsrv.GetRouting(
+			txCtx,
+			req.RoutingID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to get routing: %w",
+				err,
+			)
+		}
+
+		if routing.ProductID != req.ProductID {
+			return ErrRoutingProductMismatch
+		}
+
+		if routing.Status != "active" {
+			return ErrRoutingNotActive
+		}
+
+		// -------------------------------------------------------------
+		// Create WorkOrder.
+		// -------------------------------------------------------------
+
+		entity := &model.WorkOrder{
+			TenantID:         tenantID,
+			ProductionPlanID: req.ProductionPlanID,
+			FactoryID:        plan.FactoryID,
+			ProductionLineID: req.ProductionLineID,
+			ProductID:        req.ProductID,
+			BOMID:            req.BOMID,
+			RoutingID:        req.RoutingID,
+			Code:             req.Code,
+			PlannedQuantity:  req.PlannedQuantity,
+			Priority:         req.Priority,
+			DueDate:          req.DueDate,
+			Status:           model.WorkOrderStatusDraft,
+		}
+
+		if err := s.repository.CreateTx(txCtx, entity); err != nil {
+			return fmt.Errorf(
+				"failed to create work order: %w",
+				err,
+			)
+		}
+
+		result = entity
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get production plan: %w", err)
-	}
-	if plan.ProductID != req.ProductID {
-		return nil, ErrPlanProductMismatch
-	}
-	if plan.PlannedQuantity <= 0 {
-		return nil, ErrQuantityExceedsPlan
-	}
-	if plan.Status != model.ProductionPlanStatusReleased && plan.Status != model.ProductionPlanStatusInProgress {
-		return nil, ErrInvalidWorkOrderState
+		return nil, err
 	}
 
-	// 2. Validate quantity allocation
-	allocated, err := s.repository.SumQuantityByPlanID(ctx, tenantID, req.ProductionPlanID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate allocated work order quantity: %w", err)
-	}
-	if allocated+req.PlannedQuantity > plan.PlannedQuantity {
-		return nil, ErrQuantityExceedsPlan
-	}
-
-	// 3. Validate BOM
-	bom, err := s.bsrv.GetByID(ctx, tenantID, req.BOMID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get bom: %w", err)
-	}
-	if bom.ProductID != req.ProductID {
-		return nil, ErrBOMProductMismatch
-	}
-	if bom.Status != "released" { // Assuming status is a string
-		return nil, ErrBOMNotReleased
-	}
-
-	// 4. Validate Routing
-	routing, err := s.rsrv.GetRouting(ctx, req.RoutingID) // Assuming GetByID exists
-	if err != nil {
-		return nil, fmt.Errorf("failed to get routing: %w", err)
-	}
-	if routing.ProductID != req.ProductID {
-		return nil, ErrRoutingProductMismatch
-	}
-	if routing.Status != "active" { // Assuming status is a string
-		return nil, ErrRoutingNotActive
-	}
-
-	// 5. Create WorkOrder
-	entity := &model.WorkOrder{
-		TenantID:         tenantID,
-		ProductionPlanID: req.ProductionPlanID,
-		FactoryID:        plan.FactoryID,
-		ProductionLineID: req.ProductionLineID,
-		ProductID:        req.ProductID,
-		BOMID:            req.BOMID,
-		RoutingID:        req.RoutingID,
-		Code:             req.Code,
-		PlannedQuantity:  req.PlannedQuantity,
-		Priority:         req.Priority,
-		DueDate:          req.DueDate,
-		Status:           model.WorkOrderStatusDraft,
-	}
-
-	if err := s.repository.Create(ctx, entity); err != nil {
-		return nil, fmt.Errorf("failed to create work order: %w", err)
-	}
-
-	return ToResponse(entity), nil
+	return ToResponse(result), nil
 }
 func (s *serviceImpl) Release(ctx context.Context, tenantID uuid.UUID, id uint) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)

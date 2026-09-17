@@ -398,6 +398,13 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		routingRepo,
 	)
 
+	allocationService := allocationSrv.NewService(
+		uow,
+		productionPlanAllocationRepo,
+		productionPlanRepo,
+		salesOrderRepo,
+	)
+
 	// =========================================================================
 	// 13. Manufacturing - WorkOrder
 	// =========================================================================
@@ -407,6 +414,8 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		planningService,
 		bomService,
 		routingService,
+		allocationService,
+		uow,
 	)
 
 	// =========================================================================
@@ -453,12 +462,6 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		customerRepo,
 	)
 
-	allocationService := allocationSrv.NewService(
-		uow,
-		productionPlanAllocationRepo,
-		productionPlanRepo,
-		salesOrderRepo,
-	)
 	// =========================================================================
 	// 16. Manufacturing - ExecutionResult
 	// =========================================================================

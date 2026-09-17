@@ -282,3 +282,30 @@ func tenantIDFromContext(ctx context.Context) uuid.UUID {
 
 	return uuid.Nil
 }
+
+func (s *service) GetAllocatedQuantityByProductionPlanID(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	productionPlanID uint,
+) (int64, error) {
+	if tenantID == uuid.Nil || productionPlanID == 0 {
+		return 0, ErrInvalidAllocation
+	}
+
+	if _, err := s.planning.GetByID(
+		ctx,
+		tenantID,
+		productionPlanID,
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, ErrProductionPlanNotFound
+		}
+
+		return 0, err
+	}
+
+	return s.repository.SumByProductionPlanID(
+		ctx,
+		productionPlanID,
+	)
+}
