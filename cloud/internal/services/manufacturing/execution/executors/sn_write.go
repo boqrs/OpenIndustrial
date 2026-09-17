@@ -78,7 +78,14 @@ func (e *SNWriteExecutor) Execute(
 
 	return &OperationOutput{
 		Result: map[string]any{
-			"serial_number": serialNumber,
+			"items": []map[string]any{
+				{
+					"item_key": input.Parameters["item_key"],
+					"data": map[string]any{
+						"serial_number": serialNumber,
+					},
+				},
+			},
 		},
 	}, nil
 }
