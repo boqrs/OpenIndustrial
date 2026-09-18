@@ -357,6 +357,10 @@ func (r *wmsRepository) GetTrackingEventByExternalID(
 		Error
 
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, wms.ErrTrackingEventNotFound
+		}
+
 		return nil, err
 	}
 

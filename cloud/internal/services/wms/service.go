@@ -80,6 +80,8 @@ var (
 	ErrEmptyShipment = errors.New(
 		"shipment must contain at least one device",
 	)
+
+	ErrInvalidTrackingEvent = errors.New("invalid tracking event")
 )
 
 type tenantContextKey struct{}
@@ -804,13 +806,12 @@ func (s *service) AddTrackingEvent(
 	shipmentID uint,
 	req *TrackingEventRequest,
 ) error {
-
 	if shipmentID == 0 {
 		return ErrShipmentNotFound
 	}
 
 	if req == nil {
-		return ErrInvalidShipmentStatus
+		return ErrInvalidTrackingEvent
 	}
 
 	tenantID, err := TenantIDFromContext(ctx)
@@ -818,114 +819,87 @@ func (s *service) AddTrackingEvent(
 		return err
 	}
 
-	status, valid := req.Status.ToModel()
-	if !valid {
+	status, ok := req.Status.ToModel()
+	if !ok {
 		return ErrInvalidShipmentStatus
 	}
 
-	occurredAt := time.Now().UTC()
+	if strings.TrimSpace(req.ExternalEventID) == "" {
+		return ErrInvalidTrackingEvent
+	}
 
+	occurredAt := time.Now().UTC()
 	if req.OccurredAt != nil {
 		occurredAt = req.OccurredAt.UTC()
 	}
 
-	return s.uow.Execute(
-		ctx,
-		func(txCtx context.Context) error {
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		shipment, err := s.repository.GetShipmentByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			shipmentID,
+		)
+		if err != nil {
+			return err
+		}
 
-			shipment, err :=
-				s.repository.GetShipmentByIDForUpdateTx(
-					txCtx,
-					tenantID,
-					shipmentID,
-				)
+		// ExternalEventID is the idempotency key for carrier callbacks.
+		existing, err := s.repository.GetTrackingEventByExternalID(
+			txCtx,
+			tenantID,
+			shipmentID,
+			strings.TrimSpace(req.ExternalEventID),
+		)
+		if err == nil {
+			// The same carrier event has already been processed.
+			// Treat it as success so repeated callbacks are harmless.
+			_ = existing
+			return nil
+		}
 
-			if err != nil {
-				return err
-			}
+		if !errors.Is(err, ErrTrackingEventNotFound) {
+			return err
+		}
 
-			externalEventID :=
-				strings.TrimSpace(
-					req.ExternalEventID,
-				)
+		nextStatus := model.ShipmentStatus(status)
 
-			if externalEventID != "" {
+		if !isValidShipmentStatusTransition(
+			shipment.Status,
+			nextStatus,
+		) {
+			return ErrInvalidShipmentStatus
+		}
 
-				existing, err :=
-					s.repository.GetTrackingEventByExternalID(
-						txCtx,
-						tenantID,
-						shipmentID,
-						externalEventID,
-					)
+		event := &model.ShipmentTrackingEvent{
+			ShipmentID:      shipmentID,
+			ExternalEventID: strings.TrimSpace(req.ExternalEventID),
+			Status:          nextStatus,
+			OccurredAt:      occurredAt,
+			Location:        strings.TrimSpace(req.Location),
+			Description:     strings.TrimSpace(req.Description),
+			CreatedAt:       time.Now().UTC(),
+		}
 
-				if err == nil && existing != nil {
-					return nil
-				}
+		if err := s.repository.CreateTrackingEventTx(
+			txCtx,
+			event,
+		); err != nil {
+			return err
+		}
 
-				if !errors.Is(err, ErrTrackingEventNotFound) {
-					return err
-				}
-			}
+		shipment.Status = nextStatus
+		shipment.UpdatedAt = time.Now().UTC()
 
-			if shipment.Status == model.ShipmentStatusDelivered {
-				return ErrShipmentDelivered
-			}
+		if nextStatus == model.ShipmentStatusDelivered {
+			deliveredAt := occurredAt
+			shipment.DeliveredAt = &deliveredAt
+		}
 
-			if shipment.Status == model.ShipmentStatusCancelled {
-				return ErrShipmentCancelled
-			}
-
-			event := &model.ShipmentTrackingEvent{
-				ShipmentID:      shipmentID,
-				ExternalEventID: externalEventID,
-				Status:          model.ShipmentStatus(status),
-				OccurredAt:      occurredAt,
-				Location: strings.TrimSpace(
-					req.Location,
-				),
-				Description: strings.TrimSpace(
-					req.Description,
-				),
-			}
-
-			if err := s.repository.CreateTrackingEventTx(
-				txCtx,
-				event,
-			); err != nil {
-				return err
-			}
-
-			shipment.Status =
-				model.ShipmentStatus(status)
-
-			switch model.ShipmentStatus(status) {
-
-			case model.ShipmentStatusInTransit:
-
-				if shipment.ShippedAt == nil {
-					shippedAt := occurredAt
-					shipment.ShippedAt = &shippedAt
-				}
-
-			case model.ShipmentStatusDelivered:
-
-				deliveredAt := occurredAt
-				shipment.DeliveredAt = &deliveredAt
-
-			case model.ShipmentStatusCancelled:
-				// terminal state
-
-			default:
-				// No timestamp changes.
-			}
-
-			return s.repository.UpdateShipmentTx(
-				txCtx,
-				shipment,
-			)
-		},
-	)
+		return s.repository.UpdateShipmentTx(
+			txCtx,
+			shipment,
+		)
+	})
 }
 
 func (s *service) ListTrackingEvents(
@@ -1170,4 +1144,37 @@ func (s *service) CancelShipment(
 			)
 		},
 	)
+}
+
+func isValidShipmentStatusTransition(
+	current model.ShipmentStatus,
+	next model.ShipmentStatus,
+) bool {
+	switch current {
+	case model.ShipmentStatusCreated:
+		return next == model.ShipmentStatusInTransit ||
+			next == model.ShipmentStatusCancelled
+
+	case model.ShipmentStatusInTransit:
+		return next == model.ShipmentStatusOutForDelivery ||
+			next == model.ShipmentStatusException
+
+	case model.ShipmentStatusOutForDelivery:
+		return next == model.ShipmentStatusDelivered ||
+			next == model.ShipmentStatusException
+
+	case model.ShipmentStatusException:
+		// An exception does not terminate the shipment.
+		// The carrier may resume normal delivery afterwards.
+		return next == model.ShipmentStatusInTransit ||
+			next == model.ShipmentStatusOutForDelivery ||
+			next == model.ShipmentStatusDelivered
+
+	case model.ShipmentStatusDelivered,
+		model.ShipmentStatusCancelled:
+		return false
+
+	default:
+		return false
+	}
 }
