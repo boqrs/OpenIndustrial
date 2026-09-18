@@ -3,13 +3,13 @@ package wms
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 )
 
 var (
@@ -49,6 +49,10 @@ var (
 		"device is not in stock",
 	)
 
+	ErrDeviceReserved = errors.New(
+		"device inventory is reserved",
+	)
+
 	ErrLocationNotBelongToWarehouse = errors.New(
 		"location does not belong to warehouse",
 	)
@@ -82,12 +86,6 @@ type tenantContextKey struct{}
 
 var tenantIDContextKey tenantContextKey
 
-// WithTenantID returns a context carrying the authenticated tenant ID.
-//
-// The HTTP handler is responsible for obtaining the tenant ID from the
-// authentication middleware and passing it into the service context.
-//
-// The service layer deliberately does not depend on Gin.
 func WithTenantID(
 	ctx context.Context,
 	tenantID uuid.UUID,
@@ -99,7 +97,6 @@ func WithTenantID(
 	)
 }
 
-// TenantIDFromContext returns the authenticated tenant ID.
 func TenantIDFromContext(
 	ctx context.Context,
 ) (uuid.UUID, error) {
@@ -121,18 +118,15 @@ func TenantIDFromContext(
 type service struct {
 	uow        UnitOfWork
 	repository Repository
-	devices    device.Repository
 }
 
 func NewService(
 	uow UnitOfWork,
 	repository Repository,
-	devices device.Repository,
 ) Service {
 	return &service{
 		uow:        uow,
 		repository: repository,
-		devices:    devices,
 	}
 }
 
@@ -229,9 +223,6 @@ func (s *service) CreateLocation(
 		return nil, ErrLocationNotFound
 	}
 
-	// Warehouse is a tenant root entity.
-	//
-	// Verifying it with the current tenant is mandatory.
 	if _, err := s.repository.GetWarehouseByID(
 		ctx,
 		tenantID,
@@ -308,16 +299,6 @@ func (s *service) StockIn(
 		return nil, ErrLocationNotFound
 	}
 
-	// -------------------------------------------------------------------------
-	// Device ownership
-	// -------------------------------------------------------------------------
-	//
-	// WMS never creates Device.
-	//
-	// Device must already have been created by the manufacturing process.
-	// Tenant ownership is verified before allowing the device to enter WMS.
-	// -------------------------------------------------------------------------
-
 	deviceBelongsToTenant, err :=
 		s.repository.DeviceBelongsToTenant(
 			ctx,
@@ -332,10 +313,6 @@ func (s *service) StockIn(
 		return nil, ErrDeviceNotFound
 	}
 
-	// -------------------------------------------------------------------------
-	// Warehouse ownership
-	// -------------------------------------------------------------------------
-
 	if _, err := s.repository.GetWarehouseByID(
 		ctx,
 		tenantID,
@@ -343,10 +320,6 @@ func (s *service) StockIn(
 	); err != nil {
 		return nil, err
 	}
-
-	// -------------------------------------------------------------------------
-	// Location ownership
-	// -------------------------------------------------------------------------
 
 	location, err := s.repository.GetLocationByID(
 		ctx,
@@ -406,34 +379,38 @@ func (s *service) StockIn(
 				return nil
 			}
 
-			// A device currently in stock cannot be stocked in again.
-			if inventory.Status == model.InventoryStatusInStock {
+			switch inventory.Status {
+
+			case model.InventoryStatusInStock:
 				return ErrDeviceAlreadyInStock
+
+			case model.InventoryStatusReserved:
+				// A reserved device already belongs to an outbound
+				// shipment. It must not be stocked in again.
+				return ErrDeviceReserved
+
+			case model.InventoryStatusShipped:
+				// Returned device.
+				inventory.WarehouseID = req.WarehouseID
+				inventory.LocationID = req.LocationID
+				inventory.Status = model.InventoryStatusInStock
+				inventory.InboundAt = inboundAt
+				inventory.OutboundAt = nil
+
+				if err := s.repository.UpdateInventoryTx(
+					txCtx,
+					inventory,
+				); err != nil {
+					return err
+				}
+
+				result = inventory
+
+				return nil
+
+			default:
+				return ErrDeviceNotInStock
 			}
-
-			// Current WMS lifecycle:
-			//
-			// not exists -> in_stock
-			// in_stock   -> shipped
-			// shipped    -> in_stock
-			//
-			// This also naturally supports future returned devices.
-			inventory.WarehouseID = req.WarehouseID
-			inventory.LocationID = req.LocationID
-			inventory.Status = model.InventoryStatusInStock
-			inventory.InboundAt = inboundAt
-			inventory.OutboundAt = nil
-
-			if err := s.repository.UpdateInventoryTx(
-				txCtx,
-				inventory,
-			); err != nil {
-				return err
-			}
-
-			result = inventory
-
-			return nil
 		},
 	)
 
@@ -498,6 +475,21 @@ func (s *service) CreateShipment(
 		)
 	}
 
+	// Always acquire inventory locks in deterministic order.
+	//
+	// Without this, two concurrent shipments could lock:
+	//
+	// Shipment A: Device 1 -> Device 2
+	// Shipment B: Device 2 -> Device 1
+	//
+	// which creates a classic database lock inversion.
+	sort.Slice(
+		deviceIDs,
+		func(i, j int) bool {
+			return deviceIDs[i] < deviceIDs[j]
+		},
+	)
+
 	shipment := &model.Shipment{
 		TenantID: tenantID,
 
@@ -520,14 +512,14 @@ func (s *service) CreateShipment(
 		ctx,
 		func(txCtx context.Context) error {
 
+			lockedInventories := make(
+				[]*model.DeviceInventory,
+				0,
+				len(deviceIDs),
+			)
+
 			// -----------------------------------------------------------------
-			// Lock and validate every inventory row inside the transaction.
-			//
-			// This is important.
-			//
-			// The previous implementation performed the stock check before
-			// entering the transaction, which allowed two concurrent shipment
-			// requests to both observe "in_stock".
+			// Lock every inventory row before changing anything.
 			// -----------------------------------------------------------------
 
 			for _, deviceID := range deviceIDs {
@@ -550,10 +542,15 @@ func (s *service) CreateShipment(
 				if inventory.Status != model.InventoryStatusInStock {
 					return ErrDeviceNotInStock
 				}
+
+				lockedInventories = append(
+					lockedInventories,
+					inventory,
+				)
 			}
 
 			// -----------------------------------------------------------------
-			// Create shipment only after every device has been validated.
+			// Create Shipment.
 			// -----------------------------------------------------------------
 
 			if err := s.repository.CreateShipmentTx(
@@ -574,10 +571,34 @@ func (s *service) CreateShipment(
 				)
 			}
 
-			return s.repository.CreateShipmentItemsTx(
+			if err := s.repository.CreateShipmentItemsTx(
 				txCtx,
 				items,
-			)
+			); err != nil {
+				return err
+			}
+
+			// -----------------------------------------------------------------
+			// Reserve inventory.
+			//
+			// Shipment creation means the devices have been allocated to this
+			// shipment. They are not physically out of the warehouse yet.
+			// -----------------------------------------------------------------
+
+			for _, inventory := range lockedInventories {
+
+				inventory.Status =
+					model.InventoryStatusReserved
+
+				if err := s.repository.UpdateInventoryTx(
+					txCtx,
+					inventory,
+				); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	)
 
@@ -603,13 +624,11 @@ func (s *service) CreateShipment(
 
 // StockOut changes:
 //
-// Shipment:
+//	Shipment:
+//	    CREATED -> IN_TRANSIT
 //
-//	CREATED -> IN_TRANSIT
-//
-// DeviceInventory:
-//
-//	IN_STOCK -> SHIPPED
+//	DeviceInventory:
+//	    RESERVED -> SHIPPED
 //
 // The entire operation is transactional.
 func (s *service) StockOut(
@@ -630,7 +649,6 @@ func (s *service) StockOut(
 		ctx,
 		func(txCtx context.Context) error {
 
-			// Lock the shipment first.
 			shipment, err :=
 				s.repository.GetShipmentByIDForUpdateTx(
 					txCtx,
@@ -670,14 +688,15 @@ func (s *service) StockOut(
 				return ErrEmptyShipment
 			}
 
-			now := time.Now().UTC()
+			// Device IDs are sorted before locking.
+			sort.Slice(
+				items,
+				func(i, j int) bool {
+					return items[i].DeviceID < items[j].DeviceID
+				},
+			)
 
-			// -----------------------------------------------------------------
-			// Lock all inventory rows before changing any state.
-			//
-			// If one device is no longer in stock, the whole transaction rolls
-			// back and no inventory is partially shipped.
-			// -----------------------------------------------------------------
+			now := time.Now().UTC()
 
 			for _, item := range items {
 
@@ -689,10 +708,14 @@ func (s *service) StockOut(
 					)
 
 				if err != nil {
+					if errors.Is(err, ErrInventoryNotFound) {
+						return ErrDeviceNotInStock
+					}
+
 					return err
 				}
 
-				if inventory.Status != model.InventoryStatusInStock {
+				if inventory.Status != model.InventoryStatusReserved {
 					return ErrDeviceNotInStock
 				}
 
@@ -810,8 +833,6 @@ func (s *service) AddTrackingEvent(
 		ctx,
 		func(txCtx context.Context) error {
 
-			// Lock shipment so status transition and tracking event creation
-			// happen atomically.
 			shipment, err :=
 				s.repository.GetShipmentByIDForUpdateTx(
 					txCtx,
@@ -827,16 +848,6 @@ func (s *service) AddTrackingEvent(
 				strings.TrimSpace(
 					req.ExternalEventID,
 				)
-
-			// -----------------------------------------------------------------
-			// Idempotency
-			// -----------------------------------------------------------------
-			//
-			// Third-party logistics providers commonly retry webhook events.
-			//
-			// external_event_id is therefore treated as an idempotency key
-			// inside one shipment.
-			// -----------------------------------------------------------------
 
 			if externalEventID != "" {
 
@@ -856,10 +867,6 @@ func (s *service) AddTrackingEvent(
 					return err
 				}
 			}
-
-			// -----------------------------------------------------------------
-			// Terminal states
-			// -----------------------------------------------------------------
 
 			if shipment.Status == model.ShipmentStatusDelivered {
 				return ErrShipmentDelivered
@@ -889,7 +896,6 @@ func (s *service) AddTrackingEvent(
 				return err
 			}
 
-			// Tracking events are the source of the current shipment status.
 			shipment.Status =
 				model.ShipmentStatus(status)
 
@@ -936,7 +942,6 @@ func (s *service) ListTrackingEvents(
 		return nil, err
 	}
 
-	// Verify that the shipment belongs to the current tenant.
 	if _, err := s.repository.GetShipmentByID(
 		ctx,
 		tenantID,
@@ -1060,4 +1065,109 @@ func trackingEventToResponse(
 		Description:     event.Description,
 		CreatedAt:       event.CreatedAt,
 	}
+}
+
+func (s *service) CancelShipment(
+	ctx context.Context,
+	shipmentID uint,
+) error {
+
+	if shipmentID == 0 {
+		return ErrShipmentNotFound
+	}
+
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+
+			shipment, err :=
+				s.repository.GetShipmentByIDForUpdateTx(
+					txCtx,
+					tenantID,
+					shipmentID,
+				)
+			if err != nil {
+				return err
+			}
+
+			switch shipment.Status {
+
+			case model.ShipmentStatusCreated:
+				// Only a shipment that has not left the warehouse
+				// can be cancelled.
+
+			case model.ShipmentStatusCancelled:
+				// Idempotent.
+				return nil
+
+			case model.ShipmentStatusInTransit,
+				model.ShipmentStatusOutForDelivery,
+				model.ShipmentStatusDelivered:
+				return ErrShipmentAlreadyShipped
+
+			case model.ShipmentStatusException:
+				return ErrShipmentAlreadyShipped
+
+			default:
+				return ErrInvalidShipmentStatus
+			}
+
+			items, err := s.repository.ListShipmentItems(
+				txCtx,
+				tenantID,
+				shipmentID,
+			)
+			if err != nil {
+				return err
+			}
+
+			now := time.Now().UTC()
+
+			for _, item := range items {
+
+				inventory, err :=
+					s.repository.GetInventoryByDeviceIDForUpdateTx(
+						txCtx,
+						tenantID,
+						item.DeviceID,
+					)
+				if err != nil {
+					return err
+				}
+
+				// Every item of a created shipment should still be
+				// reserved. If not, the shipment state and inventory
+				// state have diverged.
+				if inventory.Status != model.InventoryStatusReserved {
+					return ErrDeviceNotInStock
+				}
+
+				inventory.Status =
+					model.InventoryStatusInStock
+
+				inventory.OutboundAt = nil
+				inventory.UpdatedAt = now
+
+				if err := s.repository.UpdateInventoryTx(
+					txCtx,
+					inventory,
+				); err != nil {
+					return err
+				}
+			}
+
+			shipment.Status =
+				model.ShipmentStatusCancelled
+
+			return s.repository.UpdateShipmentTx(
+				txCtx,
+				shipment,
+			)
+		},
+	)
 }

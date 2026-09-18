@@ -9,8 +9,9 @@ import (
 type InventoryStatus string
 
 const (
-	InventoryStatusInStock InventoryStatus = "in_stock"
-	InventoryStatusShipped InventoryStatus = "shipped"
+	InventoryStatusInStock  InventoryStatus = "in_stock"
+	InventoryStatusReserved InventoryStatus = "reserved"
+	InventoryStatusShipped  InventoryStatus = "shipped"
 )
 
 func (s InventoryStatus) String() string {
@@ -20,6 +21,7 @@ func (s InventoryStatus) String() string {
 func (s InventoryStatus) IsValid() bool {
 	switch s {
 	case InventoryStatusInStock,
+		InventoryStatusReserved,
 		InventoryStatusShipped:
 		return true
 	default:
@@ -93,13 +95,20 @@ type WarehouseLocation struct {
 //
 // Tenant ownership is inherited through:
 //
-// Device
-//
-//	-> Resource
-//	-> TenantID
+//	Device
+//	 -> Resource
+//	 -> TenantID
 //
 // A Device has one current inventory record.
 // Re-stock after a return updates the same record.
+//
+// Inventory lifecycle:
+//
+//	in_stock -> reserved -> shipped
+//
+// A returned shipped device may re-enter:
+//
+//	shipped -> in_stock
 type DeviceInventory struct {
 	ID uint `gorm:"primaryKey"`
 
@@ -127,8 +136,7 @@ type Shipment struct {
 
 	ExternalOrderID string `gorm:"type:varchar(255);index"`
 
-	Carrier string `gorm:"type:varchar(100);not null"`
-
+	Carrier        string `gorm:"type:varchar(100);not null"`
 	TrackingNumber string `gorm:"type:varchar(255);index"`
 
 	Status ShipmentStatus `gorm:"type:varchar(50);not null;index"`
@@ -146,11 +154,10 @@ type Shipment struct {
 //
 // This allows a future:
 //
-// shipped
-//
-//	-> returned
-//	-> restocked
-//	-> reshipped
+//	shipped
+//	 -> returned
+//	 -> restocked
+//	 -> reshipped
 //
 // lifecycle.
 type ShipmentItem struct {

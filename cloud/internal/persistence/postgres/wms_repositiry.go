@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
@@ -139,43 +140,10 @@ func (r *wmsRepository) GetInventoryByDeviceID(
 		Error
 
 	if err != nil {
-		return nil, err
-	}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, wms.ErrInventoryNotFound
+		}
 
-	return &inventory, nil
-}
-
-// GetInventoryByDeviceIDForUpdateTx locks the inventory row.
-//
-// This must only be called inside a UnitOfWork transaction.
-func (r *wmsRepository) GetInventoryByDeviceIDForUpdateTx(
-	ctx context.Context,
-	tenantID uuid.UUID,
-	deviceID uint,
-) (*model.DeviceInventory, error) {
-	var inventory model.DeviceInventory
-
-	err := dbFromContext(ctx, r.db.Get()).
-		WithContext(ctx).
-		Table("device_inventories").
-		Joins(
-			"JOIN devices ON devices.id = device_inventories.device_id",
-		).
-		Joins(
-			"JOIN resources ON resources.id = devices.resource_id",
-		).
-		Where(
-			"device_inventories.device_id = ? AND resources.tenant_id = ?",
-			deviceID,
-			tenantID,
-		).
-		Clauses(clause.Locking{
-			Strength: "UPDATE",
-		}).
-		First(&inventory).
-		Error
-
-	if err != nil {
 		return nil, err
 	}
 
@@ -436,6 +404,44 @@ func (r *wmsRepository) ListTrackingEvents(
 	}
 
 	return events, nil
+}
+
+func (r *wmsRepository) GetInventoryByDeviceIDForUpdateTx(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	deviceID uint,
+) (*model.DeviceInventory, error) {
+	var inventory model.DeviceInventory
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Table("device_inventories").
+		Joins(
+			"JOIN devices ON devices.id = device_inventories.device_id",
+		).
+		Joins(
+			"JOIN resources ON resources.id = devices.resource_id",
+		).
+		Where(
+			"device_inventories.device_id = ? AND resources.tenant_id = ?",
+			deviceID,
+			tenantID,
+		).
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
+		First(&inventory).
+		Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, wms.ErrInventoryNotFound
+		}
+
+		return nil, err
+	}
+
+	return &inventory, nil
 }
 
 // ============================================================

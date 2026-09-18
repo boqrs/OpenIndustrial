@@ -8,7 +8,10 @@ import (
 )
 
 type UnitOfWork interface {
-	Execute(ctx context.Context, fn func(ctx context.Context) error) error
+	Execute(
+		ctx context.Context,
+		fn func(ctx context.Context) error,
+	) error
 }
 
 type Repository interface {
@@ -171,4 +174,9 @@ type Service interface {
 		ctx context.Context,
 		shipmentID uint,
 	) ([]*TrackingEventResponse, error)
+
+	CancelShipment(
+		ctx context.Context,
+		shipmentID uint,
+	) error
 }
