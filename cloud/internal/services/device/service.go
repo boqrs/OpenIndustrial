@@ -227,39 +227,39 @@ func (s *serviceImpl) UpdateDevice(
 	return s.GetDevice(ctx, deviceID)
 }
 
-func (s *serviceImpl) DeleteDevice(
-	ctx context.Context,
-	deviceID uint,
-) error {
+// func (s *serviceImpl) DeleteDevice(
+// 	ctx context.Context,
+// 	deviceID uint,
+// ) error {
 
-	d, err := s.repo.GetByID(ctx, deviceID)
-	if err != nil {
-		return err
-	}
+// 	d, err := s.repo.GetByID(ctx, deviceID)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if d == nil {
-		return ErrDeviceNotFound
-	}
+// 	if d == nil {
+// 		return ErrDeviceNotFound
+// 	}
 
-	if d.Status == model.DeviceStatusOnline {
-		return ErrCannotDeleteOnlineDevice
-	}
+// 	if d.Status == model.DeviceStatusOnline {
+// 		return ErrCannotDeleteOnlineDevice
+// 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return errors.New("tenant ID not found in context")
-	}
+// 	tenantID := pkg.TenantIDFromContext(ctx)
+// 	if tenantID == uuid.Nil {
+// 		return errors.New("tenant ID not found in context")
+// 	}
 
-	if err := s.resourceSvc.DeleteResource(
-		ctx,
-		tenantID,
-		d.ResourceID,
-	); err != nil {
-		return err
-	}
+// 	if err := s.resourceSvc.DeleteResource(
+// 		ctx,
+// 		tenantID,
+// 		d.ResourceID,
+// 	); err != nil {
+// 		return err
+// 	}
 
-	return s.repo.Delete(ctx, deviceID)
-}
+// 	return s.repo.Delete(ctx, deviceID)
+// }
 
 func (s *serviceImpl) toDeviceResponse(
 	d *model.Device,

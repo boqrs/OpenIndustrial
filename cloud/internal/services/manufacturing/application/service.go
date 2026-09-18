@@ -70,72 +70,86 @@ func (s *service) CreateProductionExecution(
 
 	returnResult := (*execution.ExecutionResponse)(nil)
 
-	err := s.uow.Execute(
-		ctx,
-		func(txCtx context.Context) error {
+	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
 
-			workOrder, err := s.workOrders.GetByIDForUpdateTx(
-				txCtx,
-				tenantID,
-				workOrderID,
+		workOrder, err := s.workOrders.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			workOrderID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get work order: %w",
+				err,
 			)
-			if err != nil {
-				return fmt.Errorf(
-					"get work order: %w",
-					err,
-				)
-			}
+		}
 
-			if workOrder == nil {
-				return execution.ErrWorkOrderNotFound
-			}
+		if workOrder == nil {
+			return execution.ErrWorkOrderNotFound
+		}
 
-			if workOrder.Status != model.WorkOrderStatusReleased &&
-				workOrder.Status != model.WorkOrderStatusInProgress {
-				return execution.ErrWorkOrderNotExecutable
-			}
+		if workOrder.Status != model.WorkOrderStatusReleased &&
+			workOrder.Status != model.WorkOrderStatusInProgress {
+			return execution.ErrWorkOrderNotExecutable
+		}
 
-			// Execution is a Resource-backed entity.
-			resourceEntity, err := s.resources.CreateResourceTx(
-				txCtx,
-				&resource.CreateResource{
-					Type:     "PRODUCTION_EXECUTION",
-					Name:     fmt.Sprintf("Execution-%d", workOrder.ID),
-					Status:   "pending",
-					TenantID: tenantID,
-				},
+		existingCount, err := s.executionRepository.CountExecutions(
+			txCtx,
+			tenantID,
+			workOrder.ID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"count production executions: %w",
+				err,
 			)
-			if err != nil {
-				return fmt.Errorf(
-					"create execution resource: %w",
-					err,
-				)
-			}
+		}
 
-			if resourceEntity == nil || resourceEntity.ID == 0 {
-				return errors.New(
-					"create execution resource returned invalid resource",
-				)
-			}
+		if existingCount >= workOrder.PlannedQuantity {
+			return ErrWorkOrderQuantityExceeded
+		}
 
-			result, err := s.executions.CreateExecutionTx(
-				txCtx,
-				&execution.CreateExecutionRequest{
-					WorkOrderID: workOrder.ID,
-					ResourceID:  resourceEntity.ID,
-				},
+		// Execution is a Resource-backed entity.
+		resourceEntity, err := s.resources.CreateResourceTx(
+			txCtx,
+			&resource.CreateResource{
+				Type:     "PRODUCTION_EXECUTION",
+				Name:     fmt.Sprintf("Execution-%d", workOrder.ID),
+				Status:   "pending",
+				TenantID: tenantID,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"create execution resource: %w",
+				err,
 			)
-			if err != nil {
-				return fmt.Errorf(
-					"create execution: %w",
-					err,
-				)
-			}
+		}
 
-			returnResult = result
+		if resourceEntity == nil || resourceEntity.ID == 0 {
+			return errors.New(
+				"create execution resource returned invalid resource",
+			)
+		}
 
-			return nil
-		},
+		result, err := s.executions.CreateExecutionTx(
+			txCtx,
+			&execution.CreateExecutionRequest{
+				WorkOrderID: workOrder.ID,
+				ResourceID:  resourceEntity.ID,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"create execution: %w",
+				err,
+			)
+		}
+
+		returnResult = result
+
+		return nil
+	},
 	)
 
 	if err != nil {
@@ -364,13 +378,13 @@ func (s *service) ConfirmExecutionResult(
 		if workOrder.Status != model.WorkOrderStatusReleased && workOrder.Status != model.WorkOrderStatusInProgress {
 			return execution.ErrWorkOrderNotExecutable
 		}
-		existingCount, err := s.executionRepository.CountExecutions(txCtx, tenantID, workOrder.ID)
-		if err != nil {
-			return fmt.Errorf("count production executions: %w", err)
-		}
-		if existingCount >= workOrder.PlannedQuantity {
-			return ErrWorkOrderQuantityExceeded
-		}
+		// existingCount, err := s.executionRepository.CountExecutions(txCtx, tenantID, workOrder.ID)
+		// if err != nil {
+		// 	return fmt.Errorf("count production executions: %w", err)
+		// }
+		// if existingCount >= workOrder.PlannedQuantity {
+		// 	return ErrWorkOrderQuantityExceeded
+		// }
 
 		// A confirmed result must never make the WorkOrder
 		// exceed its planned production quantity.
@@ -420,17 +434,11 @@ func (s *service) ConfirmExecutionResult(
 		}
 
 		// 6. Update WorkOrder.
-		workOrder.CompletedQuantity +=
-			result.QualifiedQuantity
-
-		if workOrder.CompletedQuantity >=
-			workOrder.PlannedQuantity {
-
+		workOrder.CompletedQuantity += result.ProducedQuantity
+		if workOrder.CompletedQuantity >= workOrder.PlannedQuantity {
 			now := time.Now()
 
-			workOrder.Status =
-				model.WorkOrderStatusCompleted
-
+			workOrder.Status = model.WorkOrderStatusCompleted
 			workOrder.CompletedAt = &now
 		}
 

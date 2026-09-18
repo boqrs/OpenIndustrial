@@ -30,7 +30,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup.Handle(http.MethodGet, "/devices", h.listDevices)
 	externalGroup.Handle(http.MethodGet, "/devices/:id", h.getDevice)
 	externalGroup.Handle(http.MethodPatch, "/devices/:id", h.updateDevice)
-	externalGroup.Handle(http.MethodDelete, "/devices/:id", h.deleteDevice)
+	//externalGroup.Handle(http.MethodDelete, "/devices/:id", h.deleteDevice)
 }
 
 // TODO: 分页逻辑后续统一定义
@@ -85,16 +85,16 @@ func (a *Handler) updateDevice(ctx *gin.Context) ginx.Render {
 
 }
 
-func (a *Handler) deleteDevice(ctx *gin.Context) ginx.Render {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
-	}
+// func (a *Handler) deleteDevice(ctx *gin.Context) ginx.Render {
+// 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+// 	if err != nil {
+// 		return ginx.Error(fmt.Errorf("invalid param"))
+// 	}
 
-	if err := a.service.DeleteDevice(ctx, uint(id)); err != nil {
-		return ginx.Error(err)
-	}
+// 	if err := a.service.DeleteDevice(ctx, uint(id)); err != nil {
+// 		return ginx.Error(err)
+// 	}
 
-	return ginx.Success(nil)
+// 	return ginx.Success(nil)
 
-}
+// }

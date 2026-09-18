@@ -29,15 +29,15 @@ CREATE TABLE IF NOT EXISTS production_plans (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ NULL,
 
-    CONSTRAINT uq_production_plans_resource_uuid
-        UNIQUE (resource_uuid),
+    CONSTRAINT uq_production_plans_resource_id
+        UNIQUE (resource_id),
 
     CONSTRAINT uq_production_plans_plan_no
         UNIQUE (tenant_id, plan_no),
 
     CONSTRAINT fk_production_plans_resource
-        FOREIGN KEY (resource_uuid)
-        REFERENCES resources(uuid),
+        FOREIGN KEY (resource_id)
+        REFERENCES resources(id),
 
     CONSTRAINT fk_production_plans_product
         FOREIGN KEY (product_id)
