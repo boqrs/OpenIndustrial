@@ -62,3 +62,6 @@ CREATE INDEX IF NOT EXISTS idx_production_plans_status
 
 CREATE INDEX IF NOT EXISTS idx_production_plans_planned_start_at
     ON production_plans(planned_start_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_production_plans_plan_no
+    ON production_plans(tenant_id, plan_no);

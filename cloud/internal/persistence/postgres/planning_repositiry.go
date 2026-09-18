@@ -37,7 +37,7 @@ func (r *productionPlanRepository) GetByID(ctx context.Context, tenantID uuid.UU
 
 func (r *productionPlanRepository) GetByPlanNo(ctx context.Context, tenantID uuid.UUID, planNo string) (*model.ProductionPlan, error) {
 	var entity model.ProductionPlan
-	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND PlanNo = ?", tenantID, planNo).First(&entity).Error
+	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND plan_no = ?", tenantID, planNo).First(&entity).Error
 	if err != nil {
 		// if errors.Is(err, gorm.ErrRecordNotFound) {
 		// 	return nil, planning.ErrProductionPlanNotFound

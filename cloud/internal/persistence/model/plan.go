@@ -17,10 +17,9 @@ const (
 	ProductionPlanStatusCancelled  ProductionPlanStatus = "cancelled"
 )
 
-// ProductionPlan is a Resource-backed manufacturing entity.
-//
-// ResourceUUID is the public identity of the plan.
-// ID is only used for internal database relations.
+// ProductionPlan represents a manufacturing production schedule.
+// It belongs to a production tenant and defines what product,
+// where, when, and how many units should be produced.
 type ProductionPlan struct {
 	ID uint `gorm:"primaryKey"`
 
