@@ -15,6 +15,7 @@ type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID, status *model.ProductionPlanStatus) ([]*model.ProductionPlan, error)
 	Update(ctx context.Context, entity *model.ProductionPlan) error
 	GetByIDForUpdateTx(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionPlan, error)
+	UpdateTx(ctx context.Context, entity *model.ProductionPlan) error
 }
 
 // Service defines the business logic for managing production plans.

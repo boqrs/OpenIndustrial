@@ -24,8 +24,6 @@ const (
 type ProductionPlan struct {
 	ID uint `gorm:"primaryKey"`
 
-	ResourceID uint `gorm:"not null;index"`
-
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 
 	PlanNo string `gorm:"type:varchar(100);not null"`

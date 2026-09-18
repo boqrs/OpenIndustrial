@@ -373,6 +373,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		productionPlanRepo,
 		productService,
 		factoryService,
+		uow,
 	)
 
 	materialService := materialSrv.NewService(

@@ -2,13 +2,10 @@ package postgres
 
 import (
 	"context"
-	"errors"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -18,7 +15,7 @@ type productionPlanRepository struct {
 }
 
 // NewProductionPlanRepository creates a new GORM repository for production plans.
-func NewProductionPlanRepository(db *database.DBProvider) planning.Repository {
+func NewProductionPlanRepository(db *database.DBProvider) *productionPlanRepository {
 	return &productionPlanRepository{db: db}
 }
 
@@ -30,9 +27,9 @@ func (r *productionPlanRepository) GetByID(ctx context.Context, tenantID uuid.UU
 	var entity model.ProductionPlan
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).First(&entity).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, planning.ErrProductionPlanNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, planning.ErrProductionPlanNotFound
+		// }
 		return nil, err
 	}
 	return &entity, nil
@@ -42,9 +39,9 @@ func (r *productionPlanRepository) GetByPlanNo(ctx context.Context, tenantID uui
 	var entity model.ProductionPlan
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND PlanNo = ?", tenantID, planNo).First(&entity).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, planning.ErrProductionPlanNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, planning.ErrProductionPlanNotFound
+		// }
 		return nil, err
 	}
 	return &entity, nil
@@ -87,4 +84,26 @@ func (r *productionPlanRepository) GetByIDForUpdateTx(
 	}
 
 	return &entity, nil
+}
+
+func (r *productionPlanRepository) UpdateTx(
+	ctx context.Context,
+	entity *model.ProductionPlan,
+) error {
+	return dbFromContext(
+		ctx,
+		r.db.Get(),
+	).
+		WithContext(ctx).
+		Model(&model.ProductionPlan{}).
+		Where("id = ?", entity.ID).
+		Updates(map[string]any{
+			"planned_quantity": entity.PlannedQuantity,
+			"planned_start_at": entity.PlannedStartAt,
+			"planned_end_at":   entity.PlannedEndAt,
+			"description":      entity.Description,
+			"status":           entity.Status,
+			"updated_at":       entity.UpdatedAt,
+		}).
+		Error
 }
