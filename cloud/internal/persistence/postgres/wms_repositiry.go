@@ -339,7 +339,7 @@ func (r *wmsRepository) GetTrackingEventByExternalID(
 ) (*model.ShipmentTrackingEvent, error) {
 	var event model.ShipmentTrackingEvent
 
-	err := r.db.Get().
+	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
 		Table("shipment_tracking_events").
 		Joins(

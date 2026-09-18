@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 )
 
 var (
@@ -99,24 +100,6 @@ func WithTenantID(
 	)
 }
 
-func TenantIDFromContext(
-	ctx context.Context,
-) (uuid.UUID, error) {
-
-	if ctx == nil {
-		return uuid.Nil, ErrTenantNotFound
-	}
-
-	value := ctx.Value(tenantIDContextKey)
-
-	tenantID, ok := value.(uuid.UUID)
-	if !ok || tenantID == uuid.Nil {
-		return uuid.Nil, ErrTenantNotFound
-	}
-
-	return tenantID, nil
-}
-
 type service struct {
 	uow        UnitOfWork
 	repository Repository
@@ -145,9 +128,9 @@ func (s *service) CreateWarehouse(
 		return nil, ErrWarehouseNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	code := strings.TrimSpace(req.Code)
@@ -179,9 +162,9 @@ func (s *service) GetWarehouse(
 	id uint,
 ) (*WarehouseResponse, error) {
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	warehouse, err := s.repository.GetWarehouseByID(
@@ -209,9 +192,9 @@ func (s *service) CreateLocation(
 		return nil, ErrLocationNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	if req.WarehouseID == 0 {
@@ -262,9 +245,9 @@ func (s *service) GetDeviceInventory(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	inventory, err := s.repository.GetInventoryByDeviceID(
@@ -288,9 +271,9 @@ func (s *service) StockIn(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	if req.WarehouseID == 0 {
@@ -436,9 +419,9 @@ func (s *service) CreateShipment(
 		return nil, ErrEmptyShipment
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	carrier := strings.TrimSpace(req.Carrier)
@@ -510,7 +493,7 @@ func (s *service) CreateShipment(
 		len(deviceIDs),
 	)
 
-	err = s.uow.Execute(
+	err := s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
 
@@ -642,9 +625,9 @@ func (s *service) StockOut(
 		return ErrShipmentNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New("perm valid")
 	}
 
 	return s.uow.Execute(
@@ -760,9 +743,9 @@ func (s *service) GetShipment(
 		return nil, ErrShipmentNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	shipment, err := s.repository.GetShipmentByID(
@@ -814,9 +797,9 @@ func (s *service) AddTrackingEvent(
 		return ErrInvalidTrackingEvent
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New("perm valid")
 	}
 
 	status, ok := req.Status.ToModel()
@@ -911,9 +894,9 @@ func (s *service) ListTrackingEvents(
 		return nil, ErrShipmentNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, errors.New("perm valid")
 	}
 
 	if _, err := s.repository.GetShipmentByID(
@@ -1050,9 +1033,9 @@ func (s *service) CancelShipment(
 		return ErrShipmentNotFound
 	}
 
-	tenantID, err := TenantIDFromContext(ctx)
-	if err != nil {
-		return err
+	tenantID := pkg.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return errors.New("perm valid")
 	}
 
 	return s.uow.Execute(
@@ -1152,8 +1135,7 @@ func isValidShipmentStatusTransition(
 ) bool {
 	switch current {
 	case model.ShipmentStatusCreated:
-		return next == model.ShipmentStatusInTransit ||
-			next == model.ShipmentStatusCancelled
+		return next == model.ShipmentStatusInTransit
 
 	case model.ShipmentStatusInTransit:
 		return next == model.ShipmentStatusOutForDelivery ||
@@ -1164,8 +1146,6 @@ func isValidShipmentStatusTransition(
 			next == model.ShipmentStatusException
 
 	case model.ShipmentStatusException:
-		// An exception does not terminate the shipment.
-		// The carrier may resume normal delivery afterwards.
 		return next == model.ShipmentStatusInTransit ||
 			next == model.ShipmentStatusOutForDelivery ||
 			next == model.ShipmentStatusDelivered
