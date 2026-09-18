@@ -173,14 +173,3 @@ func (r *DeviceRepository) Update(
 		Save(entity).
 		Error
 }
-
-func (r *DeviceRepository) Delete(
-	ctx context.Context,
-	id uint,
-) error {
-	return r.db.Get().
-		WithContext(ctx).
-		Where("id = ?", id).
-		Delete(&model.Device{}).
-		Error
-}

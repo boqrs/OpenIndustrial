@@ -15,7 +15,6 @@ type Repository interface {
 	GetBySerialNumber(ctx context.Context, serialNumber string) (*model.Device, error)
 	List(ctx context.Context, req *ListDevicesRequest) ([]*model.Device, int64, error)
 	Update(ctx context.Context, entity *model.Device) error
-	Delete(ctx context.Context, id uint) error
 }
 
 type Service interface {
@@ -25,7 +24,6 @@ type Service interface {
 
 	UpdateDevice(ctx context.Context, deviceID uint, req *UpdateDeviceRequest) (*DeviceResponse, error)
 
-	//DeleteDevice(ctx context.Context, deviceID uint) error
 
 	CreateFromExecutionResultTx(ctx context.Context, req *CreateDeviceFromExecutionResultRequest) (*DeviceResponse, error)
 }

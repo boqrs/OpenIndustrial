@@ -388,8 +388,15 @@ func (s *service) ConfirmExecutionResult(
 
 		// A confirmed result must never make the WorkOrder
 		// exceed its planned production quantity.
-		if workOrder.CompletedQuantity+result.QualifiedQuantity > workOrder.PlannedQuantity {
-			return fmt.Errorf("%w: completed=%d qualified=%d planned=%d", ErrExecutionResultInvalid, workOrder.CompletedQuantity, result.QualifiedQuantity, workOrder.PlannedQuantity)
+		if workOrder.CompletedQuantity+result.ProducedQuantity >
+			workOrder.PlannedQuantity {
+			return fmt.Errorf(
+				"%w: completed=%d produced=%d planned=%d",
+				ErrExecutionResultInvalid,
+				workOrder.CompletedQuantity,
+				result.ProducedQuantity,
+				workOrder.PlannedQuantity,
+			)
 		}
 
 		// 5. Qualified product → Device.

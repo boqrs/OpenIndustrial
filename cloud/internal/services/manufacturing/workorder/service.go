@@ -104,8 +104,8 @@ func (s *serviceImpl) Create(
 			return ErrQuantityExceedsPlan
 		}
 
-		if plan.Status != model.WorkOrderStatusReleased &&
-			plan.Status != model.WorkOrderStatusInProgress {
+		if plan.Status != model.WorkOrderStatus(model.ProductionPlanStatusReleased) &&
+			plan.Status != model.WorkOrderStatus(model.ProductionPlanStatusInProgress) {
 			return ErrInvalidWorkOrderState
 		}
 

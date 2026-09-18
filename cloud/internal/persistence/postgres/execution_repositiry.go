@@ -243,7 +243,7 @@ func (r *executionRepository) UpdateOperationTx(ctx context.Context, entity *mod
 func (r *executionRepository) CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error) {
 	var count int64
 
-	err := r.db.Get().WithContext(ctx).
+	err := dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Model(
 			&model.ProductionExecution{},
 		).
