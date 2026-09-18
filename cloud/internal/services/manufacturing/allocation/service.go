@@ -14,12 +14,37 @@ import (
 )
 
 var (
-	ErrInvalidAllocation          = errors.New("invalid production plan allocation")
-	ErrAllocationNotFound         = errors.New("production plan allocation not found")
-	ErrAllocationQuantityExceeded = errors.New("allocation quantity exceeds available quantity")
-	ErrAllocationProductMismatch  = errors.New("sales order item product does not match production plan product")
-	ErrProductionPlanNotFound     = errors.New("production plan not found")
-	ErrSalesOrderItemNotFound     = errors.New("sales order item not found")
+	ErrInvalidAllocation = errors.New(
+		"invalid production plan allocation",
+	)
+
+	ErrAllocationNotFound = errors.New(
+		"production plan allocation not found",
+	)
+
+	ErrAllocationQuantityExceeded = errors.New(
+		"allocation quantity exceeds available quantity",
+	)
+
+	ErrAllocationProductMismatch = errors.New(
+		"sales order item product does not match production plan product",
+	)
+
+	ErrProductionPlanNotFound = errors.New(
+		"production plan not found",
+	)
+
+	ErrSalesOrderItemNotFound = errors.New(
+		"sales order item not found",
+	)
+
+	ErrSalesOrderNotConfirmed = errors.New(
+		"sales order is not confirmed",
+	)
+
+	ErrProductionPlanNotReleased = errors.New(
+		"production plan is not released",
+	)
 )
 
 type service struct {
@@ -61,86 +86,148 @@ func (s *service) Create(
 
 	var result *model.ProductionPlanAllocation
 
-	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
-		// Always lock SalesOrderItem first.
-		orderItem, err := s.salesOrders.GetItemByIDForUpdateTx(
-			txCtx,
-			req.SalesOrderItemID,
-		)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrSalesOrderItemNotFound
+	err := s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			// -------------------------------------------------------------
+			// Lock order:
+			//
+			// SalesOrder
+			//      ↓
+			// SalesOrderItem
+			//      ↓
+			// ProductionPlan
+			//
+			// All allocation writes must follow this order.
+			// -------------------------------------------------------------
+
+			orderItem, err := s.salesOrders.GetItemByIDForUpdateTx(
+				txCtx,
+				req.SalesOrderItemID,
+			)
+			if err != nil {
+				if errors.Is(
+					err,
+					gorm.ErrRecordNotFound,
+				) {
+					return ErrSalesOrderItemNotFound
+				}
+
+				return err
 			}
-			return err
-		}
 
-		// Then lock ProductionPlan.
-		plan, err := s.planning.GetByIDForUpdateTx(
-			txCtx,
-			tenantID,
-			req.ProductionPlanID,
-		)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrProductionPlanNotFound
+			// Lock the SalesOrder before making an allocation decision.
+			order, err := s.salesOrders.GetByIDForUpdateTx(
+				txCtx,
+				orderItem.SalesOrderID,
+			)
+			if err != nil {
+				if errors.Is(
+					err,
+					gorm.ErrRecordNotFound,
+				) {
+					return ErrSalesOrderItemNotFound
+				}
+
+				return err
 			}
-			return err
-		}
 
-		if orderItem.ProductID != plan.ProductID {
-			return ErrAllocationProductMismatch
-		}
+			if order.Status != model.SalesOrderStatusConfirmed {
+				return ErrSalesOrderNotConfirmed
+			}
 
-		itemAllocated, err := s.repository.SumBySalesOrderItemID(
-			txCtx,
-			orderItem.ID,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"sum sales order item allocation: %w",
-				err,
+			// -------------------------------------------------------------
+			// Lock ProductionPlan.
+			// Tenant isolation is enforced here.
+			// -------------------------------------------------------------
+
+			plan, err := s.planning.GetByIDForUpdateTx(
+				txCtx,
+				tenantID,
+				req.ProductionPlanID,
 			)
-		}
+			if err != nil {
+				if errors.Is(
+					err,
+					gorm.ErrRecordNotFound,
+				) {
+					return ErrProductionPlanNotFound
+				}
 
-		planAllocated, err := s.repository.SumByProductionPlanID(
-			txCtx,
-			plan.ID,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"sum production plan allocation: %w",
-				err,
-			)
-		}
+				return err
+			}
 
-		if itemAllocated+req.AllocatedQuantity >
-			orderItem.OrderedQuantity {
-			return ErrAllocationQuantityExceeded
-		}
+			if plan.Status != model.ProductionPlanStatusReleased {
+				return ErrProductionPlanNotReleased
+			}
 
-		if planAllocated+req.AllocatedQuantity >
-			plan.PlannedQuantity {
-			return ErrAllocationQuantityExceeded
-		}
+			// -------------------------------------------------------------
+			// Product consistency.
+			// -------------------------------------------------------------
 
-		entity := &model.ProductionPlanAllocation{
-			ProductionPlanID:  plan.ID,
-			SalesOrderItemID:  orderItem.ID,
-			AllocatedQuantity: req.AllocatedQuantity,
-		}
+			if orderItem.ProductID != plan.ProductID {
+				return ErrAllocationProductMismatch
+			}
 
-		if err := s.repository.CreateTx(txCtx, entity); err != nil {
-			return fmt.Errorf(
-				"create production plan allocation: %w",
-				err,
-			)
-		}
+			// -------------------------------------------------------------
+			// Quantity checks.
+			// -------------------------------------------------------------
 
-		result = entity
+			itemAllocated, err :=
+				s.repository.SumBySalesOrderItemID(
+					txCtx,
+					orderItem.ID,
+				)
+			if err != nil {
+				return fmt.Errorf(
+					"sum sales order item allocation: %w",
+					err,
+				)
+			}
 
-		return nil
-	})
+			planAllocated, err :=
+				s.repository.SumByProductionPlanID(
+					txCtx,
+					plan.ID,
+				)
+			if err != nil {
+				return fmt.Errorf(
+					"sum production plan allocation: %w",
+					err,
+				)
+			}
 
+			if itemAllocated+req.AllocatedQuantity >
+				orderItem.OrderedQuantity {
+				return ErrAllocationQuantityExceeded
+			}
+
+			if planAllocated+req.AllocatedQuantity >
+				plan.PlannedQuantity {
+				return ErrAllocationQuantityExceeded
+			}
+
+			entity := &model.ProductionPlanAllocation{
+				ProductionPlanID:  plan.ID,
+				SalesOrderItemID:  orderItem.ID,
+				AllocatedQuantity: req.AllocatedQuantity,
+			}
+
+			if err := s.repository.CreateTx(
+				txCtx,
+				entity,
+			); err != nil {
+				return fmt.Errorf(
+					"create production plan allocation: %w",
+					err,
+				)
+			}
+
+			result = entity
+
+			return nil
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -157,22 +244,31 @@ func (s *service) GetByID(
 		return nil, ErrInvalidAllocation
 	}
 
-	entity, err := s.repository.GetByID(ctx, id)
+	entity, err := s.repository.GetByID(
+		ctx,
+		id,
+	)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
 			return nil, ErrAllocationNotFound
 		}
 
 		return nil, err
 	}
 
-	// Validate that the production plan belongs to this tenant.
+	// Allocation inherits tenant ownership from ProductionPlan.
 	if _, err := s.planning.GetByID(
 		ctx,
 		tenantID,
 		entity.ProductionPlanID,
 	); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
 			return nil, ErrAllocationNotFound
 		}
 
@@ -187,19 +283,25 @@ func (s *service) ListBySalesOrderItemID(
 	tenantID uuid.UUID,
 	salesOrderItemID uint,
 ) ([]*Response, error) {
-	if tenantID == uuid.Nil || salesOrderItemID == 0 {
+	if tenantID == uuid.Nil ||
+		salesOrderItemID == 0 {
 		return nil, ErrInvalidAllocation
 	}
 
-	entities, err := s.repository.ListBySalesOrderItemID(
-		ctx,
-		salesOrderItemID,
-	)
+	entities, err :=
+		s.repository.ListBySalesOrderItemID(
+			ctx,
+			salesOrderItemID,
+		)
 	if err != nil {
 		return nil, err
 	}
 
-	responses := make([]*Response, 0, len(entities))
+	responses := make(
+		[]*Response,
+		0,
+		len(entities),
+	)
 
 	for _, entity := range entities {
 		if _, err := s.planning.GetByID(
@@ -207,14 +309,20 @@ func (s *service) ListBySalesOrderItemID(
 			tenantID,
 			entity.ProductionPlanID,
 		); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			if errors.Is(
+				err,
+				gorm.ErrRecordNotFound,
+			) {
 				continue
 			}
 
 			return nil, err
 		}
 
-		responses = append(responses, toResponse(entity))
+		responses = append(
+			responses,
+			toResponse(entity),
+		)
 	}
 
 	return responses, nil
@@ -225,7 +333,8 @@ func (s *service) ListByProductionPlanID(
 	tenantID uuid.UUID,
 	productionPlanID uint,
 ) ([]*Response, error) {
-	if tenantID == uuid.Nil || productionPlanID == 0 {
+	if tenantID == uuid.Nil ||
+		productionPlanID == 0 {
 		return nil, ErrInvalidAllocation
 	}
 
@@ -234,28 +343,66 @@ func (s *service) ListByProductionPlanID(
 		tenantID,
 		productionPlanID,
 	); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
 			return nil, ErrProductionPlanNotFound
 		}
 
 		return nil, err
 	}
 
-	entities, err := s.repository.ListByProductionPlanID(
-		ctx,
-		productionPlanID,
-	)
+	entities, err :=
+		s.repository.ListByProductionPlanID(
+			ctx,
+			productionPlanID,
+		)
 	if err != nil {
 		return nil, err
 	}
 
-	responses := make([]*Response, len(entities))
+	responses := make(
+		[]*Response,
+		len(entities),
+	)
 
 	for i, entity := range entities {
 		responses[i] = toResponse(entity)
 	}
 
 	return responses, nil
+}
+
+func (s *service) GetAllocatedQuantityByProductionPlanID(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	productionPlanID uint,
+) (int64, error) {
+	if tenantID == uuid.Nil ||
+		productionPlanID == 0 {
+		return 0, ErrInvalidAllocation
+	}
+
+	if _, err := s.planning.GetByID(
+		ctx,
+		tenantID,
+		productionPlanID,
+	); err != nil {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
+			return 0, ErrProductionPlanNotFound
+		}
+
+		return 0, err
+	}
+
+	return s.repository.SumByProductionPlanID(
+		ctx,
+		productionPlanID,
+	)
 }
 
 func toResponse(
@@ -273,39 +420,4 @@ func toResponse(
 		CreatedAt:         entity.CreatedAt,
 		UpdatedAt:         entity.UpdatedAt,
 	}
-}
-
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-	if id, ok := ctx.Value("tenant_id").(uuid.UUID); ok {
-		return id
-	}
-
-	return uuid.Nil
-}
-
-func (s *service) GetAllocatedQuantityByProductionPlanID(
-	ctx context.Context,
-	tenantID uuid.UUID,
-	productionPlanID uint,
-) (int64, error) {
-	if tenantID == uuid.Nil || productionPlanID == 0 {
-		return 0, ErrInvalidAllocation
-	}
-
-	if _, err := s.planning.GetByID(
-		ctx,
-		tenantID,
-		productionPlanID,
-	); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, ErrProductionPlanNotFound
-		}
-
-		return 0, err
-	}
-
-	return s.repository.SumByProductionPlanID(
-		ctx,
-		productionPlanID,
-	)
 }
