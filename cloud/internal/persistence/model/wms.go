@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type InventoryStatus string
 
@@ -53,10 +57,15 @@ func (s ShipmentStatus) IsValid() bool {
 }
 
 // Warehouse represents a physical warehouse.
+//
+// Warehouse is a tenant-owned root entity.
+// Code is unique inside a tenant, not globally.
 type Warehouse struct {
 	ID uint `gorm:"primaryKey"`
 
-	Code string `gorm:"type:varchar(100);not null;uniqueIndex"`
+	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
+
+	Code string `gorm:"type:varchar(100);not null"`
 	Name string `gorm:"type:varchar(255);not null"`
 
 	Address string `gorm:"type:text"`
@@ -66,6 +75,8 @@ type Warehouse struct {
 }
 
 // WarehouseLocation represents a physical location inside a warehouse.
+//
+// Tenant ownership is inherited through Warehouse.
 type WarehouseLocation struct {
 	ID uint `gorm:"primaryKey"`
 
@@ -79,6 +90,13 @@ type WarehouseLocation struct {
 }
 
 // DeviceInventory represents the current WMS inventory state of a Device.
+//
+// Tenant ownership is inherited through:
+//
+// Device
+//
+//	-> Resource
+//	-> TenantID
 //
 // A Device has one current inventory record.
 // Re-stock after a return updates the same record.
@@ -101,10 +119,11 @@ type DeviceInventory struct {
 
 // Shipment represents an outbound shipment.
 //
-// WMS deliberately does not reference CustomerID or UserID.
-// At this stage the external order/channel identity is enough.
+// Shipment is a tenant-owned root entity.
 type Shipment struct {
 	ID uint `gorm:"primaryKey"`
+
+	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
 
 	ExternalOrderID string `gorm:"type:varchar(255);index"`
 
@@ -124,7 +143,16 @@ type Shipment struct {
 // ShipmentItem connects a Device to a Shipment.
 //
 // DeviceID is intentionally NOT globally unique.
-// This allows a future return -> restock -> reship lifecycle.
+//
+// This allows a future:
+//
+// shipped
+//
+//	-> returned
+//	-> restocked
+//	-> reshipped
+//
+// lifecycle.
 type ShipmentItem struct {
 	ID uint `gorm:"primaryKey"`
 
@@ -135,6 +163,8 @@ type ShipmentItem struct {
 }
 
 // ShipmentTrackingEvent stores third-party logistics events.
+//
+// Tenant ownership is inherited through Shipment.
 type ShipmentTrackingEvent struct {
 	ID uint `gorm:"primaryKey"`
 

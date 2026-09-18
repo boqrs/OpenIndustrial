@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
@@ -12,11 +13,16 @@ import (
 
 type Handler struct {
 	service srv.Service
+	auth    middleware.Service
 }
 
-func NewHandler(service srv.Service) *Handler {
+func NewHandler(
+	service srv.Service,
+	auth middleware.Service,
+) *Handler {
 	return &Handler{
 		service: service,
+		auth:    auth,
 	}
 }
 
@@ -24,6 +30,10 @@ func (h *Handler) RouterRegister(
 	router ginx.ZeroGinRouter,
 ) {
 	externalGroup := router.Group("/api/v1/external")
+
+	externalGroup.Use(
+		h.auth.Authenticate(),
+	)
 
 	externalGroup.Handle(
 		http.MethodPost,
@@ -93,7 +103,9 @@ func (h *Handler) createWarehouse(
 	var req srv.CreateWarehouseRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		return ginx.Error(fmt.Errorf("invalid param"))
+		return ginx.Error(
+			fmt.Errorf("invalid param"),
+		)
 	}
 
 	resp, err := h.service.CreateWarehouse(

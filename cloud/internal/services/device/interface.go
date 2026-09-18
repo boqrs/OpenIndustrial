@@ -24,6 +24,5 @@ type Service interface {
 
 	UpdateDevice(ctx context.Context, deviceID uint, req *UpdateDeviceRequest) (*DeviceResponse, error)
 
-
 	CreateFromExecutionResultTx(ctx context.Context, req *CreateDeviceFromExecutionResultRequest) (*DeviceResponse, error)
 }

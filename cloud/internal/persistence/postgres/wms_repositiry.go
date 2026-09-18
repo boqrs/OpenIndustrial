@@ -6,6 +6,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 	"github.com/boqrs/nexus/database"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -14,7 +15,9 @@ type wmsRepository struct {
 	db *database.DBProvider
 }
 
-func NewWMSRepository(db *database.DBProvider) wms.Repository {
+func NewWMSRepository(
+	db *database.DBProvider,
+) wms.Repository {
 	return &wmsRepository{
 		db: db,
 	}
@@ -36,14 +39,21 @@ func (r *wmsRepository) CreateWarehouse(
 
 func (r *wmsRepository) GetWarehouseByID(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	id uint,
 ) (*model.Warehouse, error) {
 	var warehouse model.Warehouse
 
 	err := r.db.Get().
 		WithContext(ctx).
-		First(&warehouse, id).
+		Where(
+			"tenant_id = ? AND id = ?",
+			tenantID,
+			id,
+		).
+		First(&warehouse).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -67,14 +77,25 @@ func (r *wmsRepository) CreateLocation(
 
 func (r *wmsRepository) GetLocationByID(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	id uint,
 ) (*model.WarehouseLocation, error) {
 	var location model.WarehouseLocation
 
 	err := r.db.Get().
 		WithContext(ctx).
-		First(&location, id).
+		Table("warehouse_locations").
+		Joins(
+			"JOIN warehouses ON warehouses.id = warehouse_locations.warehouse_id",
+		).
+		Where(
+			"warehouse_locations.id = ? AND warehouses.tenant_id = ?",
+			id,
+			tenantID,
+		).
+		First(&location).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -86,17 +107,37 @@ func (r *wmsRepository) GetLocationByID(
 // Inventory
 // ============================================================
 
+// GetInventoryByDeviceID returns the current inventory record
+// for a device.
+//
+// Device inventory itself does not carry TenantID. Tenant isolation
+// is therefore performed through:
+//
+//	device_inventories -> devices -> resources
 func (r *wmsRepository) GetInventoryByDeviceID(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	deviceID uint,
 ) (*model.DeviceInventory, error) {
 	var inventory model.DeviceInventory
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("device_id = ?", deviceID).
+		Table("device_inventories").
+		Joins(
+			"JOIN devices ON devices.id = device_inventories.device_id",
+		).
+		Joins(
+			"JOIN resources ON resources.id = devices.resource_id",
+		).
+		Where(
+			"device_inventories.device_id = ? AND resources.tenant_id = ?",
+			deviceID,
+			tenantID,
+		).
 		First(&inventory).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -104,20 +145,36 @@ func (r *wmsRepository) GetInventoryByDeviceID(
 	return &inventory, nil
 }
 
+// GetInventoryByDeviceIDForUpdateTx locks the inventory row.
+//
+// This must only be called inside a UnitOfWork transaction.
 func (r *wmsRepository) GetInventoryByDeviceIDForUpdateTx(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	deviceID uint,
 ) (*model.DeviceInventory, error) {
 	var inventory model.DeviceInventory
 
 	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
+		Table("device_inventories").
+		Joins(
+			"JOIN devices ON devices.id = device_inventories.device_id",
+		).
+		Joins(
+			"JOIN resources ON resources.id = devices.resource_id",
+		).
+		Where(
+			"device_inventories.device_id = ? AND resources.tenant_id = ?",
+			deviceID,
+			tenantID,
+		).
 		Clauses(clause.Locking{
 			Strength: "UPDATE",
 		}).
-		Where("device_id = ?", deviceID).
 		First(&inventory).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +200,45 @@ func (r *wmsRepository) UpdateInventoryTx(
 		WithContext(ctx).
 		Save(inventory).
 		Error
+}
+
+// DeviceBelongsToTenant verifies that a Device belongs to the
+// authenticated tenant.
+//
+// Device does not contain TenantID directly.
+// Tenant ownership is inherited through:
+//
+//	Device -> Resource -> Tenant
+//
+// This method intentionally lives in WMS repository rather than
+// calling device.Repository.GetByID(), because tenant isolation
+// is a persistence concern and must be enforced by the query itself.
+func (r *wmsRepository) DeviceBelongsToTenant(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	deviceID uint,
+) (bool, error) {
+	var count int64
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Table("devices").
+		Joins(
+			"JOIN resources ON resources.id = devices.resource_id",
+		).
+		Where(
+			"devices.id = ? AND resources.tenant_id = ?",
+			deviceID,
+			tenantID,
+		).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
 
 // ============================================================
@@ -175,14 +271,21 @@ func (r *wmsRepository) CreateShipmentItemsTx(
 
 func (r *wmsRepository) GetShipmentByID(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	id uint,
 ) (*model.Shipment, error) {
 	var shipment model.Shipment
 
 	err := r.db.Get().
 		WithContext(ctx).
-		First(&shipment, id).
+		Where(
+			"tenant_id = ? AND id = ?",
+			tenantID,
+			id,
+		).
+		First(&shipment).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -192,17 +295,24 @@ func (r *wmsRepository) GetShipmentByID(
 
 func (r *wmsRepository) GetShipmentByIDForUpdateTx(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	id uint,
 ) (*model.Shipment, error) {
 	var shipment model.Shipment
 
 	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
+		Where(
+			"tenant_id = ? AND id = ?",
+			tenantID,
+			id,
+		).
 		Clauses(clause.Locking{
 			Strength: "UPDATE",
 		}).
-		First(&shipment, id).
+		First(&shipment).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -212,16 +322,26 @@ func (r *wmsRepository) GetShipmentByIDForUpdateTx(
 
 func (r *wmsRepository) ListShipmentItems(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	shipmentID uint,
 ) ([]*model.ShipmentItem, error) {
 	var items []*model.ShipmentItem
 
-	err := dbFromContext(ctx, r.db.Get()).
+	err := r.db.Get().
 		WithContext(ctx).
-		Where("shipment_id = ?", shipmentID).
-		Order("id ASC").
+		Table("shipment_items").
+		Joins(
+			"JOIN shipments ON shipments.id = shipment_items.shipment_id",
+		).
+		Where(
+			"shipment_items.shipment_id = ? AND shipments.tenant_id = ?",
+			shipmentID,
+			tenantID,
+		).
+		Order("shipment_items.id ASC").
 		Find(&items).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -245,20 +365,29 @@ func (r *wmsRepository) UpdateShipmentTx(
 
 func (r *wmsRepository) GetTrackingEventByExternalID(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	shipmentID uint,
 	externalEventID string,
 ) (*model.ShipmentTrackingEvent, error) {
 	var event model.ShipmentTrackingEvent
 
-	err := dbFromContext(ctx, r.db.Get()).
+	err := r.db.Get().
 		WithContext(ctx).
+		Table("shipment_tracking_events").
+		Joins(
+			"JOIN shipments ON shipments.id = shipment_tracking_events.shipment_id",
+		).
 		Where(
-			"shipment_id = ? AND external_event_id = ?",
+			"shipment_tracking_events.shipment_id = ? "+
+				"AND shipment_tracking_events.external_event_id = ? "+
+				"AND shipments.tenant_id = ?",
 			shipmentID,
 			externalEventID,
+			tenantID,
 		).
 		First(&event).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -278,16 +407,30 @@ func (r *wmsRepository) CreateTrackingEventTx(
 
 func (r *wmsRepository) ListTrackingEvents(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	shipmentID uint,
 ) ([]*model.ShipmentTrackingEvent, error) {
 	var events []*model.ShipmentTrackingEvent
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("shipment_id = ?", shipmentID).
-		Order("occurred_at ASC, id ASC").
+		Table("shipment_tracking_events").
+		Joins(
+			"JOIN shipments ON shipments.id = shipment_tracking_events.shipment_id",
+		).
+		Where(
+			"shipment_tracking_events.shipment_id = ? "+
+				"AND shipments.tenant_id = ?",
+			shipmentID,
+			tenantID,
+		).
+		Order(
+			"shipment_tracking_events.occurred_at ASC, " +
+				"shipment_tracking_events.id ASC",
+		).
 		Find(&events).
 		Error
+
 	if err != nil {
 		return nil, err
 	}
@@ -295,9 +438,12 @@ func (r *wmsRepository) ListTrackingEvents(
 	return events, nil
 }
 
-// Compile-time interface check.
+// ============================================================
+// Compile-time interface check
+// ============================================================
+
 var _ wms.Repository = (*wmsRepository)(nil)
 
-// Keep gorm imported explicitly for repository-level error handling
-// compatibility with the rest of the postgres package.
+// Keep the GORM dependency explicit for compatibility with
+// the postgres package.
 var _ = gorm.ErrRecordNotFound

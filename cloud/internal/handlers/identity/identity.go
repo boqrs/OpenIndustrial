@@ -80,7 +80,7 @@ func (h *Handler) handleGetCurrentUser(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
 
-	userID := pkg.GetUserIDFromContext(ctx)
+	userID := pkg.GetUserIDFromGinContext(ctx)
 	if tenantID == uuid.Nil {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}

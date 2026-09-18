@@ -570,7 +570,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	wms.NewHandler(
 		wmsService,
-		//   authService,
+		authService,
 	).RouterRegister(router)
 
 	// -------------------------------------------------------------------------

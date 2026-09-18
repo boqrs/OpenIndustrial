@@ -2,42 +2,75 @@ package pkg
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 func TenantIDFromGinContext(ctx *gin.Context) uuid.UUID {
-	// In a real application, you would extract this from a JWT token or similar.
-	val := ctx.Value("tenant_id")
-	if val != nil {
-		if id, ok := val.(uuid.UUID); ok {
-			return id
-		}
+	value, exists := ctx.Get("tenant_id")
+	if !exists {
+		return uuid.Nil
 	}
-	// Fallback for testing or unauthenticated contexts
-	return uuid.Nil
+
+	switch value := value.(type) {
+	case uuid.UUID:
+		return value
+
+	case string:
+		id, err := uuid.Parse(value)
+		if err != nil {
+			return uuid.Nil
+		}
+
+		return id
+
+	default:
+		return uuid.Nil
+	}
 }
 
-func GetUserIDFromContext(ctx *gin.Context) uuid.UUID {
-	// In a real application, you would extract this from a JWT token or similar.
-	val := ctx.Value("user_id")
-	if val != nil {
-		if id, ok := val.(uuid.UUID); ok {
-			return id
-		}
+func GetUserIDFromGinContext(ctx *gin.Context) uuid.UUID {
+	value, exists := ctx.Get("user_id")
+	if !exists {
+		return uuid.Nil
 	}
-	// Fallback for testing or unauthenticated contexts
-	return uuid.Nil
+
+	switch value := value.(type) {
+	case uuid.UUID:
+		return value
+
+	case string:
+		id, err := uuid.Parse(value)
+		if err != nil {
+			return uuid.Nil
+		}
+
+		return id
+
+	default:
+		return uuid.Nil
+	}
 }
 
 func TenantIDFromContext(ctx context.Context) uuid.UUID {
 	value := ctx.Value("tenant_id")
 
-	if id, ok := value.(uuid.UUID); ok {
-		return id
-	}
+	switch value := value.(type) {
+	case uuid.UUID:
+		return value
 
-	return uuid.Nil
+	case string:
+		id, err := uuid.Parse(value)
+		if err != nil {
+			return uuid.Nil
+		}
+
+		return id
+
+	default:
+		return uuid.Nil
+	}
 }
 
 type BasePageReq struct {

@@ -6,11 +6,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 )
 
 var (
+	ErrTenantNotFound = errors.New(
+		"tenant id not found in context",
+	)
+
 	ErrWarehouseNotFound = errors.New(
 		"warehouse not found",
 	)
@@ -72,6 +78,46 @@ var (
 	)
 )
 
+type tenantContextKey struct{}
+
+var tenantIDContextKey tenantContextKey
+
+// WithTenantID returns a context carrying the authenticated tenant ID.
+//
+// The HTTP handler is responsible for obtaining the tenant ID from the
+// authentication middleware and passing it into the service context.
+//
+// The service layer deliberately does not depend on Gin.
+func WithTenantID(
+	ctx context.Context,
+	tenantID uuid.UUID,
+) context.Context {
+	return context.WithValue(
+		ctx,
+		tenantIDContextKey,
+		tenantID,
+	)
+}
+
+// TenantIDFromContext returns the authenticated tenant ID.
+func TenantIDFromContext(
+	ctx context.Context,
+) (uuid.UUID, error) {
+
+	if ctx == nil {
+		return uuid.Nil, ErrTenantNotFound
+	}
+
+	value := ctx.Value(tenantIDContextKey)
+
+	tenantID, ok := value.(uuid.UUID)
+	if !ok || tenantID == uuid.Nil {
+		return uuid.Nil, ErrTenantNotFound
+	}
+
+	return tenantID, nil
+}
+
 type service struct {
 	uow        UnitOfWork
 	repository Repository
@@ -103,6 +149,11 @@ func (s *service) CreateWarehouse(
 		return nil, ErrWarehouseNotFound
 	}
 
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	code := strings.TrimSpace(req.Code)
 	name := strings.TrimSpace(req.Name)
 
@@ -111,12 +162,16 @@ func (s *service) CreateWarehouse(
 	}
 
 	warehouse := &model.Warehouse{
-		Code:    code,
-		Name:    name,
-		Address: strings.TrimSpace(req.Address),
+		TenantID: tenantID,
+		Code:     code,
+		Name:     name,
+		Address:  strings.TrimSpace(req.Address),
 	}
 
-	if err := s.repository.CreateWarehouse(ctx, warehouse); err != nil {
+	if err := s.repository.CreateWarehouse(
+		ctx,
+		warehouse,
+	); err != nil {
 		return nil, err
 	}
 
@@ -128,7 +183,16 @@ func (s *service) GetWarehouse(
 	id uint,
 ) (*WarehouseResponse, error) {
 
-	warehouse, err := s.repository.GetWarehouseByID(ctx, id)
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	warehouse, err := s.repository.GetWarehouseByID(
+		ctx,
+		tenantID,
+		id,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -149,16 +213,28 @@ func (s *service) CreateLocation(
 		return nil, ErrLocationNotFound
 	}
 
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if req.WarehouseID == 0 {
 		return nil, ErrWarehouseNotFound
 	}
 
-	if req.Code == "" || req.Name == "" {
+	code := strings.TrimSpace(req.Code)
+	name := strings.TrimSpace(req.Name)
+
+	if code == "" || name == "" {
 		return nil, ErrLocationNotFound
 	}
 
+	// Warehouse is a tenant root entity.
+	//
+	// Verifying it with the current tenant is mandatory.
 	if _, err := s.repository.GetWarehouseByID(
 		ctx,
+		tenantID,
 		req.WarehouseID,
 	); err != nil {
 		return nil, err
@@ -166,11 +242,14 @@ func (s *service) CreateLocation(
 
 	location := &model.WarehouseLocation{
 		WarehouseID: req.WarehouseID,
-		Code:        strings.TrimSpace(req.Code),
-		Name:        strings.TrimSpace(req.Name),
+		Code:        code,
+		Name:        name,
 	}
 
-	if err := s.repository.CreateLocation(ctx, location); err != nil {
+	if err := s.repository.CreateLocation(
+		ctx,
+		location,
+	); err != nil {
 		return nil, err
 	}
 
@@ -186,8 +265,18 @@ func (s *service) GetDeviceInventory(
 	deviceID uint,
 ) (*InventoryResponse, error) {
 
+	if deviceID == 0 {
+		return nil, ErrDeviceNotFound
+	}
+
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	inventory, err := s.repository.GetInventoryByDeviceID(
 		ctx,
+		tenantID,
 		deviceID,
 	)
 	if err != nil {
@@ -206,6 +295,11 @@ func (s *service) StockIn(
 		return nil, ErrDeviceNotFound
 	}
 
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if req.WarehouseID == 0 {
 		return nil, ErrWarehouseNotFound
 	}
@@ -214,24 +308,49 @@ func (s *service) StockIn(
 		return nil, ErrLocationNotFound
 	}
 
+	// -------------------------------------------------------------------------
+	// Device ownership
+	// -------------------------------------------------------------------------
+	//
 	// WMS never creates Device.
-	// It only verifies that MES has already created it.
-	if _, err := s.devices.GetByID(
-		ctx,
-		req.DeviceID,
-	); err != nil {
+	//
+	// Device must already have been created by the manufacturing process.
+	// Tenant ownership is verified before allowing the device to enter WMS.
+	// -------------------------------------------------------------------------
+
+	deviceBelongsToTenant, err :=
+		s.repository.DeviceBelongsToTenant(
+			ctx,
+			tenantID,
+			req.DeviceID,
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	if !deviceBelongsToTenant {
 		return nil, ErrDeviceNotFound
 	}
 
+	// -------------------------------------------------------------------------
+	// Warehouse ownership
+	// -------------------------------------------------------------------------
+
 	if _, err := s.repository.GetWarehouseByID(
 		ctx,
+		tenantID,
 		req.WarehouseID,
 	); err != nil {
 		return nil, err
 	}
 
+	// -------------------------------------------------------------------------
+	// Location ownership
+	// -------------------------------------------------------------------------
+
 	location, err := s.repository.GetLocationByID(
 		ctx,
+		tenantID,
 		req.LocationID,
 	)
 	if err != nil {
@@ -254,15 +373,16 @@ func (s *service) StockIn(
 		ctx,
 		func(txCtx context.Context) error {
 
-			inventory, err := s.repository.
-				GetInventoryByDeviceIDForUpdateTx(
+			inventory, err :=
+				s.repository.GetInventoryByDeviceIDForUpdateTx(
 					txCtx,
+					tenantID,
 					req.DeviceID,
 				)
 
 			if err != nil {
 
-				if err != ErrInventoryNotFound {
+				if !errors.Is(err, ErrInventoryNotFound) {
 					return err
 				}
 
@@ -282,13 +402,22 @@ func (s *service) StockIn(
 				}
 
 				result = inventory
+
 				return nil
 			}
 
+			// A device currently in stock cannot be stocked in again.
 			if inventory.Status == model.InventoryStatusInStock {
 				return ErrDeviceAlreadyInStock
 			}
 
+			// Current WMS lifecycle:
+			//
+			// not exists -> in_stock
+			// in_stock   -> shipped
+			// shipped    -> in_stock
+			//
+			// This also naturally supports future returned devices.
 			inventory.WarehouseID = req.WarehouseID
 			inventory.LocationID = req.LocationID
 			inventory.Status = model.InventoryStatusInStock
@@ -328,6 +457,11 @@ func (s *service) CreateShipment(
 		return nil, ErrEmptyShipment
 	}
 
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	carrier := strings.TrimSpace(req.Carrier)
 	trackingNumber := strings.TrimSpace(req.TrackingNumber)
 
@@ -358,28 +492,6 @@ func (s *service) CreateShipment(
 
 		seen[deviceID] = struct{}{}
 
-		// Device must already exist.
-		if _, err := s.devices.GetByID(
-			ctx,
-			deviceID,
-		); err != nil {
-			return nil, ErrDeviceNotFound
-		}
-
-		// A shipment is only allowed to be created
-		// for devices that are currently in stock.
-		inventory, err := s.repository.GetInventoryByDeviceID(
-			ctx,
-			deviceID,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if inventory.Status != model.InventoryStatusInStock {
-			return nil, ErrDeviceNotInStock
-		}
-
 		deviceIDs = append(
 			deviceIDs,
 			deviceID,
@@ -387,9 +499,12 @@ func (s *service) CreateShipment(
 	}
 
 	shipment := &model.Shipment{
+		TenantID: tenantID,
+
 		ExternalOrderID: strings.TrimSpace(
 			req.ExternalOrderID,
 		),
+
 		Carrier:        carrier,
 		TrackingNumber: trackingNumber,
 		Status:         model.ShipmentStatusCreated,
@@ -401,9 +516,45 @@ func (s *service) CreateShipment(
 		len(deviceIDs),
 	)
 
-	err := s.uow.Execute(
+	err = s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
+
+			// -----------------------------------------------------------------
+			// Lock and validate every inventory row inside the transaction.
+			//
+			// This is important.
+			//
+			// The previous implementation performed the stock check before
+			// entering the transaction, which allowed two concurrent shipment
+			// requests to both observe "in_stock".
+			// -----------------------------------------------------------------
+
+			for _, deviceID := range deviceIDs {
+
+				inventory, err :=
+					s.repository.GetInventoryByDeviceIDForUpdateTx(
+						txCtx,
+						tenantID,
+						deviceID,
+					)
+
+				if err != nil {
+					if errors.Is(err, ErrInventoryNotFound) {
+						return ErrDeviceNotInStock
+					}
+
+					return err
+				}
+
+				if inventory.Status != model.InventoryStatusInStock {
+					return ErrDeviceNotInStock
+				}
+			}
+
+			// -----------------------------------------------------------------
+			// Create shipment only after every device has been validated.
+			// -----------------------------------------------------------------
 
 			if err := s.repository.CreateShipmentTx(
 				txCtx,
@@ -446,6 +597,10 @@ func (s *service) CreateShipment(
 	}, nil
 }
 
+// -----------------------------------------------------------------------------
+// Stock Out
+// -----------------------------------------------------------------------------
+
 // StockOut changes:
 //
 // Shipment:
@@ -462,13 +617,24 @@ func (s *service) StockOut(
 	shipmentID uint,
 ) error {
 
+	if shipmentID == 0 {
+		return ErrShipmentNotFound
+	}
+
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	return s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
 
-			shipment, err := s.repository.
-				GetShipmentByIDForUpdateTx(
+			// Lock the shipment first.
+			shipment, err :=
+				s.repository.GetShipmentByIDForUpdateTx(
 					txCtx,
+					tenantID,
 					shipmentID,
 				)
 
@@ -493,6 +659,7 @@ func (s *service) StockOut(
 
 			items, err := s.repository.ListShipmentItems(
 				txCtx,
+				tenantID,
 				shipmentID,
 			)
 			if err != nil {
@@ -505,11 +672,19 @@ func (s *service) StockOut(
 
 			now := time.Now().UTC()
 
+			// -----------------------------------------------------------------
+			// Lock all inventory rows before changing any state.
+			//
+			// If one device is no longer in stock, the whole transaction rolls
+			// back and no inventory is partially shipped.
+			// -----------------------------------------------------------------
+
 			for _, item := range items {
 
-				inventory, err := s.repository.
-					GetInventoryByDeviceIDForUpdateTx(
+				inventory, err :=
+					s.repository.GetInventoryByDeviceIDForUpdateTx(
 						txCtx,
+						tenantID,
 						item.DeviceID,
 					)
 
@@ -547,13 +722,27 @@ func (s *service) StockOut(
 	)
 }
 
+// -----------------------------------------------------------------------------
+// Shipment Query
+// -----------------------------------------------------------------------------
+
 func (s *service) GetShipment(
 	ctx context.Context,
 	shipmentID uint,
 ) (*ShipmentResponse, error) {
 
+	if shipmentID == 0 {
+		return nil, ErrShipmentNotFound
+	}
+
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	shipment, err := s.repository.GetShipmentByID(
 		ctx,
+		tenantID,
 		shipmentID,
 	)
 	if err != nil {
@@ -562,6 +751,7 @@ func (s *service) GetShipment(
 
 	items, err := s.repository.ListShipmentItems(
 		ctx,
+		tenantID,
 		shipmentID,
 	)
 	if err != nil {
@@ -592,22 +782,21 @@ func (s *service) AddTrackingEvent(
 	req *TrackingEventRequest,
 ) error {
 
+	if shipmentID == 0 {
+		return ErrShipmentNotFound
+	}
+
 	if req == nil {
 		return ErrInvalidShipmentStatus
 	}
 
-	status := req.Status
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
 
-	switch status {
-
-	case ShipmentStatusRequest(model.ShipmentStatusCreated.String()),
-		ShipmentStatusRequest(model.ShipmentStatusInTransit.String()),
-		ShipmentStatusRequest(model.ShipmentStatusOutForDelivery.String()),
-		ShipmentStatusRequest(model.ShipmentStatusDelivered.String()),
-		ShipmentStatusRequest(model.ShipmentStatusException.String()),
-		ShipmentStatusRequest(model.ShipmentStatusCancelled.String()):
-
-	default:
+	status, valid := req.Status.ToModel()
+	if !valid {
 		return ErrInvalidShipmentStatus
 	}
 
@@ -621,9 +810,12 @@ func (s *service) AddTrackingEvent(
 		ctx,
 		func(txCtx context.Context) error {
 
-			shipment, err := s.repository.
-				GetShipmentByIDForUpdateTx(
+			// Lock shipment so status transition and tracking event creation
+			// happen atomically.
+			shipment, err :=
+				s.repository.GetShipmentByIDForUpdateTx(
 					txCtx,
+					tenantID,
 					shipmentID,
 				)
 
@@ -636,12 +828,22 @@ func (s *service) AddTrackingEvent(
 					req.ExternalEventID,
 				)
 
-			// Idempotency.
+			// -----------------------------------------------------------------
+			// Idempotency
+			// -----------------------------------------------------------------
+			//
+			// Third-party logistics providers commonly retry webhook events.
+			//
+			// external_event_id is therefore treated as an idempotency key
+			// inside one shipment.
+			// -----------------------------------------------------------------
+
 			if externalEventID != "" {
 
 				existing, err :=
 					s.repository.GetTrackingEventByExternalID(
 						txCtx,
+						tenantID,
 						shipmentID,
 						externalEventID,
 					)
@@ -650,12 +852,15 @@ func (s *service) AddTrackingEvent(
 					return nil
 				}
 
-				if err != ErrTrackingEventNotFound {
+				if !errors.Is(err, ErrTrackingEventNotFound) {
 					return err
 				}
 			}
 
-			// Terminal shipment states cannot be downgraded.
+			// -----------------------------------------------------------------
+			// Terminal states
+			// -----------------------------------------------------------------
+
 			if shipment.Status == model.ShipmentStatusDelivered {
 				return ErrShipmentDelivered
 			}
@@ -684,20 +889,29 @@ func (s *service) AddTrackingEvent(
 				return err
 			}
 
-			shipment.Status = model.ShipmentStatus(status)
+			// Tracking events are the source of the current shipment status.
+			shipment.Status =
+				model.ShipmentStatus(status)
 
-			switch status {
+			switch model.ShipmentStatus(status) {
 
-			case ShipmentStatusRequest(model.ShipmentStatusDelivered.String()):
+			case model.ShipmentStatusInTransit:
+
+				if shipment.ShippedAt == nil {
+					shippedAt := occurredAt
+					shipment.ShippedAt = &shippedAt
+				}
+
+			case model.ShipmentStatusDelivered:
 
 				deliveredAt := occurredAt
 				shipment.DeliveredAt = &deliveredAt
 
-			case ShipmentStatusRequest(model.ShipmentStatusCancelled.String()):
+			case model.ShipmentStatusCancelled:
 				// terminal state
 
 			default:
-				// keep DeliveredAt untouched
+				// No timestamp changes.
 			}
 
 			return s.repository.UpdateShipmentTx(
@@ -713,8 +927,19 @@ func (s *service) ListTrackingEvents(
 	shipmentID uint,
 ) ([]*TrackingEventResponse, error) {
 
+	if shipmentID == 0 {
+		return nil, ErrShipmentNotFound
+	}
+
+	tenantID, err := TenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify that the shipment belongs to the current tenant.
 	if _, err := s.repository.GetShipmentByID(
 		ctx,
+		tenantID,
 		shipmentID,
 	); err != nil {
 		return nil, err
@@ -722,6 +947,7 @@ func (s *service) ListTrackingEvents(
 
 	events, err := s.repository.ListTrackingEvents(
 		ctx,
+		tenantID,
 		shipmentID,
 	)
 	if err != nil {
