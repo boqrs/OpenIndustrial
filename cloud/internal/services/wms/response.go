@@ -45,6 +45,8 @@ type InventoryResponse struct {
 type ShipmentResponse struct {
 	ID uint `json:"id"`
 
+	SalesOrderID *uint `json:"sales_order_id"`
+
 	ExternalOrderID string `json:"external_order_id"`
 
 	Carrier        string `json:"carrier"`
@@ -66,6 +68,8 @@ type ShipmentItemResponse struct {
 
 	ShipmentID uint `json:"shipment_id"`
 	DeviceID   uint `json:"device_id"`
+
+	SalesOrderItemID *uint `json:"sales_order_item_id"`
 
 	CreatedAt time.Time `json:"created_at"`
 }

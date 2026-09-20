@@ -11,6 +11,7 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+	salesorderSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/salesorder"
 )
 
 var (
@@ -82,7 +83,37 @@ var (
 		"shipment must contain at least one device",
 	)
 
-	ErrInvalidTrackingEvent = errors.New("invalid tracking event")
+	ErrInvalidTrackingEvent = errors.New(
+		"invalid tracking event",
+	)
+
+	ErrSalesOrderNotFound = errors.New(
+		"sales order not found",
+	)
+
+	ErrSalesOrderNotConfirmed = errors.New(
+		"sales order is not confirmed",
+	)
+
+	ErrSalesOrderItemNotFound = errors.New(
+		"sales order item not found",
+	)
+
+	ErrSalesOrderItemMismatch = errors.New(
+		"sales order item does not belong to shipment sales order",
+	)
+
+	ErrSalesOrderItemRequired = errors.New(
+		"sales order item is required for sales order shipment",
+	)
+
+	ErrSalesOrderFulfillmentExceeded = errors.New(
+		"sales order fulfillment quantity exceeds ordered quantity",
+	)
+
+	ErrSalesOrderShipmentMismatch = errors.New(
+		"shipment items do not belong to the shipment sales order",
+	)
 )
 
 type tenantContextKey struct{}
@@ -101,17 +132,20 @@ func WithTenantID(
 }
 
 type service struct {
-	uow        UnitOfWork
-	repository Repository
+	uow         UnitOfWork
+	repository  Repository
+	salesOrders salesorderSrv.Service
 }
 
 func NewService(
 	uow UnitOfWork,
 	repository Repository,
+	salesOrders salesorderSrv.Service,
 ) Service {
 	return &service{
-		uow:        uow,
-		repository: repository,
+		uow:         uow,
+		repository:  repository,
+		salesOrders: salesOrders,
 	}
 }
 
@@ -123,7 +157,6 @@ func (s *service) CreateWarehouse(
 	ctx context.Context,
 	req *CreateWarehouseRequest,
 ) (*WarehouseResponse, error) {
-
 	if req == nil {
 		return nil, ErrWarehouseNotFound
 	}
@@ -161,7 +194,6 @@ func (s *service) GetWarehouse(
 	ctx context.Context,
 	id uint,
 ) (*WarehouseResponse, error) {
-
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return nil, errors.New("perm valid")
@@ -187,7 +219,6 @@ func (s *service) CreateLocation(
 	ctx context.Context,
 	req *CreateLocationRequest,
 ) (*LocationResponse, error) {
-
 	if req == nil {
 		return nil, ErrLocationNotFound
 	}
@@ -240,7 +271,6 @@ func (s *service) GetDeviceInventory(
 	ctx context.Context,
 	deviceID uint,
 ) (*InventoryResponse, error) {
-
 	if deviceID == 0 {
 		return nil, ErrDeviceNotFound
 	}
@@ -266,7 +296,6 @@ func (s *service) StockIn(
 	ctx context.Context,
 	req *StockInRequest,
 ) (*InventoryResponse, error) {
-
 	if req == nil || req.DeviceID == 0 {
 		return nil, ErrDeviceNotFound
 	}
@@ -330,7 +359,6 @@ func (s *service) StockIn(
 	err = s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
-
 			inventory, err :=
 				s.repository.GetInventoryByDeviceIDForUpdateTx(
 					txCtx,
@@ -339,7 +367,6 @@ func (s *service) StockIn(
 				)
 
 			if err != nil {
-
 				if !errors.Is(err, ErrInventoryNotFound) {
 					return err
 				}
@@ -360,22 +387,17 @@ func (s *service) StockIn(
 				}
 
 				result = inventory
-
 				return nil
 			}
 
 			switch inventory.Status {
-
 			case model.InventoryStatusInStock:
 				return ErrDeviceAlreadyInStock
 
 			case model.InventoryStatusReserved:
-				// A reserved device already belongs to an outbound
-				// shipment. It must not be stocked in again.
 				return ErrDeviceReserved
 
 			case model.InventoryStatusShipped:
-				// Returned device.
 				inventory.WarehouseID = req.WarehouseID
 				inventory.LocationID = req.LocationID
 				inventory.Status = model.InventoryStatusInStock
@@ -390,7 +412,6 @@ func (s *service) StockIn(
 				}
 
 				result = inventory
-
 				return nil
 
 			default:
@@ -414,8 +435,7 @@ func (s *service) CreateShipment(
 	ctx context.Context,
 	req *CreateShipmentRequest,
 ) (*ShipmentResponse, error) {
-
-	if req == nil || len(req.DeviceIDs) == 0 {
+	if req == nil {
 		return nil, ErrEmptyShipment
 	}
 
@@ -431,43 +451,43 @@ func (s *service) CreateShipment(
 		return nil, ErrInvalidShipmentStatus
 	}
 
-	deviceIDs := make(
-		[]uint,
-		0,
-		len(req.DeviceIDs),
-	)
+	items := normalizeShipmentItems(req)
 
-	seen := make(
-		map[uint]struct{},
-		len(req.DeviceIDs),
-	)
+	if len(items) == 0 {
+		return nil, ErrEmptyShipment
+	}
 
-	for _, deviceID := range req.DeviceIDs {
+	seen := make(map[uint]struct{}, len(items))
+	deviceIDs := make([]uint, 0, len(items))
 
-		if deviceID == 0 {
+	for _, item := range items {
+		if item.DeviceID == 0 {
 			return nil, ErrDeviceNotFound
 		}
 
-		if _, exists := seen[deviceID]; exists {
+		if _, exists := seen[item.DeviceID]; exists {
 			return nil, ErrDuplicateDevice
 		}
 
-		seen[deviceID] = struct{}{}
-
-		deviceIDs = append(
-			deviceIDs,
-			deviceID,
-		)
+		seen[item.DeviceID] = struct{}{}
+		deviceIDs = append(deviceIDs, item.DeviceID)
 	}
 
-	// Always acquire inventory locks in deterministic order.
-	//
-	// Without this, two concurrent shipments could lock:
-	//
-	// Shipment A: Device 1 -> Device 2
-	// Shipment B: Device 2 -> Device 1
-	//
-	// which creates a classic database lock inversion.
+	if req.SalesOrderID == nil {
+		for _, item := range items {
+			if item.SalesOrderItemID != nil {
+				return nil, ErrSalesOrderShipmentMismatch
+			}
+		}
+	} else {
+		for _, item := range items {
+			if item.SalesOrderItemID == nil ||
+				*item.SalesOrderItemID == 0 {
+				return nil, ErrSalesOrderItemRequired
+			}
+		}
+	}
+
 	sort.Slice(
 		deviceIDs,
 		func(i, j int) bool {
@@ -478,6 +498,8 @@ func (s *service) CreateShipment(
 	shipment := &model.Shipment{
 		TenantID: tenantID,
 
+		SalesOrderID: req.SalesOrderID,
+
 		ExternalOrderID: strings.TrimSpace(
 			req.ExternalOrderID,
 		),
@@ -487,15 +509,37 @@ func (s *service) CreateShipment(
 		Status:         model.ShipmentStatusCreated,
 	}
 
-	items := make(
+	shipmentItems := make(
 		[]*model.ShipmentItem,
 		0,
-		len(deviceIDs),
+		len(items),
 	)
 
 	err := s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
+			var lockedOrder *model.SalesOrder
+
+			if req.SalesOrderID != nil {
+				if s.salesOrders == nil {
+					return ErrSalesOrderNotFound
+				}
+
+				order, err :=
+					s.salesOrders.GetByIDForUpdateTx(
+						txCtx,
+						*req.SalesOrderID,
+					)
+				if err != nil {
+					return mapSalesOrderError(err)
+				}
+
+				if order.Status != model.SalesOrderStatusConfirmed {
+					return ErrSalesOrderNotConfirmed
+				}
+
+				lockedOrder = order
+			}
 
 			lockedInventories := make(
 				[]*model.DeviceInventory,
@@ -503,12 +547,7 @@ func (s *service) CreateShipment(
 				len(deviceIDs),
 			)
 
-			// -----------------------------------------------------------------
-			// Lock every inventory row before changing anything.
-			// -----------------------------------------------------------------
-
 			for _, deviceID := range deviceIDs {
-
 				inventory, err :=
 					s.repository.GetInventoryByDeviceIDForUpdateTx(
 						txCtx,
@@ -534,9 +573,55 @@ func (s *service) CreateShipment(
 				)
 			}
 
-			// -----------------------------------------------------------------
-			// Create Shipment.
-			// -----------------------------------------------------------------
+			if lockedOrder != nil {
+				counts := shipmentSalesOrderItemCounts(items)
+
+				itemIDs := make([]uint, 0, len(counts))
+				for itemID := range counts {
+					itemIDs = append(itemIDs, itemID)
+				}
+
+				sort.Slice(
+					itemIDs,
+					func(i, j int) bool {
+						return itemIDs[i] < itemIDs[j]
+					},
+				)
+
+				for _, itemID := range itemIDs {
+					orderItem, err :=
+						s.salesOrders.GetItemByIDForUpdateTx(
+							txCtx,
+							itemID,
+						)
+					if err != nil {
+						return mapSalesOrderItemError(err)
+					}
+
+					if orderItem.SalesOrderID != lockedOrder.ID {
+						return ErrSalesOrderItemMismatch
+					}
+
+					quantity := counts[itemID]
+
+					if orderItem.FulfilledQuantity+
+						orderItem.ReservedQuantity+
+						quantity >
+						orderItem.OrderedQuantity {
+						return ErrSalesOrderFulfillmentExceeded
+					}
+
+					orderItem.ReservedQuantity += quantity
+					orderItem.UpdatedAt = time.Now().UTC()
+
+					if err := s.salesOrders.UpdateItemTx(
+						txCtx,
+						orderItem,
+					); err != nil {
+						return err
+					}
+				}
+			}
 
 			if err := s.repository.CreateShipmentTx(
 				txCtx,
@@ -545,33 +630,25 @@ func (s *service) CreateShipment(
 				return err
 			}
 
-			for _, deviceID := range deviceIDs {
-
-				items = append(
-					items,
+			for _, item := range items {
+				shipmentItems = append(
+					shipmentItems,
 					&model.ShipmentItem{
-						ShipmentID: shipment.ID,
-						DeviceID:   deviceID,
+						ShipmentID:      shipment.ID,
+						DeviceID:        item.DeviceID,
+						SalesOrderItemID: item.SalesOrderItemID,
 					},
 				)
 			}
 
 			if err := s.repository.CreateShipmentItemsTx(
 				txCtx,
-				items,
+				shipmentItems,
 			); err != nil {
 				return err
 			}
 
-			// -----------------------------------------------------------------
-			// Reserve inventory.
-			//
-			// Shipment creation means the devices have been allocated to this
-			// shipment. They are not physically out of the warehouse yet.
-			// -----------------------------------------------------------------
-
 			for _, inventory := range lockedInventories {
-
 				inventory.Status =
 					model.InventoryStatusReserved
 
@@ -593,11 +670,12 @@ func (s *service) CreateShipment(
 
 	return &ShipmentResponse{
 		ID:              shipment.ID,
+		SalesOrderID:    shipment.SalesOrderID,
 		ExternalOrderID: shipment.ExternalOrderID,
 		Carrier:         shipment.Carrier,
 		TrackingNumber:  shipment.TrackingNumber,
 		Status:          shipment.Status.String(),
-		Items:           shipmentItemsToResponse(items),
+		Items:           shipmentItemsToResponse(shipmentItems),
 		CreatedAt:       shipment.CreatedAt,
 		UpdatedAt:       shipment.UpdatedAt,
 	}, nil
@@ -607,20 +685,10 @@ func (s *service) CreateShipment(
 // Stock Out
 // -----------------------------------------------------------------------------
 
-// StockOut changes:
-//
-//	Shipment:
-//	    CREATED -> IN_TRANSIT
-//
-//	DeviceInventory:
-//	    RESERVED -> SHIPPED
-//
-// The entire operation is transactional.
 func (s *service) StockOut(
 	ctx context.Context,
 	shipmentID uint,
 ) error {
-
 	if shipmentID == 0 {
 		return ErrShipmentNotFound
 	}
@@ -633,7 +701,6 @@ func (s *service) StockOut(
 	return s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
-
 			shipment, err :=
 				s.repository.GetShipmentByIDForUpdateTx(
 					txCtx,
@@ -646,9 +713,7 @@ func (s *service) StockOut(
 			}
 
 			switch shipment.Status {
-
 			case model.ShipmentStatusCreated:
-				// valid
 
 			case model.ShipmentStatusCancelled:
 				return ErrShipmentCancelled
@@ -673,7 +738,6 @@ func (s *service) StockOut(
 				return ErrEmptyShipment
 			}
 
-			// Device IDs are sorted before locking.
 			sort.Slice(
 				items,
 				func(i, j int) bool {
@@ -684,7 +748,6 @@ func (s *service) StockOut(
 			now := time.Now().UTC()
 
 			for _, item := range items {
-
 				inventory, err :=
 					s.repository.GetInventoryByDeviceIDForUpdateTx(
 						txCtx,
@@ -738,7 +801,6 @@ func (s *service) GetShipment(
 	ctx context.Context,
 	shipmentID uint,
 ) (*ShipmentResponse, error) {
-
 	if shipmentID == 0 {
 		return nil, ErrShipmentNotFound
 	}
@@ -768,6 +830,7 @@ func (s *service) GetShipment(
 
 	return &ShipmentResponse{
 		ID:              shipment.ID,
+		SalesOrderID:    shipment.SalesOrderID,
 		ExternalOrderID: shipment.ExternalOrderID,
 		Carrier:         shipment.Carrier,
 		TrackingNumber:  shipment.TrackingNumber,
@@ -807,89 +870,106 @@ func (s *service) AddTrackingEvent(
 		return ErrInvalidShipmentStatus
 	}
 
-	if strings.TrimSpace(req.ExternalEventID) == "" {
+	externalEventID := strings.TrimSpace(
+		req.ExternalEventID,
+	)
+
+	if externalEventID == "" {
 		return ErrInvalidTrackingEvent
 	}
 
 	occurredAt := time.Now().UTC()
+
 	if req.OccurredAt != nil {
 		occurredAt = req.OccurredAt.UTC()
 	}
 
-	return s.uow.Execute(ctx, func(txCtx context.Context) error {
-		shipment, err := s.repository.GetShipmentByIDForUpdateTx(
-			txCtx,
-			tenantID,
-			shipmentID,
-		)
-		if err != nil {
-			return err
-		}
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			shipment, err :=
+				s.repository.GetShipmentByIDForUpdateTx(
+					txCtx,
+					tenantID,
+					shipmentID,
+				)
+			if err != nil {
+				return err
+			}
 
-		// ExternalEventID is the idempotency key for carrier callbacks.
-		existing, err := s.repository.GetTrackingEventByExternalID(
-			txCtx,
-			tenantID,
-			shipmentID,
-			strings.TrimSpace(req.ExternalEventID),
-		)
-		if err == nil {
-			// The same carrier event has already been processed.
-			// Treat it as success so repeated callbacks are harmless.
-			_ = existing
-			return nil
-		}
+			existing, err :=
+				s.repository.GetTrackingEventByExternalID(
+					txCtx,
+					tenantID,
+					shipmentID,
+					externalEventID,
+				)
 
-		if !errors.Is(err, ErrTrackingEventNotFound) {
-			return err
-		}
+			if err == nil {
+				_ = existing
+				return nil
+			}
 
-		nextStatus := model.ShipmentStatus(status)
+			if !errors.Is(err, ErrTrackingEventNotFound) {
+				return err
+			}
 
-		if !isValidShipmentStatusTransition(
-			shipment.Status,
-			nextStatus,
-		) {
-			return ErrInvalidShipmentStatus
-		}
+			nextStatus := model.ShipmentStatus(status)
 
-		event := &model.ShipmentTrackingEvent{
-			ShipmentID:      shipmentID,
-			ExternalEventID: strings.TrimSpace(req.ExternalEventID),
-			Status:          nextStatus,
-			OccurredAt:      occurredAt,
-			Location:        strings.TrimSpace(req.Location),
-			Description:     strings.TrimSpace(req.Description),
-			CreatedAt:       time.Now().UTC(),
-		}
+			if !isValidShipmentStatusTransition(
+				shipment.Status,
+				nextStatus,
+			) {
+				return ErrInvalidShipmentStatus
+			}
 
-		if err := s.repository.CreateTrackingEventTx(
-			txCtx,
-			event,
-		); err != nil {
-			return err
-		}
+			event := &model.ShipmentTrackingEvent{
+				ShipmentID:      shipmentID,
+				ExternalEventID: externalEventID,
+				Status:          nextStatus,
+				OccurredAt:      occurredAt,
+				Location:        strings.TrimSpace(req.Location),
+				Description:     strings.TrimSpace(req.Description),
+				CreatedAt:       time.Now().UTC(),
+			}
 
-		shipment.Status = nextStatus
-		shipment.UpdatedAt = time.Now().UTC()
+			if err := s.repository.CreateTrackingEventTx(
+				txCtx,
+				event,
+			); err != nil {
+				return err
+			}
 
-		if nextStatus == model.ShipmentStatusDelivered {
-			deliveredAt := occurredAt
-			shipment.DeliveredAt = &deliveredAt
-		}
+			previousStatus := shipment.Status
 
-		return s.repository.UpdateShipmentTx(
-			txCtx,
-			shipment,
-		)
-	})
+			shipment.Status = nextStatus
+			shipment.UpdatedAt = time.Now().UTC()
+
+			if nextStatus == model.ShipmentStatusDelivered {
+				deliveredAt := occurredAt
+				shipment.DeliveredAt = &deliveredAt
+
+				if err := s.handleShipmentDeliveredTx(
+					txCtx,
+					shipment,
+					previousStatus,
+				); err != nil {
+					return err
+				}
+			}
+
+			return s.repository.UpdateShipmentTx(
+				txCtx,
+				shipment,
+			)
+		},
+	)
 }
 
 func (s *service) ListTrackingEvents(
 	ctx context.Context,
 	shipmentID uint,
 ) ([]*TrackingEventResponse, error) {
-
 	if shipmentID == 0 {
 		return nil, ErrShipmentNotFound
 	}
@@ -923,7 +1003,6 @@ func (s *service) ListTrackingEvents(
 	)
 
 	for _, event := range events {
-
 		result = append(
 			result,
 			trackingEventToResponse(event),
@@ -934,101 +1013,13 @@ func (s *service) ListTrackingEvents(
 }
 
 // -----------------------------------------------------------------------------
-// Response Mapping
+// Shipment Cancellation
 // -----------------------------------------------------------------------------
-
-func warehouseToResponse(
-	warehouse *model.Warehouse,
-) *WarehouseResponse {
-
-	return &WarehouseResponse{
-		ID:        warehouse.ID,
-		Code:      warehouse.Code,
-		Name:      warehouse.Name,
-		Address:   warehouse.Address,
-		CreatedAt: warehouse.CreatedAt,
-		UpdatedAt: warehouse.UpdatedAt,
-	}
-}
-
-func locationToResponse(
-	location *model.WarehouseLocation,
-) *LocationResponse {
-
-	return &LocationResponse{
-		ID:          location.ID,
-		WarehouseID: location.WarehouseID,
-		Code:        location.Code,
-		Name:        location.Name,
-		CreatedAt:   location.CreatedAt,
-		UpdatedAt:   location.UpdatedAt,
-	}
-}
-
-func inventoryToResponse(
-	inventory *model.DeviceInventory,
-) *InventoryResponse {
-
-	return &InventoryResponse{
-		ID:          inventory.ID,
-		DeviceID:    inventory.DeviceID,
-		WarehouseID: inventory.WarehouseID,
-		LocationID:  inventory.LocationID,
-		Status:      inventory.Status.String(),
-		InboundAt:   inventory.InboundAt,
-		OutboundAt:  inventory.OutboundAt,
-		CreatedAt:   inventory.CreatedAt,
-		UpdatedAt:   inventory.UpdatedAt,
-	}
-}
-
-func shipmentItemsToResponse(
-	items []*model.ShipmentItem,
-) []*ShipmentItemResponse {
-
-	result := make(
-		[]*ShipmentItemResponse,
-		0,
-		len(items),
-	)
-
-	for _, item := range items {
-
-		result = append(
-			result,
-			&ShipmentItemResponse{
-				ID:         item.ID,
-				ShipmentID: item.ShipmentID,
-				DeviceID:   item.DeviceID,
-				CreatedAt:  item.CreatedAt,
-			},
-		)
-	}
-
-	return result
-}
-
-func trackingEventToResponse(
-	event *model.ShipmentTrackingEvent,
-) *TrackingEventResponse {
-
-	return &TrackingEventResponse{
-		ID:              event.ID,
-		ShipmentID:      event.ShipmentID,
-		ExternalEventID: event.ExternalEventID,
-		Status:          event.Status.String(),
-		OccurredAt:      event.OccurredAt,
-		Location:        event.Location,
-		Description:     event.Description,
-		CreatedAt:       event.CreatedAt,
-	}
-}
 
 func (s *service) CancelShipment(
 	ctx context.Context,
 	shipmentID uint,
 ) error {
-
 	if shipmentID == 0 {
 		return ErrShipmentNotFound
 	}
@@ -1041,33 +1032,27 @@ func (s *service) CancelShipment(
 	return s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
-
 			shipment, err :=
 				s.repository.GetShipmentByIDForUpdateTx(
 					txCtx,
 					tenantID,
 					shipmentID,
 				)
+
 			if err != nil {
 				return err
 			}
 
 			switch shipment.Status {
-
 			case model.ShipmentStatusCreated:
-				// Only a shipment that has not left the warehouse
-				// can be cancelled.
 
 			case model.ShipmentStatusCancelled:
-				// Idempotent.
 				return nil
 
 			case model.ShipmentStatusInTransit,
 				model.ShipmentStatusOutForDelivery,
-				model.ShipmentStatusDelivered:
-				return ErrShipmentAlreadyShipped
-
-			case model.ShipmentStatusException:
+				model.ShipmentStatusDelivered,
+				model.ShipmentStatusException:
 				return ErrShipmentAlreadyShipped
 
 			default:
@@ -1083,23 +1068,27 @@ func (s *service) CancelShipment(
 				return err
 			}
 
+			sort.Slice(
+				items,
+				func(i, j int) bool {
+					return items[i].DeviceID < items[j].DeviceID
+				},
+			)
+
 			now := time.Now().UTC()
 
 			for _, item := range items {
-
 				inventory, err :=
 					s.repository.GetInventoryByDeviceIDForUpdateTx(
 						txCtx,
 						tenantID,
 						item.DeviceID,
 					)
+
 				if err != nil {
 					return err
 				}
 
-				// Every item of a created shipment should still be
-				// reserved. If not, the shipment state and inventory
-				// state have diverged.
 				if inventory.Status != model.InventoryStatusReserved {
 					return ErrDeviceNotInStock
 				}
@@ -1118,8 +1107,20 @@ func (s *service) CancelShipment(
 				}
 			}
 
+			if shipment.SalesOrderID != nil {
+				if err := s.releaseSalesOrderReservationTx(
+					txCtx,
+					*shipment.SalesOrderID,
+					items,
+				); err != nil {
+					return err
+				}
+			}
+
 			shipment.Status =
 				model.ShipmentStatusCancelled
+
+			shipment.UpdatedAt = now
 
 			return s.repository.UpdateShipmentTx(
 				txCtx,
@@ -1127,6 +1128,357 @@ func (s *service) CancelShipment(
 			)
 		},
 	)
+}
+
+// -----------------------------------------------------------------------------
+// Sales Order Fulfillment
+// -----------------------------------------------------------------------------
+
+func (s *service) handleShipmentDeliveredTx(
+	ctx context.Context,
+	shipment *model.Shipment,
+	previousStatus model.ShipmentStatus,
+) error {
+	if shipment.SalesOrderID == nil {
+		return nil
+	}
+
+	if previousStatus != model.ShipmentStatusInTransit &&
+		previousStatus != model.ShipmentStatusOutForDelivery &&
+		previousStatus != model.ShipmentStatusException {
+		return ErrInvalidShipmentStatus
+	}
+
+	if s.salesOrders == nil {
+		return ErrSalesOrderNotFound
+	}
+
+	order, err :=
+		s.salesOrders.GetByIDForUpdateTx(
+			ctx,
+			*shipment.SalesOrderID,
+		)
+	if err != nil {
+		return mapSalesOrderError(err)
+	}
+
+	if order.Status != model.SalesOrderStatusConfirmed {
+		return ErrSalesOrderNotConfirmed
+	}
+
+	items, err := s.repository.ListShipmentItems(
+		ctx,
+		shipment.TenantID,
+		shipment.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	if len(items) == 0 {
+		return ErrEmptyShipment
+	}
+
+	sort.Slice(
+		items,
+		func(i, j int) bool {
+			left := uint(0)
+			right := uint(0)
+
+			if items[i].SalesOrderItemID != nil {
+				left = *items[i].SalesOrderItemID
+			}
+
+			if items[j].SalesOrderItemID != nil {
+				right = *items[j].SalesOrderItemID
+			}
+
+			return left < right
+		},
+	)
+
+	for _, shipmentItem := range items {
+		if shipmentItem.SalesOrderItemID == nil {
+			return ErrSalesOrderItemRequired
+		}
+
+		orderItem, err :=
+			s.salesOrders.GetItemByIDForUpdateTx(
+				ctx,
+				*shipmentItem.SalesOrderItemID,
+			)
+		if err != nil {
+			return mapSalesOrderItemError(err)
+		}
+
+		if orderItem.SalesOrderID != order.ID {
+			return ErrSalesOrderItemMismatch
+		}
+
+		if orderItem.ReservedQuantity <= 0 {
+			return ErrSalesOrderFulfillmentExceeded
+		}
+
+		orderItem.ReservedQuantity--
+		orderItem.FulfilledQuantity++
+		orderItem.UpdatedAt = time.Now().UTC()
+
+		if orderItem.FulfilledQuantity >
+			orderItem.OrderedQuantity {
+			return ErrSalesOrderFulfillmentExceeded
+		}
+
+		if err := s.salesOrders.UpdateItemTx(
+			ctx,
+			orderItem,
+		); err != nil {
+			return err
+		}
+	}
+
+	orderItems, err :=
+		s.salesOrders.ListItemsTx(
+			ctx,
+			order.ID,
+		)
+	if err != nil {
+		return err
+	}
+
+	allFulfilled := len(orderItems) > 0
+
+	for _, item := range orderItems {
+		if item.FulfilledQuantity < item.OrderedQuantity {
+			allFulfilled = false
+			break
+		}
+	}
+
+	if allFulfilled {
+		order.Status = model.SalesOrderStatusCompleted
+		order.UpdatedAt = time.Now().UTC()
+
+		return s.salesOrders.UpdateTx(
+			ctx,
+			order,
+		)
+	}
+
+	return nil
+}
+
+func (s *service) releaseSalesOrderReservationTx(
+	ctx context.Context,
+	salesOrderID uint,
+	items []*model.ShipmentItem,
+) error {
+	if s.salesOrders == nil {
+		return ErrSalesOrderNotFound
+	}
+
+	order, err :=
+		s.salesOrders.GetByIDForUpdateTx(
+			ctx,
+			salesOrderID,
+		)
+	if err != nil {
+		return mapSalesOrderError(err)
+	}
+
+	counts := shipmentSalesOrderItemCounts(items)
+
+	itemIDs := make([]uint, 0, len(counts))
+
+	for itemID := range counts {
+		itemIDs = append(itemIDs, itemID)
+	}
+
+	sort.Slice(
+		itemIDs,
+		func(i, j int) bool {
+			return itemIDs[i] < itemIDs[j]
+		},
+	)
+
+	for _, itemID := range itemIDs {
+		item, err :=
+			s.salesOrders.GetItemByIDForUpdateTx(
+				ctx,
+				itemID,
+			)
+		if err != nil {
+			return mapSalesOrderItemError(err)
+		}
+
+		if item.SalesOrderID != order.ID {
+			return ErrSalesOrderItemMismatch
+		}
+
+		quantity := counts[itemID]
+
+		if item.ReservedQuantity < quantity {
+			return ErrSalesOrderFulfillmentExceeded
+		}
+
+		item.ReservedQuantity -= quantity
+		item.UpdatedAt = time.Now().UTC()
+
+		if err := s.salesOrders.UpdateItemTx(
+			ctx,
+			item,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+func normalizeShipmentItems(
+	req *CreateShipmentRequest,
+) []CreateShipmentItemRequest {
+	if len(req.Items) > 0 {
+		return append(
+			[]CreateShipmentItemRequest(nil),
+			req.Items...,
+		)
+	}
+
+	if len(req.DeviceIDs) == 0 {
+		return nil
+	}
+
+	items := make(
+		[]CreateShipmentItemRequest,
+		0,
+		len(req.DeviceIDs),
+	)
+
+	for _, deviceID := range req.DeviceIDs {
+		items = append(
+			items,
+			CreateShipmentItemRequest{
+				DeviceID: deviceID,
+			},
+		)
+	}
+
+	return items
+}
+
+func shipmentSalesOrderItemCounts(
+	items []CreateShipmentItemRequest,
+) map[uint]int64 {
+	result := make(map[uint]int64)
+
+	for _, item := range items {
+		if item.SalesOrderItemID == nil ||
+			*item.SalesOrderItemID == 0 {
+			continue
+		}
+
+		result[*item.SalesOrderItemID]++
+	}
+
+	return result
+}
+
+func mapSalesOrderError(err error) error {
+	if errors.Is(err, salesorder.ErrSalesOrderNotFound) {
+		return ErrSalesOrderNotFound
+	}
+
+	return err
+}
+
+func mapSalesOrderItemError(err error) error {
+	return err
+}
+
+func warehouseToResponse(
+	warehouse *model.Warehouse,
+) *WarehouseResponse {
+	return &WarehouseResponse{
+		ID:        warehouse.ID,
+		Code:      warehouse.Code,
+		Name:      warehouse.Name,
+		Address:   warehouse.Address,
+		CreatedAt: warehouse.CreatedAt,
+		UpdatedAt: warehouse.UpdatedAt,
+	}
+}
+
+func locationToResponse(
+	location *model.WarehouseLocation,
+) *LocationResponse {
+	return &LocationResponse{
+		ID:          location.ID,
+		WarehouseID: location.WarehouseID,
+		Code:        location.Code,
+		Name:        location.Name,
+		CreatedAt:   location.CreatedAt,
+		UpdatedAt:   location.UpdatedAt,
+	}
+}
+
+func inventoryToResponse(
+	inventory *model.DeviceInventory,
+) *InventoryResponse {
+	return &InventoryResponse{
+		ID:          inventory.ID,
+		DeviceID:    inventory.DeviceID,
+		WarehouseID: inventory.WarehouseID,
+		LocationID:  inventory.LocationID,
+		Status:      inventory.Status.String(),
+		InboundAt:   inventory.InboundAt,
+		OutboundAt:  inventory.OutboundAt,
+		CreatedAt:   inventory.CreatedAt,
+		UpdatedAt:   inventory.UpdatedAt,
+	}
+}
+
+func shipmentItemsToResponse(
+	items []*model.ShipmentItem,
+) []*ShipmentItemResponse {
+	result := make(
+		[]*ShipmentItemResponse,
+		0,
+		len(items),
+	)
+
+	for _, item := range items {
+		result = append(
+			result,
+			&ShipmentItemResponse{
+				ID:                item.ID,
+				ShipmentID:        item.ShipmentID,
+				DeviceID:          item.DeviceID,
+				SalesOrderItemID: item.SalesOrderItemID,
+				CreatedAt:         item.CreatedAt,
+			},
+		)
+	}
+
+	return result
+}
+
+func trackingEventToResponse(
+	event *model.ShipmentTrackingEvent,
+) *TrackingEventResponse {
+	return &TrackingEventResponse{
+		ID:              event.ID,
+		ShipmentID:      event.ShipmentID,
+		ExternalEventID: event.ExternalEventID,
+		Status:          event.Status.String(),
+		OccurredAt:      event.OccurredAt,
+		Location:        event.Location,
+		Description:     event.Description,
+		CreatedAt:       event.CreatedAt,
+	}
 }
 
 func isValidShipmentStatusTransition(

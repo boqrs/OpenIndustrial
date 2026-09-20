@@ -25,16 +25,39 @@ type StockInRequest struct {
 }
 
 type CreateShipmentRequest struct {
+	// SalesOrderID links this shipment to an internal SalesOrder.
+	//
+	// It is optional because WMS may also process shipments
+	// that are not generated from an internal SalesOrder.
+	SalesOrderID *uint `json:"sales_order_id"`
+
+	// ExternalOrderID is the order identifier from an external
+	// ERP / e-commerce / logistics system.
 	ExternalOrderID string `json:"external_order_id"`
 
 	Carrier        string `json:"carrier" binding:"required"`
 	TrackingNumber string `json:"tracking_number" binding:"required"`
 
-	DeviceIDs []uint `json:"device_ids" binding:"required,min=1"`
+	// Items is required for SalesOrder-linked shipments because
+	// every device must be mapped to a SalesOrderItem.
+	Items []CreateShipmentItemRequest `json:"items"`
+
+	// DeviceIDs is retained for backward compatibility for
+	// non-SalesOrder shipments.
+	//
+	// When SalesOrderID is provided, Items must be used.
+	DeviceIDs []uint `json:"device_ids"`
+}
+
+type CreateShipmentItemRequest struct {
+	DeviceID uint `json:"device_id" binding:"required"`
+
+	// SalesOrderItemID is required when SalesOrderID is provided.
+	SalesOrderItemID *uint `json:"sales_order_item_id"`
 }
 
 type TrackingEventRequest struct {
-	ExternalEventID string `json:"external_event_id"`
+	ExternalEventID string `json:"external_event_id" binding:"required"`
 
 	Status ShipmentStatusRequest `json:"status" binding:"required"`
 
@@ -47,22 +70,18 @@ type TrackingEventRequest struct {
 type ShipmentStatusRequest string
 
 const (
-	ShipmentStatusRequestCreated        ShipmentStatusRequest = "created"
 	ShipmentStatusRequestInTransit      ShipmentStatusRequest = "in_transit"
 	ShipmentStatusRequestOutForDelivery ShipmentStatusRequest = "out_for_delivery"
 	ShipmentStatusRequestDelivered      ShipmentStatusRequest = "delivered"
 	ShipmentStatusRequestException      ShipmentStatusRequest = "exception"
-	ShipmentStatusRequestCancelled      ShipmentStatusRequest = "cancelled"
 )
 
 func (s ShipmentStatusRequest) ToModel() (string, bool) {
 	switch s {
-	case ShipmentStatusRequestCreated,
-		ShipmentStatusRequestInTransit,
+	case ShipmentStatusRequestInTransit,
 		ShipmentStatusRequestOutForDelivery,
 		ShipmentStatusRequestDelivered,
-		ShipmentStatusRequestException,
-		ShipmentStatusRequestCancelled:
+		ShipmentStatusRequestException:
 		return string(s), true
 	default:
 		return "", false

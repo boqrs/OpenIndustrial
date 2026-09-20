@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	customerSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/customer"
 	"gorm.io/gorm"
 )
@@ -24,13 +23,13 @@ var (
 )
 
 type service struct {
-	uow        postgres.UnitOfWork
+	uow        UnitOfWork
 	repository Repository
 	customers  customerSrv.Repository
 }
 
 func NewService(
-	uow postgres.UnitOfWork,
+	uow UnitOfWork,
 	repository Repository,
 	customers customerSrv.Repository,
 ) Service {
@@ -68,11 +67,15 @@ func (s *service) Create(
 		}
 	}
 
-	customer, err := s.customers.GetByID(ctx, req.CustomerID)
+	customer, err := s.customers.GetByID(
+		ctx,
+		req.CustomerID,
+	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrCustomerNotFound
 		}
+
 		return nil, err
 	}
 
@@ -80,60 +83,80 @@ func (s *service) Create(
 		return nil, ErrCustomerInactive
 	}
 
-	existing, err := s.repository.GetByOrderNo(ctx, orderNo)
+	existing, err := s.repository.GetByOrderNo(
+		ctx,
+		orderNo,
+	)
+
 	if err == nil && existing != nil {
 		return nil, ErrSalesOrderNoExists
 	}
 
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil &&
+		!errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
 	var result *Response
 
-	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
-		order := &model.SalesOrder{
-			CustomerID:  req.CustomerID,
-			OrderNo:     orderNo,
-			Status:      model.SalesOrderStatusDraft,
-			OrderDate:   req.OrderDate,
-			Description: strings.TrimSpace(req.Description),
-		}
+	err = s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			order := &model.SalesOrder{
+				CustomerID:  req.CustomerID,
+				OrderNo:     orderNo,
+				Status:      model.SalesOrderStatusDraft,
+				OrderDate:   req.OrderDate,
+				Description: strings.TrimSpace(req.Description),
+			}
 
-		if order.OrderDate.IsZero() {
-			return ErrSalesOrderInvalid
-		}
+			if order.OrderDate.IsZero() {
+				return ErrSalesOrderInvalid
+			}
 
-		if err := s.repository.Create(txCtx, order); err != nil {
-			return err
-		}
+			if err := s.repository.Create(
+				txCtx,
+				order,
+			); err != nil {
+				return err
+			}
 
-		items := make([]*model.SalesOrderItem, 0, len(req.Items))
+			items := make(
+				[]*model.SalesOrderItem,
+				0,
+				len(req.Items),
+			)
 
-		for _, itemReq := range req.Items {
-			items = append(items, &model.SalesOrderItem{
-				SalesOrderID:    order.ID,
-				ProductID:       itemReq.ProductID,
-				OrderedQuantity: itemReq.OrderedQuantity,
-			})
-		}
+			for _, itemReq := range req.Items {
+				items = append(
+					items,
+					&model.SalesOrderItem{
+						SalesOrderID:    order.ID,
+						ProductID:       itemReq.ProductID,
+						OrderedQuantity: itemReq.OrderedQuantity,
+					},
+				)
+			}
 
-		if err := s.repository.CreateItemsTx(txCtx, items); err != nil {
-			return err
-		}
+			if err := s.repository.CreateItemsTx(
+				txCtx,
+				items,
+			); err != nil {
+				return err
+			}
 
-		order.Items = items
-		result = toResponse(order)
+			order.Items = items
+			result = toResponse(order)
 
-		return nil
-	})
+			return nil
+		},
+	)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return result, nil
-
 }
 
 func (s *service) GetByID(
@@ -144,15 +167,22 @@ func (s *service) GetByID(
 		return nil, ErrSalesOrderInvalid
 	}
 
-	order, err := s.repository.GetByID(ctx, id)
+	order, err := s.repository.GetByID(
+		ctx,
+		id,
+	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrSalesOrderNotFound
 		}
+
 		return nil, err
 	}
 
-	items, err := s.repository.ListItems(ctx, order.ID)
+	items, err := s.repository.ListItems(
+		ctx,
+		order.ID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +190,6 @@ func (s *service) GetByID(
 	order.Items = items
 
 	return toResponse(order), nil
-
 }
 
 func (s *service) GetByOrderNo(
@@ -168,19 +197,27 @@ func (s *service) GetByOrderNo(
 	orderNo string,
 ) (*Response, error) {
 	orderNo = strings.TrimSpace(orderNo)
+
 	if orderNo == "" {
 		return nil, ErrSalesOrderInvalid
 	}
 
-	order, err := s.repository.GetByOrderNo(ctx, orderNo)
+	order, err := s.repository.GetByOrderNo(
+		ctx,
+		orderNo,
+	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrSalesOrderNotFound
 		}
+
 		return nil, err
 	}
 
-	items, err := s.repository.ListItems(ctx, order.ID)
+	items, err := s.repository.ListItems(
+		ctx,
+		order.ID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +225,6 @@ func (s *service) GetByOrderNo(
 	order.Items = items
 
 	return toResponse(order), nil
-
 }
 
 func (s *service) List(
@@ -215,8 +251,13 @@ func (s *service) List(
 
 	var status *model.SalesOrderStatus
 
-	if req.Status != nil && strings.TrimSpace(*req.Status) != "" {
-		value := model.SalesOrderStatus(strings.TrimSpace(*req.Status))
+	if req.Status != nil &&
+		strings.TrimSpace(*req.Status) != "" {
+
+		value := model.SalesOrderStatus(
+			strings.TrimSpace(*req.Status),
+		)
+
 		status = &value
 	}
 
@@ -230,23 +271,33 @@ func (s *service) List(
 		return nil, err
 	}
 
-	items := make([]*Response, 0, len(orders))
+	items := make(
+		[]*Response,
+		0,
+		len(orders),
+	)
 
 	for _, order := range orders {
-		orderItems, err := s.repository.ListItems(ctx, order.ID)
+		orderItems, err := s.repository.ListItems(
+			ctx,
+			order.ID,
+		)
 		if err != nil {
 			return nil, err
 		}
 
 		order.Items = orderItems
-		items = append(items, toResponse(order))
+
+		items = append(
+			items,
+			toResponse(order),
+		)
 	}
 
 	return &ListResponse{
 		Items: items,
 		Total: total,
 	}, nil
-
 }
 
 func (s *service) Update(
@@ -258,11 +309,15 @@ func (s *service) Update(
 		return nil, ErrSalesOrderInvalid
 	}
 
-	order, err := s.repository.GetByID(ctx, id)
+	order, err := s.repository.GetByID(
+		ctx,
+		id,
+	)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrSalesOrderNotFound
 		}
+
 		return nil, err
 	}
 
@@ -279,14 +334,22 @@ func (s *service) Update(
 	}
 
 	if req.Description != nil {
-		order.Description = strings.TrimSpace(*req.Description)
+		order.Description = strings.TrimSpace(
+			*req.Description,
+		)
 	}
 
-	if err := s.repository.Update(ctx, order); err != nil {
+	if err := s.repository.Update(
+		ctx,
+		order,
+	); err != nil {
 		return nil, err
 	}
 
-	items, err := s.repository.ListItems(ctx, order.ID)
+	items, err := s.repository.ListItems(
+		ctx,
+		order.ID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +357,6 @@ func (s *service) Update(
 	order.Items = items
 
 	return toResponse(order), nil
-
 }
 
 func (s *service) Confirm(
@@ -305,33 +367,45 @@ func (s *service) Confirm(
 		return ErrSalesOrderInvalid
 	}
 
-	return s.uow.Execute(ctx, func(txCtx context.Context) error {
-		order, err := s.repository.GetByIDForUpdateTx(txCtx, id)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrSalesOrderNotFound
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			order, err := s.repository.GetByIDForUpdateTx(
+				txCtx,
+				id,
+			)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrSalesOrderNotFound
+				}
+
+				return err
 			}
-			return err
-		}
 
-		if order.Status != model.SalesOrderStatusDraft {
-			return ErrSalesOrderNotDraft
-		}
+			if order.Status != model.SalesOrderStatusDraft {
+				return ErrSalesOrderNotDraft
+			}
 
-		items, err := s.repository.ListItems(txCtx, order.ID)
-		if err != nil {
-			return err
-		}
+			items, err := s.repository.ListItems(
+				txCtx,
+				order.ID,
+			)
+			if err != nil {
+				return err
+			}
 
-		if len(items) == 0 {
-			return ErrSalesOrderEmptyItems
-		}
+			if len(items) == 0 {
+				return ErrSalesOrderEmptyItems
+			}
 
-		order.Status = model.SalesOrderStatusConfirmed
+			order.Status = model.SalesOrderStatusConfirmed
 
-		return s.repository.UpdateTx(txCtx, order)
-	})
-
+			return s.repository.UpdateTx(
+				txCtx,
+				order,
+			)
+		},
+	)
 }
 
 func (s *service) Cancel(
@@ -342,43 +416,61 @@ func (s *service) Cancel(
 		return ErrSalesOrderInvalid
 	}
 
-	return s.uow.Execute(ctx, func(txCtx context.Context) error {
-		order, err := s.repository.GetByIDForUpdateTx(txCtx, id)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrSalesOrderNotFound
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			order, err := s.repository.GetByIDForUpdateTx(
+				txCtx,
+				id,
+			)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrSalesOrderNotFound
+				}
+
+				return err
 			}
-			return err
-		}
 
-		if order.Status == model.SalesOrderStatusCancelled {
-			return nil
-		}
+			if order.Status == model.SalesOrderStatusCancelled {
+				return nil
+			}
 
-		if order.Status != model.SalesOrderStatusDraft &&
-			order.Status != model.SalesOrderStatusConfirmed {
-			return ErrSalesOrderNotDraft
-		}
+			if order.Status != model.SalesOrderStatusDraft &&
+				order.Status != model.SalesOrderStatusConfirmed {
+				return ErrSalesOrderNotDraft
+			}
 
-		order.Status = model.SalesOrderStatusCancelled
+			order.Status = model.SalesOrderStatusCancelled
 
-		return s.repository.UpdateTx(txCtx, order)
-	})
-
+			return s.repository.UpdateTx(
+				txCtx,
+				order,
+			)
+		},
+	)
 }
 
-func toResponse(order *model.SalesOrder) *Response {
-	items := make([]*ItemResponse, 0, len(order.Items))
+func toResponse(
+	order *model.SalesOrder,
+) *Response {
+	items := make(
+		[]*ItemResponse,
+		0,
+		len(order.Items),
+	)
 
 	for _, item := range order.Items {
-		items = append(items, &ItemResponse{
-			ID:              item.ID,
-			SalesOrderID:    item.SalesOrderID,
-			ProductID:       item.ProductID,
-			OrderedQuantity: item.OrderedQuantity,
-			CreatedAt:       item.CreatedAt,
-			UpdatedAt:       item.UpdatedAt,
-		})
+		items = append(
+			items,
+			&ItemResponse{
+				ID:              item.ID,
+				SalesOrderID:    item.SalesOrderID,
+				ProductID:       item.ProductID,
+				OrderedQuantity: item.OrderedQuantity,
+				CreatedAt:       item.CreatedAt,
+				UpdatedAt:       item.UpdatedAt,
+			},
+		)
 	}
 
 	return &Response{
@@ -392,5 +484,4 @@ func toResponse(order *model.SalesOrder) *Response {
 		CreatedAt:   order.CreatedAt,
 		UpdatedAt:   order.UpdatedAt,
 	}
-
 }

@@ -96,11 +96,10 @@ type WarehouseLocation struct {
 // Tenant ownership is inherited through:
 //
 //	Device
-//	 -> Resource
-//	 -> TenantID
+//	  -> Resource
+//	  -> TenantID
 //
 // A Device has one current inventory record.
-// Re-stock after a return updates the same record.
 //
 // Inventory lifecycle:
 //
@@ -129,10 +128,15 @@ type DeviceInventory struct {
 // Shipment represents an outbound shipment.
 //
 // Shipment is a tenant-owned root entity.
+//
+// SalesOrderID is optional because WMS can also handle
+// shipments that do not originate from an internal SalesOrder.
 type Shipment struct {
 	ID uint `gorm:"primaryKey"`
 
 	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
+
+	SalesOrderID *uint `gorm:"index"`
 
 	ExternalOrderID string `gorm:"type:varchar(255);index"`
 
@@ -150,21 +154,24 @@ type Shipment struct {
 
 // ShipmentItem connects a Device to a Shipment.
 //
+// SalesOrderItemID is optional for non-SalesOrder shipments.
+//
 // DeviceID is intentionally NOT globally unique.
 //
-// This allows a future:
+// This allows:
 //
 //	shipped
-//	 -> returned
-//	 -> restocked
-//	 -> reshipped
-//
-// lifecycle.
+//	  -> returned
+//	  -> restocked
+//	  -> reshipped
 type ShipmentItem struct {
 	ID uint `gorm:"primaryKey"`
 
 	ShipmentID uint `gorm:"not null;index"`
-	DeviceID   uint `gorm:"not null;index"`
+
+	DeviceID uint `gorm:"not null;index"`
+
+	SalesOrderItemID *uint `gorm:"index"`
 
 	CreatedAt time.Time
 }
@@ -177,7 +184,7 @@ type ShipmentTrackingEvent struct {
 
 	ShipmentID uint `gorm:"not null;index"`
 
-	ExternalEventID string `gorm:"type:varchar(255);index"`
+	ExternalEventID string `gorm:"type:varchar(255);not null;index"`
 
 	Status ShipmentStatus `gorm:"type:varchar(50);not null;index"`
 

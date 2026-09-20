@@ -85,6 +85,12 @@ func (h *Handler) RouterRegister(
 
 	externalGroup.Handle(
 		http.MethodPost,
+		"/shipments/:shipment_id/cancel",
+		h.cancelShipment,
+	)
+
+	externalGroup.Handle(
+		http.MethodPost,
 		"/shipments/:shipment_id/tracking",
 		h.addTrackingEvent,
 	)
@@ -99,7 +105,6 @@ func (h *Handler) RouterRegister(
 func (h *Handler) createWarehouse(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	var req srv.CreateWarehouseRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -122,7 +127,6 @@ func (h *Handler) createWarehouse(
 func (h *Handler) getWarehouse(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	id, err := strconv.ParseUint(
 		ctx.Param("warehouse_id"),
 		10,
@@ -148,7 +152,6 @@ func (h *Handler) getWarehouse(
 func (h *Handler) createLocation(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	warehouseID, err := strconv.ParseUint(
 		ctx.Param("warehouse_id"),
 		10,
@@ -184,7 +187,6 @@ func (h *Handler) createLocation(
 func (h *Handler) getDeviceInventory(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	deviceID, err := strconv.ParseUint(
 		ctx.Param("device_id"),
 		10,
@@ -210,7 +212,6 @@ func (h *Handler) getDeviceInventory(
 func (h *Handler) stockIn(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	var req srv.StockInRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -233,7 +234,6 @@ func (h *Handler) stockIn(
 func (h *Handler) createShipment(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	var req srv.CreateShipmentRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -256,7 +256,6 @@ func (h *Handler) createShipment(
 func (h *Handler) getShipment(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	shipmentID, err := strconv.ParseUint(
 		ctx.Param("shipment_id"),
 		10,
@@ -282,7 +281,6 @@ func (h *Handler) getShipment(
 func (h *Handler) stockOut(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	shipmentID, err := strconv.ParseUint(
 		ctx.Param("shipment_id"),
 		10,
@@ -304,10 +302,33 @@ func (h *Handler) stockOut(
 	return ginx.Success(nil)
 }
 
+func (h *Handler) cancelShipment(
+	ctx *gin.Context,
+) ginx.Render {
+	shipmentID, err := strconv.ParseUint(
+		ctx.Param("shipment_id"),
+		10,
+		64,
+	)
+	if err != nil {
+		return ginx.Error(
+			fmt.Errorf("invalid shipment_id"),
+		)
+	}
+
+	if err := h.service.CancelShipment(
+		ctx.Request.Context(),
+		uint(shipmentID),
+	); err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(nil)
+}
+
 func (h *Handler) addTrackingEvent(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	shipmentID, err := strconv.ParseUint(
 		ctx.Param("shipment_id"),
 		10,
@@ -341,7 +362,6 @@ func (h *Handler) addTrackingEvent(
 func (h *Handler) listTrackingEvents(
 	ctx *gin.Context,
 ) ginx.Render {
-
 	shipmentID, err := strconv.ParseUint(
 		ctx.Param("shipment_id"),
 		10,

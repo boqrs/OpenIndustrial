@@ -12,7 +12,9 @@ type salesOrderRepository struct {
 	db *database.DBProvider
 }
 
-func NewSalesOrderRepository(db *database.DBProvider) *salesOrderRepository {
+func NewSalesOrderRepository(
+	db *database.DBProvider,
+) *salesOrderRepository {
 	return &salesOrderRepository{
 		db: db,
 	}
@@ -44,7 +46,6 @@ func (r *salesOrderRepository) GetByID(
 	}
 
 	return &order, nil
-
 }
 
 func (r *salesOrderRepository) GetByOrderNo(
@@ -64,7 +65,6 @@ func (r *salesOrderRepository) GetByOrderNo(
 	}
 
 	return &order, nil
-
 }
 
 func (r *salesOrderRepository) List(
@@ -99,7 +99,6 @@ func (r *salesOrderRepository) List(
 	}
 
 	return orders, total, nil
-
 }
 
 func (r *salesOrderRepository) Update(
@@ -141,7 +140,6 @@ func (r *salesOrderRepository) CreateItemsTx(
 		WithContext(ctx).
 		Create(&items).
 		Error
-
 }
 
 func (r *salesOrderRepository) DeleteItemsTx(
@@ -171,7 +169,6 @@ func (r *salesOrderRepository) GetItemByID(
 	}
 
 	return &item, nil
-
 }
 
 func (r *salesOrderRepository) ListItems(
@@ -188,7 +185,6 @@ func (r *salesOrderRepository) ListItems(
 		Error
 
 	return items, err
-
 }
 
 func (r *salesOrderRepository) GetByIDForUpdateTx(
@@ -210,7 +206,6 @@ func (r *salesOrderRepository) GetByIDForUpdateTx(
 	}
 
 	return &order, nil
-
 }
 
 func (r *salesOrderRepository) UpdateTx(
@@ -222,7 +217,8 @@ func (r *salesOrderRepository) UpdateTx(
 		Model(&model.SalesOrder{}).
 		Where("id = ?", order.ID).
 		Updates(map[string]any{
-			"status": order.Status,
+			"status":     order.Status,
+			"updated_at": order.UpdatedAt,
 		}).
 		Error
 }
@@ -235,7 +231,9 @@ func (r *salesOrderRepository) GetItemByIDForUpdateTx(
 
 	err := dbFromContext(ctx, r.db.Get()).
 		WithContext(ctx).
-		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
 		First(&item, id).
 		Error
 
@@ -245,3 +243,52 @@ func (r *salesOrderRepository) GetItemByIDForUpdateTx(
 
 	return &item, nil
 }
+
+func (r *salesOrderRepository) ListItemsTx(
+	ctx context.Context,
+	orderID uint,
+) ([]*model.SalesOrderItem, error) {
+	var items []*model.SalesOrderItem
+
+	err := dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Where("sales_order_id = ?", orderID).
+		Order("id ASC").
+		Find(&items).
+		Error
+
+	return items, err
+}
+
+func (r *salesOrderRepository) UpdateItemTx(
+	ctx context.Context,
+	item *model.SalesOrderItem,
+) error {
+	return dbFromContext(ctx, r.db.Get()).
+		WithContext(ctx).
+		Model(&model.SalesOrderItem{}).
+		Where("id = ?", item.ID).
+		Updates(map[string]any{
+			"reserved_quantity":  item.ReservedQuantity,
+			"fulfilled_quantity": item.FulfilledQuantity,
+			"updated_at":         item.UpdatedAt,
+		}).
+		Error
+}
+
+var _ interface {
+	GetItemByIDForUpdateTx(
+		context.Context,
+		uint,
+	) (*model.SalesOrderItem, error)
+
+	ListItemsTx(
+		context.Context,
+		uint,
+	) ([]*model.SalesOrderItem, error)
+
+	UpdateItemTx(
+		context.Context,
+		*model.SalesOrderItem,
+	) error
+} = (*salesOrderRepository)(nil)

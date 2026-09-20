@@ -34,6 +34,10 @@ type ItemResponse struct {
 
 	OrderedQuantity int64 `json:"orderedQuantity"`
 
+	ReservedQuantity int64 `json:"reservedQuantity"`
+
+	FulfilledQuantity int64 `json:"fulfilledQuantity"`
+
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
