@@ -20,6 +20,31 @@ var (
 	ErrSalesOrderCancelled       = errors.New("sales order is cancelled")
 	ErrCustomerNotFound          = errors.New("customer not found")
 	ErrCustomerInactive          = errors.New("customer is inactive")
+
+	// Fulfillment errors.
+	ErrSalesOrderNotConfirmed = errors.New(
+		"sales order is not confirmed",
+	)
+
+	ErrSalesOrderItemNotFound = errors.New(
+		"sales order item not found",
+	)
+
+	ErrSalesOrderItemMismatch = errors.New(
+		"sales order item does not belong to sales order",
+	)
+
+	ErrSalesOrderReservationExceeded = errors.New(
+		"sales order reservation quantity exceeds available quantity",
+	)
+
+	ErrSalesOrderReservationNotFound = errors.New(
+		"sales order reservation not found",
+	)
+
+	ErrSalesOrderFulfillmentExceeded = errors.New(
+		"sales order fulfillment quantity exceeds reserved quantity",
+	)
 )
 
 type service struct {
@@ -386,7 +411,7 @@ func (s *service) Confirm(
 				return ErrSalesOrderNotDraft
 			}
 
-			items, err := s.repository.ListItems(
+			items, err := s.repository.ListItemsTx(
 				txCtx,
 				order.ID,
 			)
@@ -440,12 +465,303 @@ func (s *service) Cancel(
 				return ErrSalesOrderNotDraft
 			}
 
+			items, err := s.repository.ListItemsTx(
+				txCtx,
+				order.ID,
+			)
+			if err != nil {
+				return err
+			}
+
+			for _, item := range items {
+				if item.ReservedQuantity > 0 {
+					return ErrSalesOrderReservationExceeded
+				}
+			}
+
 			order.Status = model.SalesOrderStatusCancelled
 
 			return s.repository.UpdateTx(
 				txCtx,
 				order,
 			)
+		},
+	)
+}
+
+// -----------------------------------------------------------------------------
+// Shipment fulfillment
+// -----------------------------------------------------------------------------
+
+func (s *service) ReserveForShipment(
+	ctx context.Context,
+	orderID uint,
+	itemQuantities map[uint]int64,
+) error {
+	if orderID == 0 {
+		return ErrSalesOrderInvalid
+	}
+
+	if len(itemQuantities) == 0 {
+		return ErrSalesOrderEmptyItems
+	}
+
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			order, err := s.repository.GetByIDForUpdateTx(
+				txCtx,
+				orderID,
+			)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrSalesOrderNotFound
+				}
+
+				return err
+			}
+
+			if order.Status != model.SalesOrderStatusConfirmed {
+				return ErrSalesOrderNotConfirmed
+			}
+
+			items, err := s.repository.ListItemsTx(
+				txCtx,
+				orderID,
+			)
+			if err != nil {
+				return err
+			}
+
+			itemsByID := make(
+				map[uint]*model.SalesOrderItem,
+				len(items),
+			)
+
+			for _, item := range items {
+				itemsByID[item.ID] = item
+			}
+
+			for itemID, quantity := range itemQuantities {
+				if itemID == 0 || quantity <= 0 {
+					return ErrSalesOrderInvalidQuantity
+				}
+
+				item, ok := itemsByID[itemID]
+				if !ok {
+					return ErrSalesOrderItemMismatch
+				}
+
+				available := item.OrderedQuantity -
+					item.ReservedQuantity -
+					item.FulfilledQuantity
+
+				if quantity > available {
+					return ErrSalesOrderReservationExceeded
+				}
+			}
+
+			for itemID, quantity := range itemQuantities {
+				item := itemsByID[itemID]
+
+				item.ReservedQuantity += quantity
+
+				if err := s.repository.UpdateItemTx(
+					txCtx,
+					item,
+				); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	)
+}
+
+func (s *service) ReleaseShipmentReservation(
+	ctx context.Context,
+	orderID uint,
+	itemQuantities map[uint]int64,
+) error {
+	if orderID == 0 {
+		return ErrSalesOrderInvalid
+	}
+
+	if len(itemQuantities) == 0 {
+		return ErrSalesOrderEmptyItems
+	}
+
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			order, err := s.repository.GetByIDForUpdateTx(
+				txCtx,
+				orderID,
+			)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrSalesOrderNotFound
+				}
+
+				return err
+			}
+
+			if order.Status == model.SalesOrderStatusCancelled {
+				return ErrSalesOrderCancelled
+			}
+
+			items, err := s.repository.ListItemsTx(
+				txCtx,
+				orderID,
+			)
+			if err != nil {
+				return err
+			}
+
+			itemsByID := make(
+				map[uint]*model.SalesOrderItem,
+				len(items),
+			)
+
+			for _, item := range items {
+				itemsByID[item.ID] = item
+			}
+
+			for itemID, quantity := range itemQuantities {
+				if itemID == 0 || quantity <= 0 {
+					return ErrSalesOrderInvalidQuantity
+				}
+
+				item, ok := itemsByID[itemID]
+				if !ok {
+					return ErrSalesOrderItemMismatch
+				}
+
+				if quantity > item.ReservedQuantity {
+					return ErrSalesOrderReservationNotFound
+				}
+			}
+
+			for itemID, quantity := range itemQuantities {
+				item := itemsByID[itemID]
+
+				item.ReservedQuantity -= quantity
+
+				if err := s.repository.UpdateItemTx(
+					txCtx,
+					item,
+				); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	)
+}
+
+func (s *service) FulfillShipment(
+	ctx context.Context,
+	orderID uint,
+	itemQuantities map[uint]int64,
+) error {
+	if orderID == 0 {
+		return ErrSalesOrderInvalid
+	}
+
+	if len(itemQuantities) == 0 {
+		return ErrSalesOrderEmptyItems
+	}
+
+	return s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			order, err := s.repository.GetByIDForUpdateTx(
+				txCtx,
+				orderID,
+			)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrSalesOrderNotFound
+				}
+
+				return err
+			}
+
+			if order.Status != model.SalesOrderStatusConfirmed {
+				return ErrSalesOrderNotConfirmed
+			}
+
+			items, err := s.repository.ListItemsTx(
+				txCtx,
+				orderID,
+			)
+			if err != nil {
+				return err
+			}
+
+			itemsByID := make(
+				map[uint]*model.SalesOrderItem,
+				len(items),
+			)
+
+			for _, item := range items {
+				itemsByID[item.ID] = item
+			}
+
+			for itemID, quantity := range itemQuantities {
+				if itemID == 0 || quantity <= 0 {
+					return ErrSalesOrderInvalidQuantity
+				}
+
+				item, ok := itemsByID[itemID]
+				if !ok {
+					return ErrSalesOrderItemMismatch
+				}
+
+				if quantity > item.ReservedQuantity {
+					return ErrSalesOrderFulfillmentExceeded
+				}
+			}
+
+			for itemID, quantity := range itemQuantities {
+				item := itemsByID[itemID]
+
+				item.ReservedQuantity -= quantity
+				item.FulfilledQuantity += quantity
+
+				if item.FulfilledQuantity > item.OrderedQuantity {
+					return ErrSalesOrderFulfillmentExceeded
+				}
+
+				if err := s.repository.UpdateItemTx(
+					txCtx,
+					item,
+				); err != nil {
+					return err
+				}
+			}
+
+			allFulfilled := true
+
+			for _, item := range items {
+				if item.FulfilledQuantity < item.OrderedQuantity {
+					allFulfilled = false
+					break
+				}
+			}
+
+			if allFulfilled {
+				order.Status = model.SalesOrderStatusCompleted
+
+				return s.repository.UpdateTx(
+					txCtx,
+					order,
+				)
+			}
+
+			return nil
 		},
 	)
 }

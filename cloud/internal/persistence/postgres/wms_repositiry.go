@@ -2,13 +2,10 @@ package postgres
 
 import (
 	"context"
-	"errors"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/wms"
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -18,7 +15,7 @@ type wmsRepository struct {
 
 func NewWMSRepository(
 	db *database.DBProvider,
-) wms.Repository {
+) *wmsRepository {
 	return &wmsRepository{
 		db: db,
 	}
@@ -140,9 +137,9 @@ func (r *wmsRepository) GetInventoryByDeviceID(
 		Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, wms.ErrInventoryNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, wms.ErrInventoryNotFound
+		// }
 
 		return nil, err
 	}
@@ -357,9 +354,9 @@ func (r *wmsRepository) GetTrackingEventByExternalID(
 		Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, wms.ErrTrackingEventNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, wms.ErrTrackingEventNotFound
+		// }
 
 		return nil, err
 	}
@@ -438,22 +435,12 @@ func (r *wmsRepository) GetInventoryByDeviceIDForUpdateTx(
 		Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, wms.ErrInventoryNotFound
-		}
+		// if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 	return nil, wms.ErrInventoryNotFound
+		// }
 
 		return nil, err
 	}
 
 	return &inventory, nil
 }
-
-// ============================================================
-// Compile-time interface check
-// ============================================================
-
-var _ wms.Repository = (*wmsRepository)(nil)
-
-// Keep the GORM dependency explicit for compatibility with
-// the postgres package.
-var _ = gorm.ErrRecordNotFound

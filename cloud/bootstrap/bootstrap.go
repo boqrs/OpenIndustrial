@@ -521,6 +521,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	wmsService := wmsSrv.NewService(
 		uow,
 		wmsRepo,
+		salesOrderService,
 	)
 
 	// -------------------------------------------------------------------------
