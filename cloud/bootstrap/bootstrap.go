@@ -334,6 +334,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		deviceRepo,
 		resourceService,
 		productService,
+		securityService,
 	)
 
 	customerService := customerSrv.NewService(

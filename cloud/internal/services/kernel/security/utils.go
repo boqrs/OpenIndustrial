@@ -9,24 +9,37 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
-func verifySecret(secret string, expectedHash string) bool {
+func verifySecret(
+	secret string,
+	expectedHash string,
+) bool {
 	actualHash := hashSecret(secret)
 
 	if len(actualHash) != len(expectedHash) {
 		return false
 	}
 
-	return subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedHash)) == 1
+	return subtle.ConstantTimeCompare(
+		[]byte(actualHash),
+		[]byte(expectedHash),
+	) == 1
+}
+
+func formatBootstrapToken(
+	credentialID uint,
+	secret string,
+) string {
+	return strconv.FormatUint(
+		uint64(credentialID),
+		10,
+	) + "." + secret
 }
 
 func parseBootstrapToken(
 	token string,
-) (uuid.UUID, string, error) {
-
+) (uint, string, error) {
 	parts := strings.SplitN(
 		token,
 		".",
@@ -34,25 +47,36 @@ func parseBootstrapToken(
 	)
 
 	if len(parts) != 2 {
-		return uuid.Nil, "", ErrCredentialInvalid
+		return 0, "", ErrCredentialInvalid
 	}
 
-	id, err := uuid.Parse(parts[0])
-	if err != nil {
-		return uuid.Nil, "", ErrCredentialInvalid
+	if parts[0] == "" {
+		return 0, "", ErrCredentialInvalid
 	}
 
 	if parts[1] == "" {
-		return uuid.Nil, "", ErrCredentialInvalid
+		return 0, "", ErrCredentialInvalid
 	}
 
-	return id, parts[1], nil
+	id64, err := strconv.ParseUint(
+		parts[0],
+		10,
+		64,
+	)
+	if err != nil {
+		return 0, "", ErrCredentialInvalid
+	}
+
+	if id64 == 0 {
+		return 0, "", ErrCredentialInvalid
+	}
+
+	return uint(id64), parts[1], nil
 }
 
 func hashSecret(
 	secret string,
 ) string {
-
 	sum := sha256.Sum256(
 		[]byte(secret),
 	)
@@ -65,7 +89,6 @@ func hashSecret(
 func generateSecret(
 	size int,
 ) (string, error) {
-
 	buf := make([]byte, size)
 
 	if _, err := rand.Read(buf); err != nil {
@@ -81,7 +104,6 @@ func validateCSRForResource(
 	csr *ParsedCSR,
 	resourceID uint,
 ) error {
-
 	if csr == nil {
 		return errors.New(
 			"csr is nil",
@@ -93,7 +115,6 @@ func validateCSRForResource(
 			strconv.Itoa(int(resourceID))
 
 	for _, uri := range csr.URIs {
-
 		if uri == expectedURI {
 			return nil
 		}
@@ -107,16 +128,14 @@ func validateCSRForResource(
 type resourceAuthContextKey struct{}
 
 type ResourceAuthContext struct {
-	ResourceID uuid.UUID
-
-	CertificateID string
+	ResourceID    uint
+	CertificateID uint
 }
 
 func withResourceAuth(
 	ctx context.Context,
 	auth ResourceAuthContext,
 ) context.Context {
-
 	return context.WithValue(
 		ctx,
 		resourceAuthContextKey{},
@@ -126,8 +145,7 @@ func withResourceAuth(
 
 func resourceIDFromContext(
 	ctx context.Context,
-) (uuid.UUID, bool) {
-
+) (uint, bool) {
 	value := ctx.Value(
 		resourceAuthContextKey{},
 	)
@@ -136,7 +154,7 @@ func resourceIDFromContext(
 		value.(ResourceAuthContext)
 
 	if !ok {
-		return uuid.Nil, false
+		return 0, false
 	}
 
 	return auth.ResourceID, true

@@ -78,6 +78,13 @@ func (e *SNWriteExecutor) Execute(
 
 	return &OperationOutput{
 		Result: map[string]any{
+			// Keep serial_number at the top level because the
+			// manufacturing result -> device identity extraction
+			// reads the canonical device identity from here.
+			"serial_number": serialNumber,
+
+			// Keep the existing item structure for production
+			// operation consumers that need the detailed result.
 			"items": []map[string]any{
 				{
 					"item_key": input.Parameters["item_key"],

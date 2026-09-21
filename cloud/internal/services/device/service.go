@@ -7,7 +7,8 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource" // 正确且唯一的服务依赖
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 	"github.com/google/uuid"
 )
@@ -25,29 +26,38 @@ type serviceImpl struct {
 	repo        Repository
 	resourceSvc resource.Service
 	productSvc  product.Service
+	securitySvc security.Service
 }
 
 // NewService creates a new device service implementation.
-func NewService(repo Repository, resourceSvc resource.Service, productSvc product.Service) Service {
+func NewService(
+	repo Repository,
+	resourceSvc resource.Service,
+	productSvc product.Service,
+	securitySvc security.Service,
+) Service {
 	return &serviceImpl{
 		repo:        repo,
 		resourceSvc: resourceSvc,
 		productSvc:  productSvc,
+		securitySvc: securitySvc,
 	}
 }
 
-// CreateDevice orchestrates the creation of a new device.
+// CreateFromExecutionResultTx creates a physical device from a confirmed
+// manufacturing execution result.
+//
+// Device creation is intentionally restricted to the manufacturing flow.
+// IoT/provisioning must never create a Device.
+//
+// The caller is expected to invoke this method inside the manufacturing
+// UnitOfWork transaction. Every persistence operation below therefore uses
+// the transaction carried by ctx.
 func (s *serviceImpl) CreateFromExecutionResultTx(
 	ctx context.Context,
 	req *CreateDeviceFromExecutionResultRequest,
 ) (*DeviceResponse, error) {
-
-	if req == nil ||
-		req.ProductID == 0 ||
-		req.WorkOrderID == 0 ||
-		req.ExecutionID == 0 ||
-		req.ExecutionResultID == 0 ||
-		req.SerialNumber == "" {
+	if err := validateCreateRequest(req); err != nil {
 		return nil, ErrInvalidCreateRequest
 	}
 
@@ -87,12 +97,46 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		ParentID: req.ParentResourceID,
 	}
 
-	res, err := s.resourceSvc.CreateResourceTx(ctx, resourceReq)
+	res, err := s.resourceSvc.CreateResourceTx(
+		ctx,
+		resourceReq,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. Create Device.
+	if res == nil || res.ID == 0 {
+		return nil, errors.New(
+			"create device resource returned invalid resource",
+		)
+	}
+
+	// 4. Create canonical ResourceIdentity.
+	//
+	// This MUST happen in the same transaction as Resource + Device.
+	//
+	// SN is the canonical production identity.
+	// HardwareID is optional because not every product necessarily exposes
+	// a hardware identifier during manufacturing.
+	if s.securitySvc == nil {
+		return nil, errors.New(
+			"security service is not configured",
+		)
+	}
+
+	_, err = s.securitySvc.BindResourceIdentityTx(
+		ctx,
+		security.BindResourceIdentityRequest{
+			ResourceID:   res.ID,
+			SerialNumber: req.SerialNumber,
+			HardwareID:   req.HardwareID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Create Device.
 	entity := &model.Device{
 		ResourceID:        res.ID,
 		ProductID:         req.ProductID,
@@ -111,25 +155,33 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	return s.toDeviceResponse(entity, res), nil
 }
 
-func validateCreateRequest(req *CreateDeviceFromExecutionResultRequest) error {
+func validateCreateRequest(
+	req *CreateDeviceFromExecutionResultRequest,
+) error {
 	if req == nil {
 		return errors.New("invalid request")
 	}
+
 	if req.ProductID == 0 {
 		return errors.New("invalid product ID")
 	}
+
 	if req.WorkOrderID == 0 {
 		return errors.New("invalid work order ID")
 	}
+
 	if req.ExecutionID == 0 {
 		return errors.New("invalid execution ID")
 	}
+
 	if req.ExecutionResultID == 0 {
 		return errors.New("invalid execution result ID")
 	}
+
 	if req.SerialNumber == "" {
 		return errors.New("invalid serial number")
 	}
+
 	return nil
 }
 
@@ -137,7 +189,6 @@ func (s *serviceImpl) GetDevice(
 	ctx context.Context,
 	deviceID uint,
 ) (*DeviceResponse, error) {
-
 	d, err := s.repo.GetByID(ctx, deviceID)
 	if err != nil {
 		return nil, err
@@ -169,7 +220,6 @@ func (s *serviceImpl) UpdateDevice(
 	deviceID uint,
 	req *UpdateDeviceRequest,
 ) (*DeviceResponse, error) {
-
 	if req == nil {
 		return nil, ErrInvalidUpdateRequest
 	}
@@ -187,8 +237,8 @@ func (s *serviceImpl) UpdateDevice(
 	if tenantID == uuid.Nil {
 		return nil, errors.New("tenant ID not found in context")
 	}
-	if req.Name != nil || req.ParentResourceID != nil {
 
+	if req.Name != nil || req.ParentResourceID != nil {
 		res, err := s.resourceSvc.GetResourceByID(
 			ctx,
 			tenantID,
@@ -227,45 +277,16 @@ func (s *serviceImpl) UpdateDevice(
 	return s.GetDevice(ctx, deviceID)
 }
 
-// func (s *serviceImpl) DeleteDevice(
-// 	ctx context.Context,
-// 	deviceID uint,
-// ) error {
-
-// 	d, err := s.repo.GetByID(ctx, deviceID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if d == nil {
-// 		return ErrDeviceNotFound
-// 	}
-
-// 	if d.Status == model.DeviceStatusOnline {
-// 		return ErrCannotDeleteOnlineDevice
-// 	}
-
-// 	tenantID := pkg.TenantIDFromContext(ctx)
-// 	if tenantID == uuid.Nil {
-// 		return errors.New("tenant ID not found in context")
-// 	}
-
-// 	if err := s.resourceSvc.DeleteResource(
-// 		ctx,
-// 		tenantID,
-// 		d.ResourceID,
-// 	); err != nil {
-// 		return err
-// 	}
-
-// 	return s.repo.Delete(ctx, deviceID)
-// }
+// DeleteDevice intentionally remains disabled.
+//
+// Device deletion is not part of the current manufacturing identity
+// lifecycle. A production-created Device is a historical identity anchor
+// and should not be casually deleted.
 
 func (s *serviceImpl) toDeviceResponse(
 	d *model.Device,
 	r *model.Resource,
 ) *DeviceResponse {
-
 	resp := &DeviceResponse{
 		ID:                d.ID,
 		ResourceID:        d.ResourceID,
@@ -294,7 +315,6 @@ func (s *serviceImpl) ListDevices(
 	ctx context.Context,
 	req *ListDevicesRequest,
 ) (*ListDevicesResponse, error) {
-
 	if req == nil {
 		req = &ListDevicesRequest{}
 	}
@@ -313,10 +333,12 @@ func (s *serviceImpl) ListDevices(
 	}
 
 	responses := make([]*DeviceResponse, 0, len(items))
+
 	tenantID := pkg.TenantIDFromContext(ctx)
 	if tenantID == uuid.Nil {
 		return nil, errors.New("tenant ID not found in context")
 	}
+
 	for _, item := range items {
 		res, err := s.resourceSvc.GetResourceByID(
 			ctx,

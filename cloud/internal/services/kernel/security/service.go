@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
@@ -34,12 +33,18 @@ type service struct {
 	certificates CertificateRepository
 	ca           CertificateAuthority
 	mqtt         MQTTProvider
-	//tx           TransactionManager
-	uow UnitOfWork
+	uow          UnitOfWork
 }
 
-func NewService(resources resource.ResourceRepository, credentials CredentialRepository, identities IdentityRepository, certificates CertificateRepository, ca CertificateAuthority, mqtt MQTTProvider, uow UnitOfWork) Service {
-
+func NewService(
+	resources resource.ResourceRepository,
+	credentials CredentialRepository,
+	identities IdentityRepository,
+	certificates CertificateRepository,
+	ca CertificateAuthority,
+	mqtt MQTTProvider,
+	uow UnitOfWork,
+) Service {
 	return &service{
 		resources:    resources,
 		credentials:  credentials,
@@ -51,14 +56,18 @@ func NewService(resources resource.ResourceRepository, credentials CredentialRep
 	}
 }
 
-func (s *service) CreateBootstrapCredential(ctx context.Context, req CreateBootstrapCredentialRequest) (*BootstrapCredentialResponse, error) {
+func (s *service) CreateBootstrapCredential(
+	ctx context.Context,
+	req CreateBootstrapCredentialRequest,
+) (*BootstrapCredentialResponse, error) {
 	if req.ResourceID == 0 {
-		return nil, errors.New(
-			"resource_id is required",
-		)
+		return nil, errors.New("resource_id is required")
 	}
 
-	exists, err := s.resources.Exists(ctx, req.ResourceID)
+	exists, err := s.resources.Exists(
+		ctx,
+		req.ResourceID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"check resource: %w",
@@ -79,6 +88,7 @@ func (s *service) CreateBootstrapCredential(ctx context.Context, req CreateBoots
 	}
 
 	now := time.Now().UTC()
+
 	credential := &model.ResourceCredential{
 		ResourceID: req.ResourceID,
 		Type:       model.CredentialTypeBootstrap,
@@ -88,36 +98,48 @@ func (s *service) CreateBootstrapCredential(ctx context.Context, req CreateBoots
 		UpdatedAt:  now,
 	}
 
-	if err := s.credentials.Create(ctx, credential); err != nil {
-
+	if err := s.credentials.Create(
+		ctx,
+		credential,
+	); err != nil {
 		return nil, fmt.Errorf(
 			"create credential: %w",
 			err,
 		)
 	}
 
-	//TODO: 需要确定是否是hashsecret
+	// The token format is:
+	//
+	//     <credential_id>.<secret>
+	//
+	// The database stores only SHA256(secret).
+	//
+	// The plaintext token is returned exactly once.
+	token := formatBootstrapToken(
+		credential.ID,
+		secret,
+	)
+
 	return &BootstrapCredentialResponse{
 		ResourceID:   req.ResourceID,
 		CredentialID: credential.ID,
-		Token:        hashSecret(secret),
+		Token:        token,
 		CreatedAt:    now,
 	}, nil
 }
 
-func (s *service) RevokeBootstrapCredential(ctx context.Context, resourceID uint) error {
-
+func (s *service) RevokeBootstrapCredential(
+	ctx context.Context,
+	resourceID uint,
+) error {
 	if resourceID == 0 {
-		return errors.New(
-			"resource_id is required",
-		)
+		return errors.New("resource_id is required")
 	}
 
 	exists, err := s.resources.Exists(
 		ctx,
 		resourceID,
 	)
-
 	if err != nil {
 		return fmt.Errorf(
 			"check resource: %w",
@@ -129,8 +151,10 @@ func (s *service) RevokeBootstrapCredential(ctx context.Context, resourceID uint
 		return ErrResourceNotFound
 	}
 
-	if err := s.credentials.Revoke(ctx, resourceID); err != nil {
-
+	if err := s.credentials.Revoke(
+		ctx,
+		resourceID,
+	); err != nil {
 		return fmt.Errorf(
 			"revoke bootstrap credential: %w",
 			err,
@@ -140,23 +164,45 @@ func (s *service) RevokeBootstrapCredential(ctx context.Context, resourceID uint
 	return nil
 }
 
-func (s *service) BindResourceIdentity(ctx context.Context, req BindResourceIdentityRequest) (*ResourceIdentityResponse, error) {
+func (s *service) BindResourceIdentity(
+	ctx context.Context,
+	req BindResourceIdentityRequest,
+) (*ResourceIdentityResponse, error) {
+	return s.bindResourceIdentity(ctx, req)
+}
 
+// BindResourceIdentityTx binds a canonical identity inside an already
+// existing transaction.
+//
+// IMPORTANT:
+// This method deliberately does not call UnitOfWork.Execute().
+// The caller owns the transaction.
+func (s *service) BindResourceIdentityTx(
+	ctx context.Context,
+	req BindResourceIdentityRequest,
+) (*ResourceIdentityResponse, error) {
+	return s.bindResourceIdentity(ctx, req)
+}
+
+func (s *service) bindResourceIdentity(
+	ctx context.Context,
+	req BindResourceIdentityRequest,
+) (*ResourceIdentityResponse, error) {
 	if req.ResourceID == 0 {
 		return nil, errors.New(
 			"resource_id is required",
 		)
 	}
 
-	if req.IdentityType == "" {
+	// A canonical identity must have at least one physical identity value.
+	//
+	// SerialNumber is the normal manufacturing identity.
+	// HardwareID is optional because not every product necessarily exposes
+	// one during manufacturing.
+	if req.HardwareID == "" &&
+		req.SerialNumber == "" {
 		return nil, errors.New(
-			"identity_type is required",
-		)
-	}
-
-	if req.HardwareID == "" {
-		return nil, errors.New(
-			"hardware_id is required",
+			"hardware_id or serial_number is required",
 		)
 	}
 
@@ -164,7 +210,6 @@ func (s *service) BindResourceIdentity(ctx context.Context, req BindResourceIden
 		ctx,
 		req.ResourceID,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"check resource: %w",
@@ -176,22 +221,63 @@ func (s *service) BindResourceIdentity(ctx context.Context, req BindResourceIden
 		return nil, ErrResourceNotFound
 	}
 
+	// A resource may have only one canonical identity record.
 	existing, err := s.identities.GetByResourceID(
 		ctx,
 		req.ResourceID,
 	)
 
-	if err != nil {
-		if !errors.Is(err, ErrIdentityNotFound) {
-			return nil, fmt.Errorf(
-				"get identity: %w",
-				err,
-			)
-		}
+	if err != nil &&
+		!errors.Is(err, ErrIdentityNotFound) {
+		return nil, fmt.Errorf(
+			"get identity: %w",
+			err,
+		)
 	}
 
 	if existing != nil {
 		return nil, ErrIdentityAlreadyExists
+	}
+
+	// HardwareID must not belong to another resource.
+	if req.HardwareID != "" {
+		exists, err := s.identities.HardwareIDExists(
+			ctx,
+			req.HardwareID,
+			&req.ResourceID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"check hardware id uniqueness: %w",
+				err,
+			)
+		}
+
+		if exists {
+			return nil, ErrIdentityAlreadyExists
+		}
+	}
+
+	tenantID := tenantIDFromContext(ctx)
+
+	// SerialNumber must not belong to another resource.
+	if req.SerialNumber != "" {
+		exists, err := s.identities.SerialNumberExists(
+			ctx,
+			tenantID,
+			req.SerialNumber,
+			&req.ResourceID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"check serial number uniqueness: %w",
+				err,
+			)
+		}
+
+		if exists {
+			return nil, ErrIdentityAlreadyExists
+		}
 	}
 
 	now := time.Now().UTC()
@@ -204,7 +290,10 @@ func (s *service) BindResourceIdentity(ctx context.Context, req BindResourceIden
 		UpdatedAt:    now,
 	}
 
-	if err := s.identities.Create(ctx, identity); err != nil {
+	if err := s.identities.Create(
+		ctx,
+		identity,
+	); err != nil {
 		return nil, fmt.Errorf(
 			"create resource identity: %w",
 			err,
@@ -213,14 +302,17 @@ func (s *service) BindResourceIdentity(ctx context.Context, req BindResourceIden
 
 	return &ResourceIdentityResponse{
 		ResourceID:   identity.ResourceID,
+		IdentityType: req.IdentityType,
 		HardwareID:   identity.HardwareID,
 		SerialNumber: identity.SerialNumber,
 		CreatedAt:    identity.CreatedAt,
 	}, nil
 }
 
-func (s *service) ProvisionDevice(ctx context.Context, req ProvisionDeviceRequest) (*ProvisionDeviceResponse, error) {
-
+func (s *service) ProvisionDevice(
+	ctx context.Context,
+	req ProvisionDeviceRequest,
+) (*ProvisionDeviceResponse, error) {
 	if req.BootstrapToken == "" {
 		return nil, errors.New(
 			"bootstrap_token is required",
@@ -239,171 +331,203 @@ func (s *service) ProvisionDevice(ctx context.Context, req ProvisionDeviceReques
 		)
 	}
 
-	_, secret, err := parseBootstrapToken(req.BootstrapToken)
+	credentialID, secret, err := parseBootstrapToken(
+		req.BootstrapToken,
+	)
 	if err != nil {
+		return nil, ErrCredentialInvalid
+	}
+
+	// If the request still supplies ID, validate it against the token.
+	//
+	// The token itself is authoritative, so callers do not need to
+	// separately supply an ID.
+	if req.ID != 0 && req.ID != credentialID {
 		return nil, ErrCredentialInvalid
 	}
 
 	var result *ProvisionDeviceResponse
 
-	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
+	err = s.uow.Execute(
+		ctx,
+		func(txCtx context.Context) error {
+			credential, err := s.credentials.GetForUpdate(
+				txCtx,
+				credentialID,
+			)
+			if err != nil {
+				if errors.Is(
+					err,
+					ErrCredentialNotFound,
+				) {
+					return ErrCredentialNotFound
+				}
 
-		credential, err := s.credentials.GetForUpdate(txCtx, req.ID)
-		if err != nil {
-			if errors.Is(err, ErrCredentialNotFound) {
-				return ErrCredentialNotFound
+				return fmt.Errorf(
+					"get credential: %w",
+					err,
+				)
 			}
 
-			return fmt.Errorf(
-				"get credential: %w",
-				err,
-			)
-		}
-
-		if credential.Type != model.CredentialTypeBootstrap {
-			return ErrCredentialInvalid
-		}
-
-		if credential.Status == model.CredentialStatusRevoked {
-
-			return ErrCredentialRevoked
-		}
-
-		if credential.Status == model.CredentialStatusConsumed {
-
-			return ErrCredentialConsumed
-		}
-
-		if !verifySecret(secret, credential.SecretHash) {
-			return ErrCredentialInvalid
-		}
-
-		resourceID := credential.ResourceID
-
-		identity, err := s.identities.GetByResourceID(txCtx, resourceID)
-		if err != nil {
-			if errors.Is(err, ErrIdentityNotFound) {
-				return ErrIdentityNotFound
+			if credential.Type !=
+				model.CredentialTypeBootstrap {
+				return ErrCredentialInvalid
 			}
 
-			return fmt.Errorf(
-				"get resource identity: %w",
-				err,
+			if credential.Status ==
+				model.CredentialStatusRevoked {
+				return ErrCredentialRevoked
+			}
+
+			if credential.Status ==
+				model.CredentialStatusConsumed {
+				return ErrCredentialConsumed
+			}
+
+			if !verifySecret(
+				secret,
+				credential.SecretHash,
+			) {
+				return ErrCredentialInvalid
+			}
+
+			resourceID := credential.ResourceID
+
+			identity, err := s.identities.GetByResourceID(
+				txCtx,
+				resourceID,
 			)
-		}
+			if err != nil {
+				if errors.Is(
+					err,
+					ErrIdentityNotFound,
+				) {
+					return ErrIdentityNotFound
+				}
 
-		if identity.HardwareID != req.HardwareID {
-			return ErrIdentityMismatch
-		}
+				return fmt.Errorf(
+					"get resource identity: %w",
+					err,
+				)
+			}
 
-		if identity.SerialNumber != "" && identity.SerialNumber != req.SerialNumber {
+			if identity.HardwareID != req.HardwareID {
+				return ErrIdentityMismatch
+			}
 
-			return ErrIdentityMismatch
-		}
+			if identity.SerialNumber != "" &&
+				identity.SerialNumber != req.SerialNumber {
+				return ErrIdentityMismatch
+			}
 
-		csr, err := s.ca.ValidateCSR(req.CSR)
-		if err != nil {
-			return fmt.Errorf(
-				"validate csr: %w",
-				err,
+			csr, err := s.ca.ValidateCSR(req.CSR)
+			if err != nil {
+				return fmt.Errorf(
+					"validate csr: %w",
+					err,
+				)
+			}
+
+			if err := validateCSRForResource(
+				csr,
+				resourceID,
+			); err != nil {
+				return err
+			}
+
+			issued, err := s.ca.IssueCertificate(
+				txCtx,
+				IssueCertificateRequest{
+					ResourceID: resourceID,
+					CSR:        req.CSR,
+				},
 			)
-		}
+			if err != nil {
+				return fmt.Errorf(
+					"issue certificate: %w",
+					err,
+				)
+			}
 
-		if err := validateCSRForResource(csr, resourceID); err != nil {
+			now := time.Now().UTC()
 
-			return err
-		}
+			certificate := &model.ResourceCertificate{
+				ResourceID:              resourceID,
+				CertificateID:           issued.CertificateID,
+				CertificateSerialNumber: issued.SerialNumber,
+				Fingerprint:             issued.Fingerprint,
+				Subject:                 issued.Subject,
+				Issuer:                  issued.Issuer,
+				Status:                  model.CertificateActive,
+				NotBefore:               issued.NotBefore,
+				NotAfter:                issued.NotAfter,
+				CreatedAt:               now,
+				UpdatedAt:               now,
+			}
 
-		issued, err := s.ca.IssueCertificate(txCtx, IssueCertificateRequest{ResourceID: resourceID, CSR: req.CSR})
-		if err != nil {
-			return fmt.Errorf(
-				"issue certificate: %w",
-				err,
-			)
-		}
+			if err := s.certificates.Create(
+				txCtx,
+				certificate,
+			); err != nil {
+				_ = s.ca.RevokeCertificate(
+					ctx,
+					issued.CertificateID,
+					"database persistence failure",
+				)
 
-		now := time.Now().UTC()
+				return fmt.Errorf(
+					"save certificate: %w",
+					err,
+				)
+			}
 
-		certificate := &model.ResourceCertificate{
-			//ID: uuid.New(),
-			ResourceID:    resourceID,
-			CertificateID: issued.CertificateID,
-			Fingerprint:   issued.Fingerprint,
-			Subject:       issued.Subject,
-			Issuer:        issued.Issuer,
-			Status:        model.CertificateActive,
-			NotBefore:     issued.NotBefore,
-			NotAfter:      issued.NotAfter,
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}
+			credential.Status =
+				model.CredentialStatusConsumed
+			credential.ConsumedAt = &now
+			credential.UpdatedAt = now
 
-		if err := s.certificates.Create(txCtx, certificate); err != nil {
+			if err := s.credentials.Update(
+				txCtx,
+				credential,
+			); err != nil {
+				_ = s.ca.RevokeCertificate(
+					ctx,
+					issued.CertificateID,
+					"credential consumption failure",
+				)
 
-			_ = s.ca.RevokeCertificate(
-				ctx,
-				issued.CertificateID,
-				"database persistence failure",
-			)
+				return fmt.Errorf(
+					"consume credential: %w",
+					err,
+				)
+			}
 
-			return fmt.Errorf(
-				"save certificate: %w",
-				err,
-			)
-		}
-
-		credential.Status = model.CredentialStatusConsumed
-		credential.UpdatedAt = now
-
-		if err := s.credentials.Update(txCtx, credential); err != nil {
-			_ = s.ca.RevokeCertificate(
-				ctx,
-				issued.CertificateID,
-				"credential consumption failure",
-			)
-
-			return fmt.Errorf(
-				"consume credential: %w",
-				err,
-			)
-		}
-
-		result = &ProvisionDeviceResponse{
-			ResourceID: resourceID,
-
-			Certificate: CertificateResponse{
-				ID: certificate.ID,
-
+			result = &ProvisionDeviceResponse{
 				ResourceID: resourceID,
 
-				CertificateID: certificate.CertificateID,
+				Certificate: CertificateResponse{
+					ID:            certificate.ID,
+					ResourceID:    resourceID,
+					CertificateID: certificate.CertificateID,
+					Fingerprint:   certificate.Fingerprint,
+					Status:        string(certificate.Status),
+					NotBefore:     certificate.NotBefore,
+					NotAfter:      certificate.NotAfter,
+					CreatedAt:     certificate.CreatedAt,
+				},
 
-				Fingerprint: certificate.Fingerprint,
+				MQTT: MQTTConnectionInfo{
+					Endpoint: s.mqtt.Endpoint(),
+					Port:     s.mqtt.Port(),
+					Protocol: s.mqtt.Protocol(),
+					ClientID: strconv.Itoa(int(resourceID)),
+				},
 
-				Status: string(certificate.Status),
+				ProvisionedAt: now,
+			}
 
-				NotBefore: certificate.NotBefore,
-
-				NotAfter: certificate.NotAfter,
-
-				CreatedAt: certificate.CreatedAt,
-			},
-
-			MQTT: MQTTConnectionInfo{
-				Endpoint: s.mqtt.Endpoint(),
-
-				Port: s.mqtt.Port(),
-
-				Protocol: s.mqtt.Protocol(),
-
-				ClientID: strconv.Itoa(int(resourceID)),
-			},
-
-			ProvisionedAt: now,
-		}
-
-		return nil
-	},
+			return nil
+		},
 	)
 
 	if err != nil {
@@ -413,8 +537,10 @@ func (s *service) ProvisionDevice(ctx context.Context, req ProvisionDeviceReques
 	return result, nil
 }
 
-func (s *service) AuthenticateDevice(ctx context.Context, req AuthenticateDeviceRequest) (*DeviceAuthenticationResponse, error) {
-
+func (s *service) AuthenticateDevice(
+	ctx context.Context,
+	req AuthenticateDeviceRequest,
+) (*DeviceAuthenticationResponse, error) {
 	if req.CertificateFingerprint == "" {
 		return nil, errors.New(
 			"certificate_fingerprint is required",
@@ -428,7 +554,6 @@ func (s *service) AuthenticateDevice(ctx context.Context, req AuthenticateDevice
 		)
 
 	if err != nil {
-
 		if errors.Is(
 			err,
 			ErrCertificateNotFound,
@@ -444,19 +569,16 @@ func (s *service) AuthenticateDevice(ctx context.Context, req AuthenticateDevice
 
 	if certificate.Status ==
 		model.CertificateRevoked {
-
 		return nil, ErrCertificateRevoked
 	}
 
 	now := time.Now().UTC()
 
 	if now.After(certificate.NotAfter) {
-
 		return nil, ErrCertificateExpired
 	}
 
 	if now.Before(certificate.NotBefore) {
-
 		return nil, errors.New(
 			"certificate is not yet valid",
 		)
@@ -464,15 +586,15 @@ func (s *service) AuthenticateDevice(ctx context.Context, req AuthenticateDevice
 
 	return &DeviceAuthenticationResponse{
 		Authenticated: true,
-
-		ResourceID: certificate.ResourceID,
-
+		ResourceID:    certificate.ResourceID,
 		CertificateID: certificate.CertificateID,
 	}, nil
 }
 
-func (s *service) GetCertificate(ctx context.Context, req CertificateReq) (*model.ResourceCertificate, error) {
-
+func (s *service) GetCertificate(
+	ctx context.Context,
+	req CertificateReq,
+) (*model.ResourceCertificate, error) {
 	if req.Resource == 0 {
 		return nil, errors.New(
 			"resource_id is required",
@@ -485,9 +607,13 @@ func (s *service) GetCertificate(ctx context.Context, req CertificateReq) (*mode
 		)
 	}
 
-	certificate, err := s.certificates.GetByCertificateID(ctx, req.CertificateID)
-	if err != nil {
+	certificate, err :=
+		s.certificates.GetByCertificateID(
+			ctx,
+			req.CertificateID,
+		)
 
+	if err != nil {
 		if errors.Is(
 			err,
 			ErrCertificateNotFound,
@@ -508,20 +634,20 @@ func (s *service) GetCertificate(ctx context.Context, req CertificateReq) (*mode
 	return certificate, nil
 }
 
-func (s *service) ListCertificates(ctx context.Context, resourceID uint) ([]model.ResourceCertificate, error) {
-
+func (s *service) ListCertificates(
+	ctx context.Context,
+	resourceID uint,
+) ([]model.ResourceCertificate, error) {
 	if resourceID == 0 {
 		return nil, errors.New(
 			"resource_id is required",
 		)
 	}
 
-	exists, err :=
-		s.resources.Exists(
-			ctx,
-			resourceID,
-		)
-
+	exists, err := s.resources.Exists(
+		ctx,
+		resourceID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"check resource: %w",
@@ -533,7 +659,11 @@ func (s *service) ListCertificates(ctx context.Context, resourceID uint) ([]mode
 		return nil, ErrResourceNotFound
 	}
 
-	certificates, err := s.certificates.ListByResourceID(ctx, resourceID)
+	certificates, err :=
+		s.certificates.ListByResourceID(
+			ctx,
+			resourceID,
+		)
 
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -545,27 +675,23 @@ func (s *service) ListCertificates(ctx context.Context, resourceID uint) ([]mode
 	return certificates, nil
 }
 
-func (s *service) RenewCertificate(ctx context.Context, req RenewCertificateRequest) (*model.ResourceCertificate, error) {
-
+func (s *service) RenewCertificate(
+	ctx context.Context,
+	req RenewCertificateRequest,
+) (*model.ResourceCertificate, error) {
 	if req.CSR == "" {
 		return nil, errors.New(
 			"csr is required",
 		)
 	}
 
-	// resourceID, ok := resourceIDFromContext(ctx)
-
-	// if !ok {
-	// 	return nil, errors.New(
-	// 		"authenticated resource identity missing",
-	// 	)
-	// }
-
-	csr, err :=
-		s.ca.ValidateCSR(
-			req.CSR,
+	if req.ResourceID == 0 {
+		return nil, errors.New(
+			"resource_id is required",
 		)
+	}
 
+	csr, err := s.ca.ValidateCSR(req.CSR)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"validate csr: %w",
@@ -573,21 +699,20 @@ func (s *service) RenewCertificate(ctx context.Context, req RenewCertificateRequ
 		)
 	}
 
-	if err :=
-		validateCSRForResource(
-			csr,
-			req.ResourceID,
-		); err != nil {
-
+	if err := validateCSRForResource(
+		csr,
+		req.ResourceID,
+	); err != nil {
 		return nil, err
 	}
 
-	issued, err := s.ca.IssueCertificate(ctx, IssueCertificateRequest{
-		ResourceID: req.ResourceID,
-		CSR:        req.CSR,
-	},
+	issued, err := s.ca.IssueCertificate(
+		ctx,
+		IssueCertificateRequest{
+			ResourceID: req.ResourceID,
+			CSR:        req.CSR,
+		},
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"issue certificate: %w",
@@ -598,20 +723,23 @@ func (s *service) RenewCertificate(ctx context.Context, req RenewCertificateRequ
 	now := time.Now().UTC()
 
 	certificate := &model.ResourceCertificate{
-		ResourceID:    req.ResourceID,
-		CertificateID: issued.CertificateID,
-		Fingerprint:   issued.Fingerprint,
-		Subject:       issued.Subject,
-		Issuer:        issued.Issuer,
-		Status:        model.CertificateActive,
-		NotBefore:     issued.NotBefore,
-		NotAfter:      issued.NotAfter,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ResourceID:              req.ResourceID,
+		CertificateID:           issued.CertificateID,
+		CertificateSerialNumber: issued.SerialNumber,
+		Fingerprint:             issued.Fingerprint,
+		Subject:                 issued.Subject,
+		Issuer:                  issued.Issuer,
+		Status:                  model.CertificateActive,
+		NotBefore:               issued.NotBefore,
+		NotAfter:                issued.NotAfter,
+		CreatedAt:               now,
+		UpdatedAt:               now,
 	}
 
-	if err := s.certificates.Create(ctx, certificate); err != nil {
-
+	if err := s.certificates.Create(
+		ctx,
+		certificate,
+	); err != nil {
 		_ = s.ca.RevokeCertificate(
 			ctx,
 			issued.CertificateID,
@@ -627,8 +755,10 @@ func (s *service) RenewCertificate(ctx context.Context, req RenewCertificateRequ
 	return certificate, nil
 }
 
-func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRequest) error {
-
+func (s *service) RevokeCertificate(
+	ctx context.Context,
+	req RevokeCertificateRequest,
+) error {
 	if req.ResourceID == 0 {
 		return errors.New(
 			"resource_id is required",
@@ -641,10 +771,13 @@ func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRe
 		)
 	}
 
-	certificate, err := s.certificates.GetByCertificateID(ctx, req.CertificateID)
+	certificate, err :=
+		s.certificates.GetByCertificateID(
+			ctx,
+			req.CertificateID,
+		)
 
 	if err != nil {
-
 		if errors.Is(
 			err,
 			ErrCertificateNotFound,
@@ -660,13 +793,11 @@ func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRe
 
 	if certificate.ResourceID !=
 		req.ResourceID {
-
 		return ErrCertificateMismatch
 	}
 
 	if certificate.Status ==
 		model.CertificateRevoked {
-
 		return nil
 	}
 
@@ -675,7 +806,6 @@ func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRe
 		certificate.CertificateID,
 		req.Reason,
 	); err != nil {
-
 		return fmt.Errorf(
 			"revoke certificate from ca: %w",
 			err,
@@ -688,8 +818,10 @@ func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRe
 	certificate.RevokedAt = &now
 	certificate.UpdatedAt = now
 
-	if err := s.certificates.Update(ctx, certificate); err != nil {
-
+	if err := s.certificates.Update(
+		ctx,
+		certificate,
+	); err != nil {
 		return fmt.Errorf(
 			"update certificate: %w",
 			err,
@@ -697,4 +829,20 @@ func (s *service) RevokeCertificate(ctx context.Context, req RevokeCertificateRe
 	}
 
 	return nil
+}
+
+// tenantIDFromContext returns the current tenant ID.
+//
+// ResourceIdentity currently has no tenant_id column, so the value is only
+// used to satisfy the existing repository interface. The repository itself
+// intentionally does not include tenant_id in its uniqueness query.
+func tenantIDFromContext(ctx context.Context) (id [16]byte) {
+	// Keep this helper local to avoid changing the existing security
+	// repository contract in this patch.
+	//
+	// The repository currently ignores tenantID because ResourceIdentity
+	// has no tenant_id field.
+	//
+	// We only need a zero UUID here.
+	return id
 }
