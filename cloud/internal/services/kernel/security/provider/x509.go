@@ -168,7 +168,15 @@ func ParseCSRDER(
 
 // ParseIssuedCertificate parses an issued certificate
 // and converts it to the provider-independent model.
-func ParseIssuedCertificate(certificateID uint, certificatePEM string) (*IssuedCertificate, error) {
+func ParseIssuedCertificate(
+	certificateID string,
+	certificatePEM string,
+) (*IssuedCertificate, error) {
+	if certificateID == "" {
+		return nil, errors.New(
+			"certificate id is empty",
+		)
+	}
 
 	if certificatePEM == "" {
 		return nil, errors.New(
@@ -176,10 +184,9 @@ func ParseIssuedCertificate(certificateID uint, certificatePEM string) (*IssuedC
 		)
 	}
 
-	block, _ :=
-		pem.Decode(
-			[]byte(certificatePEM),
-		)
+	block, _ := pem.Decode(
+		[]byte(certificatePEM),
+	)
 
 	if block == nil {
 		return nil, errors.New(
@@ -194,11 +201,9 @@ func ParseIssuedCertificate(certificateID uint, certificatePEM string) (*IssuedC
 		)
 	}
 
-	cert, err :=
-		x509.ParseCertificate(
-			block.Bytes,
-		)
-
+	cert, err := x509.ParseCertificate(
+		block.Bytes,
+	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"parse certificate: %w",

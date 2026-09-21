@@ -1,11 +1,7 @@
 package provider
 
-import (
-	"time"
-)
+import "time"
 
-// CertificateRevokeReason defines a provider-independent
-// certificate revocation reason.
 type CertificateRevokeReason string
 
 const (
@@ -20,11 +16,8 @@ const (
 	CertificateRevokeReasonCessationOfOperation CertificateRevokeReason = "cessation_of_operation"
 
 	CertificateRevokeReasonPrivilegeWithdrawn CertificateRevokeReason = "privilege_withdrawn"
-	RevokeReasonKeyCompromise                 CertificateRevokeReason = "KEY_COMPROMISE"
 )
 
-// ParsedCSR contains provider-independent information
-// extracted from a PKCS#10 CSR.
 type ParsedCSR struct {
 	Subject            string   `json:"subject"`
 	CommonName         string   `json:"common_name"`
@@ -36,29 +29,28 @@ type ParsedCSR struct {
 	PublicKeySize      int      `json:"public_key_size"`
 }
 
-// IssueCertificateRequest contains all information required
-// by a CertificateAuthority to issue a certificate.
 type IssueCertificateRequest struct {
 	ResourceID   uint   `json:"resource_id"`
 	CSR          string `json:"csr"`
 	ValidityDays int    `json:"validity_days"`
 }
 
-// IssuedCertificate contains provider-independent information
-// about an issued X.509 certificate.
 type IssuedCertificate struct {
-	// CertificateID is an opaque provider-specific identifier.
+	// Opaque provider-specific certificate identifier.
 	//
-	// The upper layer MUST NOT parse this value.
-	CertificateID uint `json:"certificate_id"`
+	// AWS:
+	//   certificate ARN
+	//
+	// Alibaba Cloud:
+	//   provider certificate ID
+	//
+	// The upper layer must never parse this value.
+	CertificateID string `json:"certificate_id"`
 
-	// PEM encoded end-entity certificate.
 	CertificatePEM string `json:"certificate_pem"`
 
-	// SHA-256 fingerprint of the DER encoded certificate.
 	Fingerprint string `json:"fingerprint"`
 
-	// X.509 serial number.
 	SerialNumber string `json:"serial_number"`
 
 	Subject string `json:"subject"`
@@ -70,11 +62,9 @@ type IssuedCertificate struct {
 	NotAfter time.Time `json:"not_after"`
 }
 
-// RevokeCertificateRequest contains information required
-// to revoke an issued certificate.
 type RevokeCertificateRequest struct {
-	// Opaque provider certificate identifier.
-	CertificateID uint `json:"certificate_id"`
+	// Opaque provider-specific certificate identifier.
+	CertificateID string `json:"certificate_id"`
 
 	// X.509 certificate serial number.
 	SerialNumber string `json:"serial_number"`

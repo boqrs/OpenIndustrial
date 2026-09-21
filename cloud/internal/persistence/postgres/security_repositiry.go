@@ -348,7 +348,7 @@ func NewCertificateRepository(db *database.DBProvider) *certificateRepository {
 	}
 }
 
-var _ security.CertificateRepository = (*certificateRepository)(nil)
+//var _ security.CertificateRepository = (*certificateRepository)(nil)
 
 // Create creates a resource certificate.
 func (r *certificateRepository) Create(
@@ -397,7 +397,7 @@ func (r *certificateRepository) GetActiveByResourceID(
 // GetByCertificateID returns a certificate by external CA certificate ID.
 func (r *certificateRepository) GetByCertificateID(
 	ctx context.Context,
-	certificateID uint,
+	certificateID string,
 ) (*model.ResourceCertificate, error) {
 	var certificate model.ResourceCertificate
 

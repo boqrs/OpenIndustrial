@@ -319,9 +319,10 @@ func (s *service) ProvisionDevice(
 		)
 	}
 
-	if req.HardwareID == "" {
+	if req.HardwareID == "" &&
+		req.SerialNumber == "" {
 		return nil, errors.New(
-			"hardware_id is required",
+			"hardware_id or serial_number is required",
 		)
 	}
 
@@ -411,11 +412,13 @@ func (s *service) ProvisionDevice(
 				)
 			}
 
-			if identity.HardwareID != req.HardwareID {
+			if identity.HardwareID != "" &&
+				identity.HardwareID != req.HardwareID {
 				return ErrIdentityMismatch
 			}
 
 			if identity.SerialNumber != "" &&
+				req.SerialNumber != "" &&
 				identity.SerialNumber != req.SerialNumber {
 				return ErrIdentityMismatch
 			}
@@ -472,6 +475,7 @@ func (s *service) ProvisionDevice(
 				_ = s.ca.RevokeCertificate(
 					ctx,
 					issued.CertificateID,
+					issued.SerialNumber,
 					"database persistence failure",
 				)
 
@@ -493,6 +497,7 @@ func (s *service) ProvisionDevice(
 				_ = s.ca.RevokeCertificate(
 					ctx,
 					issued.CertificateID,
+					issued.SerialNumber,
 					"credential consumption failure",
 				)
 
@@ -601,7 +606,7 @@ func (s *service) GetCertificate(
 		)
 	}
 
-	if req.CertificateID == 0 {
+	if req.CertificateID == "" {
 		return nil, errors.New(
 			"certificate_id is required",
 		)
@@ -743,6 +748,7 @@ func (s *service) RenewCertificate(
 		_ = s.ca.RevokeCertificate(
 			ctx,
 			issued.CertificateID,
+			issued.SerialNumber,
 			"certificate persistence failed",
 		)
 
@@ -765,7 +771,7 @@ func (s *service) RevokeCertificate(
 		)
 	}
 
-	if req.CertificateID == 0 {
+	if req.CertificateID == "" {
 		return errors.New(
 			"certificate_id is required",
 		)
@@ -804,6 +810,7 @@ func (s *service) RevokeCertificate(
 	if err := s.ca.RevokeCertificate(
 		ctx,
 		certificate.CertificateID,
+		certificate.CertificateSerialNumber,
 		req.Reason,
 	); err != nil {
 		return fmt.Errorf(

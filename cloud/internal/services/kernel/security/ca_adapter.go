@@ -90,35 +90,46 @@ func (a *CertificateAuthorityAdapter) IssueCertificate(ctx context.Context, req 
 
 // RevokeCertificate implements the correct interface signature required by security.CertificateAuthority.
 // It takes certificateID and reason as strings and converts them into a provider.RevokeCertificateRequest.
-func (a *CertificateAuthorityAdapter) RevokeCertificate(ctx context.Context, certificateID uint, reason string) error {
-	// Convert the string reason to the provider's typed reason.
-	// We will perform a simple mapping here.
+func (a *CertificateAuthorityAdapter) RevokeCertificate(
+	ctx context.Context,
+	certificateID string,
+	serialNumber string,
+	reason string,
+) error {
 	var providerReason provider.CertificateRevokeReason
+
 	switch reason {
 	case "KEY_COMPROMISE":
-		providerReason = provider.CertificateRevokeReasonKeyCompromise
+		providerReason =
+			provider.CertificateRevokeReasonKeyCompromise
+
 	case "CA_COMPROMISE":
-		providerReason = provider.CertificateRevokeReasonCACompromise
+		providerReason =
+			provider.CertificateRevokeReasonCACompromise
+
 	case "SUPERSEDED":
-		providerReason = provider.CertificateRevokeReasonSuperseded
+		providerReason =
+			provider.CertificateRevokeReasonSuperseded
+
 	case "CESSATION_OF_OPERATION":
-		providerReason = provider.CertificateRevokeReasonCessationOfOperation
+		providerReason =
+			provider.CertificateRevokeReasonCessationOfOperation
+
 	case "PRIVILEGE_WITHDRAWN":
-		providerReason = provider.CertificateRevokeReasonPrivilegeWithdrawn
+		providerReason =
+			provider.CertificateRevokeReasonPrivilegeWithdrawn
+
 	default:
-		providerReason = provider.CertificateRevokeReasonUnspecified
+		providerReason =
+			provider.CertificateRevokeReasonUnspecified
 	}
 
-	// Construct the request object required by the provider.
-	providerReq := provider.RevokeCertificateRequest{
-		CertificateID: certificateID,
-		// The provider's request also has a SerialNumber field, but the security
-		// interface doesn't provide it here. We will leave it empty.
-		// The underlying provider implementation (e.g., AWS) might only need the CertificateID.
-		SerialNumber: "",
-		Reason:       providerReason,
-	}
-
-	// Call the wrapped provider with the correct request object.
-	return a.provider.RevokeCertificate(ctx, providerReq)
+	return a.provider.RevokeCertificate(
+		ctx,
+		provider.RevokeCertificateRequest{
+			CertificateID: certificateID,
+			SerialNumber:  serialNumber,
+			Reason:        providerReason,
+		},
+	)
 }

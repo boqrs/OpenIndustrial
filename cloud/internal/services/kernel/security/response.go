@@ -1,13 +1,11 @@
 package security
 
-import (
-	"time"
-)
+import "time"
 
 type CertificateResponse struct {
 	ID            uint       `json:"id"`
 	ResourceID    uint       `json:"resource_id"`
-	CertificateID uint       `json:"certificate_id"`
+	CertificateID string     `json:"certificate_id"`
 	Fingerprint   string     `json:"fingerprint"`
 	Status        string     `json:"status"`
 	NotBefore     time.Time  `json:"not_before"`
@@ -17,9 +15,9 @@ type CertificateResponse struct {
 }
 
 type DeviceAuthenticationResponse struct {
-	Authenticated bool `json:"authenticated"`
-	ResourceID    uint `json:"resource_id"`
-	CertificateID uint `json:"certificate_id"`
+	Authenticated bool   `json:"authenticated"`
+	ResourceID    uint   `json:"resource_id"`
+	CertificateID string `json:"certificate_id"`
 }
 
 type ProvisionDeviceResponse struct {
@@ -34,33 +32,22 @@ type ProvisionDeviceResponse struct {
 
 type MQTTConnectionInfo struct {
 	Endpoint string `json:"endpoint"`
-
-	Port int `json:"port"`
-
+	Port     int    `json:"port"`
 	Protocol string `json:"protocol"`
-
 	ClientID string `json:"client_id"`
 }
 
 type ResourceIdentityResponse struct {
-	ResourceID uint `json:"resource_id"`
-
-	IdentityType string `json:"identity_type"`
-
-	HardwareID string `json:"hardware_id"`
-
-	SerialNumber string `json:"serial_number"`
-
-	CreatedAt time.Time `json:"created_at"`
+	ResourceID   uint      `json:"resource_id"`
+	IdentityType string    `json:"identity_type"`
+	HardwareID   string    `json:"hardware_id"`
+	SerialNumber string    `json:"serial_number"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type BootstrapCredentialResponse struct {
-	ResourceID   uint `json:"resource_id"`
-	CredentialID uint `json:"credential_id"`
-
-	// 明文 Token 只返回一次。
-	// 数据库绝对不保存这个值。
-	Token string `json:"token"`
-
-	CreatedAt time.Time `json:"created_at"`
+	ResourceID   uint      `json:"resource_id"`
+	CredentialID uint      `json:"credential_id"`
+	Token        string    `json:"token"`
+	CreatedAt    time.Time `json:"created_at"`
 }

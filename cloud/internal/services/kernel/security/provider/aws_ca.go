@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -144,23 +143,18 @@ func (p *AWSCA) IssueCertificate(
 		)
 	}
 
-	certificateID :=
-		*result.CertificateArn
+	certificateID := *result.CertificateArn
 
-	certificatePEM, err :=
-		p.waitCertificate(
-			ctx,
-			certificateID,
-		)
-
+	certificatePEM, err := p.waitCertificate(
+		ctx,
+		certificateID,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	certificateIDUint, _ := strconv.Atoi(certificateID)
-
 	return ParseIssuedCertificate(
-		uint(certificateIDUint),
+		certificateID,
 		certificatePEM,
 	)
 }
@@ -227,48 +221,32 @@ func (p *AWSCA) RevokeCertificate(
 	ctx context.Context,
 	req RevokeCertificateRequest,
 ) error {
-
-	if req.CertificateID == 0 {
-		return errors.New(
-			"certificate_id is required",
-		)
+	if req.CertificateID == "" {
+		return errors.New("certificate_id is required")
 	}
 
 	if req.SerialNumber == "" {
-		return errors.New(
-			"serial_number is required",
-		)
+		return errors.New("serial_number is required")
 	}
 
 	if p.config.CAARN == "" {
-		return errors.New(
-			"aws ca arn is required",
-		)
+		return errors.New("aws ca arn is required")
 	}
 
-	_, err :=
-		p.client.RevokeCertificate(
-			ctx,
-			&acmpca.RevokeCertificateInput{
-
-				CertificateAuthorityArn: awssdk.String(
-					p.config.CAARN,
-				),
-
-				// CertificateArn:
-				// 	awssdk.String(
-				// 		req.CertificateID,
-				// 	),
-
-				CertificateSerial: awssdk.String(
-					req.SerialNumber,
-				),
-
-				RevocationReason: mapAWSRevokeReason(
-					req.Reason,
-				),
-			},
-		)
+	_, err := p.client.RevokeCertificate(
+		ctx,
+		&acmpca.RevokeCertificateInput{
+			CertificateAuthorityArn: awssdk.String(
+				p.config.CAARN,
+			),
+			CertificateSerial: awssdk.String(
+				req.SerialNumber,
+			),
+			RevocationReason: mapAWSRevokeReason(
+				req.Reason,
+			),
+		},
+	)
 
 	if err != nil {
 		return fmt.Errorf(
@@ -279,7 +257,6 @@ func (p *AWSCA) RevokeCertificate(
 
 	return nil
 }
-
 func mapAWSRevokeReason(
 	reason CertificateRevokeReason,
 ) types.RevocationReason {

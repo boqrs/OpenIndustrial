@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 )
 
 // AliyunCAConfig contains Alibaba Cloud PCA configuration.
@@ -161,10 +160,10 @@ func (p *AliyunCA) IssueCertificate(ctx context.Context, req IssueCertificateReq
 		)
 	}
 
-	certificateID, _ := strconv.Atoi(result.CertificateID)
+	//certificateID, _ := strconv.Atoi(result.CertificateID)
 
 	return ParseIssuedCertificate(
-		uint(certificateID),
+		result.CertificateID,
 		result.CertificatePEM,
 	)
 }
@@ -188,7 +187,7 @@ func (p *AliyunCA) RevokeCertificate(
 		)
 	}
 
-	if req.CertificateID == 0 {
+	if req.CertificateID == "" {
 		return errors.New(
 			"certificate_id is required",
 		)

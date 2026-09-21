@@ -11,7 +11,6 @@ type BindResourceIdentityRequest struct {
 	SerialNumber string `json:"serial_number"`
 }
 
-// TODO: 需要确认这里是否合适
 type ProvisionDeviceRequest struct {
 	BootstrapToken string `json:"bootstrap_token"`
 	HardwareID     string `json:"hardware_id"`
@@ -31,11 +30,11 @@ type RenewCertificateRequest struct {
 
 type RevokeCertificateRequest struct {
 	ResourceID    uint   `json:"resource_id"`
-	CertificateID uint   `json:"certificate_id"`
+	CertificateID string `json:"certificate_id"`
 	Reason        string `json:"reason"`
 }
 
 type CertificateReq struct {
-	Resource      uint `json:"resource_id" form:"resource_id"`
-	CertificateID uint `json:"certificate_id" form:"certificate_id"`
+	Resource      uint   `json:"resource_id" form:"resource_id"`
+	CertificateID string `json:"certificate_id" form:"certificate_id"`
 }
