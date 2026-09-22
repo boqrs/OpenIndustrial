@@ -73,6 +73,26 @@ func TenantIDFromContext(ctx context.Context) uuid.UUID {
 	}
 }
 
+func UserIDFromContext(ctx context.Context) uuid.UUID {
+	value := ctx.Value("user_id")
+
+	switch value := value.(type) {
+	case uuid.UUID:
+		return value
+
+	case string:
+		id, err := uuid.Parse(value)
+		if err != nil {
+			return uuid.Nil
+		}
+
+		return id
+
+	default:
+		return uuid.Nil
+	}
+}
+
 type BasePageReq struct {
 	CurrentPage int `form:"currentPage" json:"currentPage"`
 	PageSize    int `form:"pageSize" json:"pageSize"`

@@ -1,7 +1,29 @@
 package model
 
 import (
+	"github.com/google/uuid"
 	"time"
+)
+
+// DeviceLifecycleStatus represents ownership and business lifecycle.
+type DeviceLifecycleStatus string
+
+const (
+
+	// Device created from manufacturing execution result.
+	DeviceLifecycleManufactured DeviceLifecycleStatus = "manufactured"
+
+	// Device stored in warehouse.
+	DeviceLifecycleInStock DeviceLifecycleStatus = "in_stock"
+
+	// Device shipped to customer.
+	DeviceLifecycleShipped DeviceLifecycleStatus = "shipped"
+
+	// Device activated by end customer.
+	DeviceLifecycleActivated DeviceLifecycleStatus = "activated"
+
+	// Device retired.
+	DeviceLifecycleRetired DeviceLifecycleStatus = "retired"
 )
 
 // DeviceStatus represents the runtime status of a device, distinct from its resource lifecycle status.
@@ -35,6 +57,15 @@ type Device struct {
 	// Identity
 	SerialNumber string `gorm:"size:255;not null;index"`
 	HardwareID   string `gorm:"size:255;index"`
+
+	// Ownership
+	CustomerID uuid.UUID `gorm:"type:uuid;index"`
+
+	// Business lifecycle
+
+	LifecycleStatus DeviceLifecycleStatus `gorm:"size:50;not null;index"`
+
+	// Runtime status
 
 	// Runtime state
 	Status DeviceStatus `gorm:"size:50;not null"`

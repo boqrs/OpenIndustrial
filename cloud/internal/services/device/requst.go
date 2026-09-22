@@ -34,3 +34,8 @@ type ListDevicesRequest struct {
 	ParentID  *uint               `json:"parent_id,omitempty"`
 	pkg.BasePageReq
 }
+
+type DeviceActiveReq struct {
+	Sn           string `json:"sn" binding:"required"`
+	ProductModel string `json:"product_model" binding:"required"`
+}

@@ -20,6 +20,8 @@ var (
 	ErrInvalidCreateRequest     = errors.New("invalid create device request")
 	ErrInvalidUpdateRequest     = errors.New("invalid update device request")
 	ErrCannotDeleteOnlineDevice = errors.New("cannot delete a device that is currently online")
+	ErrDeviceAlreadyActivated   = errors.New("device already activated")
+	ErrInvalidDeviceLifecycle   = errors.New("invalid device lifecycle status")
 )
 
 type serviceImpl struct {
@@ -145,7 +147,8 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		ExecutionResultID: req.ExecutionResultID,
 		SerialNumber:      req.SerialNumber,
 		HardwareID:        req.HardwareID,
-		Status:            model.DeviceStatusCreated,
+		LifecycleStatus:   model.DeviceLifecycleManufactured,
+		Status:            model.DeviceStatusOffline,
 	}
 
 	if err := s.repo.CreateTx(ctx, entity); err != nil {
@@ -361,4 +364,67 @@ func (s *serviceImpl) ListDevices(
 		Page:     req.CurrentPage,
 		PageSize: req.PageSize,
 	}, nil
+}
+
+// TODO：这里不对 应该获取token中的user_id作为用户，并且用户应该是uuid
+func (s *serviceImpl) ActivateDevice(ctx context.Context, req *DeviceActiveReq) (*DeviceResponse, error) {
+
+	if req.Sn == "" || req.ProductModel == "" {
+
+		return nil,
+			ErrInvalidUpdateRequest
+	}
+
+	customerID := pkg.UserIDFromContext(ctx)
+	if customerID == uuid.Nil {
+		return nil, errors.New("user no perm")
+	}
+
+	device, err := s.repo.GetBySerialNumber(ctx, req.Sn)
+	if err != nil {
+		return nil, err
+	}
+
+	if device == nil {
+		return nil,
+			ErrDeviceNotFound
+	}
+
+	switch device.LifecycleStatus {
+
+	case model.DeviceLifecycleActivated:
+
+		return nil,
+			ErrDeviceAlreadyActivated
+
+	case model.DeviceLifecycleShipped:
+
+		// allowed
+
+	default:
+
+		return nil,
+			ErrInvalidDeviceLifecycle
+	}
+
+	now := time.Now().UTC()
+
+	device.CustomerID = customerID
+	device.LifecycleStatus =
+		model.DeviceLifecycleActivated
+
+	device.ActivatedAt = &now
+
+	if err := s.repo.Update(
+		ctx,
+		device,
+	); err != nil {
+
+		return nil, err
+	}
+
+	return s.GetDevice(
+		ctx,
+		device.ID,
+	)
 }
