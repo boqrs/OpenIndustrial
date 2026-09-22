@@ -3,25 +3,58 @@ package device
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
-	"github.com/google/uuid"
 )
 
 var (
-	ErrDeviceNotFound           = errors.New("device not found")
-	ErrProductModelNotFound     = errors.New("associated product model not found")
-	ErrSerialNumberExists       = errors.New("a device with this serial number already exists")
-	ErrInvalidCreateRequest     = errors.New("invalid create device request")
-	ErrInvalidUpdateRequest     = errors.New("invalid update device request")
-	ErrCannotDeleteOnlineDevice = errors.New("cannot delete a device that is currently online")
-	ErrDeviceAlreadyActivated   = errors.New("device already activated")
-	ErrInvalidDeviceLifecycle   = errors.New("invalid device lifecycle status")
+	ErrDeviceNotFound = errors.New(
+		"device not found",
+	)
+
+	ErrProductModelNotFound = errors.New(
+		"associated product model not found",
+	)
+
+	ErrSerialNumberExists = errors.New(
+		"a device with this serial number already exists",
+	)
+
+	ErrInvalidCreateRequest = errors.New(
+		"invalid create device request",
+	)
+
+	ErrInvalidUpdateRequest = errors.New(
+		"invalid update device request",
+	)
+
+	ErrCannotDeleteOnlineDevice = errors.New(
+		"cannot delete a device that is currently online",
+	)
+
+	ErrInvalidActivationRequest = errors.New(
+		"invalid device activation request",
+	)
+
+	ErrDeviceAlreadyActivated = errors.New(
+		"device already activated",
+	)
+
+	ErrProductModelMismatch = errors.New(
+		"product model does not match device",
+	)
+
+	ErrUserNotAuthenticated = errors.New(
+		"user is not authenticated",
+	)
 )
 
 type serviceImpl struct {
@@ -64,7 +97,10 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	}
 
 	// 1. Product must exist.
-	if _, err := s.productSvc.GetProductModel(ctx, req.ProductID); err != nil {
+	if _, err := s.productSvc.GetProductModel(
+		ctx,
+		req.ProductID,
+	); err != nil {
 		if errors.Is(err, product.ErrProductModelNotFound) {
 			return nil, ErrProductModelNotFound
 		}
@@ -87,8 +123,11 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	}
 
 	tenantID := pkg.TenantIDFromContext(ctx)
+
 	if tenantID == uuid.Nil {
-		return nil, errors.New("tenant ID not found in context")
+		return nil, errors.New(
+			"tenant ID not found in context",
+		)
 	}
 
 	// 3. Create Resource for the physical device.
@@ -115,11 +154,8 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 
 	// 4. Create canonical ResourceIdentity.
 	//
-	// This MUST happen in the same transaction as Resource + Device.
-	//
-	// SN is the canonical production identity.
-	// HardwareID is optional because not every product necessarily exposes
-	// a hardware identifier during manufacturing.
+	// Resource + ResourceIdentity + Device must be created inside
+	// the same manufacturing transaction.
 	if s.securitySvc == nil {
 		return nil, errors.New(
 			"security service is not configured",
@@ -139,6 +175,9 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	}
 
 	// 5. Create Device.
+	//
+	// At this point the device has been manufactured, but it has
+	// not yet been activated by an end user.
 	entity := &model.Device{
 		ResourceID:        res.ID,
 		ProductID:         req.ProductID,
@@ -147,15 +186,20 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		ExecutionResultID: req.ExecutionResultID,
 		SerialNumber:      req.SerialNumber,
 		HardwareID:        req.HardwareID,
-		LifecycleStatus:   model.DeviceLifecycleManufactured,
-		Status:            model.DeviceStatusOffline,
+		Status:            model.DeviceStatusCreated,
 	}
 
-	if err := s.repo.CreateTx(ctx, entity); err != nil {
+	if err := s.repo.CreateTx(
+		ctx,
+		entity,
+	); err != nil {
 		return nil, err
 	}
 
-	return s.toDeviceResponse(entity, res), nil
+	return s.toDeviceResponse(
+		entity,
+		res,
+	), nil
 }
 
 func validateCreateRequest(
@@ -181,7 +225,7 @@ func validateCreateRequest(
 		return errors.New("invalid execution result ID")
 	}
 
-	if req.SerialNumber == "" {
+	if strings.TrimSpace(req.SerialNumber) == "" {
 		return errors.New("invalid serial number")
 	}
 
@@ -192,7 +236,10 @@ func (s *serviceImpl) GetDevice(
 	ctx context.Context,
 	deviceID uint,
 ) (*DeviceResponse, error) {
-	d, err := s.repo.GetByID(ctx, deviceID)
+	d, err := s.repo.GetByID(
+		ctx,
+		deviceID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -202,8 +249,11 @@ func (s *serviceImpl) GetDevice(
 	}
 
 	tenantID := pkg.TenantIDFromContext(ctx)
+
 	if tenantID == uuid.Nil {
-		return nil, errors.New("tenant ID not found in context")
+		return nil, errors.New(
+			"tenant ID not found in context",
+		)
 	}
 
 	res, err := s.resourceSvc.GetResourceByID(
@@ -215,7 +265,10 @@ func (s *serviceImpl) GetDevice(
 		return nil, err
 	}
 
-	return s.toDeviceResponse(d, res), nil
+	return s.toDeviceResponse(
+		d,
+		res,
+	), nil
 }
 
 func (s *serviceImpl) UpdateDevice(
@@ -227,7 +280,10 @@ func (s *serviceImpl) UpdateDevice(
 		return nil, ErrInvalidUpdateRequest
 	}
 
-	d, err := s.repo.GetByID(ctx, deviceID)
+	d, err := s.repo.GetByID(
+		ctx,
+		deviceID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -237,11 +293,16 @@ func (s *serviceImpl) UpdateDevice(
 	}
 
 	tenantID := pkg.TenantIDFromContext(ctx)
+
 	if tenantID == uuid.Nil {
-		return nil, errors.New("tenant ID not found in context")
+		return nil, errors.New(
+			"tenant ID not found in context",
+		)
 	}
 
-	if req.Name != nil || req.ParentResourceID != nil {
+	if req.Name != nil ||
+		req.ParentResourceID != nil {
+
 		res, err := s.resourceSvc.GetResourceByID(
 			ctx,
 			tenantID,
@@ -277,7 +338,120 @@ func (s *serviceImpl) UpdateDevice(
 		}
 	}
 
-	return s.GetDevice(ctx, deviceID)
+	return s.GetDevice(
+		ctx,
+		deviceID,
+	)
+}
+
+// ActivateDevice binds a manufactured device to the authenticated
+// end user.
+//
+// The device is identified by information contained in the activation
+// QR code:
+//
+//   - SerialNumber
+//   - ProductModel
+//
+// The user identity is NEVER accepted from the request body.
+// It is obtained from the authenticated access token:
+//
+//	ctx -> user_id -> UUID
+//
+// Activation does not create a Device.
+//
+// Activation does not change runtime connectivity status.
+// A device becomes online only after it actually connects to
+// the IoT infrastructure.
+func (s *serviceImpl) ActivateDevice(
+	ctx context.Context,
+	req *ActivateDeviceRequest,
+) (*DeviceResponse, error) {
+	if req == nil {
+		return nil, ErrInvalidActivationRequest
+	}
+
+	serialNumber := strings.TrimSpace(
+		req.SerialNumber,
+	)
+
+	productModel := strings.TrimSpace(
+		req.ProductModel,
+	)
+
+	if serialNumber == "" ||
+		productModel == "" {
+		return nil, ErrInvalidActivationRequest
+	}
+
+	// The customer/user identity comes exclusively from
+	// the authenticated access token.
+	customerUUID := pkg.UserIDFromContext(ctx)
+	if customerUUID == uuid.Nil {
+		return nil, ErrUserNotAuthenticated
+	}
+
+	// Locate the physical device by the canonical production identity.
+	device, err := s.repo.GetBySerialNumber(
+		ctx,
+		serialNumber,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if device == nil {
+		return nil, ErrDeviceNotFound
+	}
+
+	// A device can only be activated once.
+	if device.CustomerUUID != nil ||
+		device.ActivatedAt != nil {
+		return nil, ErrDeviceAlreadyActivated
+	}
+
+	// The QR code contains the product model code.
+	//
+	// We do not trust the product model from the QR code as the
+	// source of truth. Instead we compare it with the ProductModel
+	// actually associated with the Device.
+	product, err := s.productSvc.GetProductModel(
+		ctx,
+		device.ProductID,
+	)
+	if err != nil {
+
+		return nil, err
+	}
+
+	if !strings.EqualFold(
+		productModel,
+		strings.TrimSpace(product.Code),
+	) {
+		return nil, ErrProductModelMismatch
+	}
+
+	// Activation is performed atomically by the repository.
+	//
+	// This is important because two requests may scan the same
+	// device at almost exactly the same time.
+	activated, err := s.repo.ActivateBySerialNumber(
+		ctx,
+		serialNumber,
+		customerUUID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if activated == nil {
+		return nil, ErrDeviceAlreadyActivated
+	}
+
+	return s.GetDevice(
+		ctx,
+		activated.ID,
+	)
 }
 
 // DeleteDevice intentionally remains disabled.
@@ -297,6 +471,7 @@ func (s *serviceImpl) toDeviceResponse(
 		Name:              r.ResourceName,
 		SerialNumber:      d.SerialNumber,
 		HardwareID:        d.HardwareID,
+		CustomerUUID:      d.CustomerUUID,
 		WorkOrderID:       d.WorkOrderID,
 		ExecutionID:       d.ExecutionID,
 		ExecutionResultID: d.ExecutionResultID,
@@ -306,8 +481,19 @@ func (s *serviceImpl) toDeviceResponse(
 		UpdatedAt:         d.UpdatedAt.Format(time.RFC3339),
 	}
 
+	if d.ActivatedAt != nil {
+		formatted := d.ActivatedAt.Format(
+			time.RFC3339,
+		)
+
+		resp.ActivatedAt = &formatted
+	}
+
 	if d.LastOnlineAt != nil {
-		formatted := d.LastOnlineAt.Format(time.RFC3339)
+		formatted := d.LastOnlineAt.Format(
+			time.RFC3339,
+		)
+
 		resp.LastOnlineAt = &formatted
 	}
 
@@ -330,16 +516,26 @@ func (s *serviceImpl) ListDevices(
 		req.PageSize = 20
 	}
 
-	items, total, err := s.repo.List(ctx, req)
+	items, total, err := s.repo.List(
+		ctx,
+		req,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	responses := make([]*DeviceResponse, 0, len(items))
+	responses := make(
+		[]*DeviceResponse,
+		0,
+		len(items),
+	)
 
 	tenantID := pkg.TenantIDFromContext(ctx)
+
 	if tenantID == uuid.Nil {
-		return nil, errors.New("tenant ID not found in context")
+		return nil, errors.New(
+			"tenant ID not found in context",
+		)
 	}
 
 	for _, item := range items {
@@ -354,7 +550,10 @@ func (s *serviceImpl) ListDevices(
 
 		responses = append(
 			responses,
-			s.toDeviceResponse(item, res),
+			s.toDeviceResponse(
+				item,
+				res,
+			),
 		)
 	}
 
@@ -364,67 +563,4 @@ func (s *serviceImpl) ListDevices(
 		Page:     req.CurrentPage,
 		PageSize: req.PageSize,
 	}, nil
-}
-
-// TODO：这里不对 应该获取token中的user_id作为用户，并且用户应该是uuid
-func (s *serviceImpl) ActivateDevice(ctx context.Context, req *DeviceActiveReq) (*DeviceResponse, error) {
-
-	if req.Sn == "" || req.ProductModel == "" {
-
-		return nil,
-			ErrInvalidUpdateRequest
-	}
-
-	customerID := pkg.UserIDFromContext(ctx)
-	if customerID == uuid.Nil {
-		return nil, errors.New("user no perm")
-	}
-
-	device, err := s.repo.GetBySerialNumber(ctx, req.Sn)
-	if err != nil {
-		return nil, err
-	}
-
-	if device == nil {
-		return nil,
-			ErrDeviceNotFound
-	}
-
-	switch device.LifecycleStatus {
-
-	case model.DeviceLifecycleActivated:
-
-		return nil,
-			ErrDeviceAlreadyActivated
-
-	case model.DeviceLifecycleShipped:
-
-		// allowed
-
-	default:
-
-		return nil,
-			ErrInvalidDeviceLifecycle
-	}
-
-	now := time.Now().UTC()
-
-	device.CustomerID = customerID
-	device.LifecycleStatus =
-		model.DeviceLifecycleActivated
-
-	device.ActivatedAt = &now
-
-	if err := s.repo.Update(
-		ctx,
-		device,
-	); err != nil {
-
-		return nil, err
-	}
-
-	return s.GetDevice(
-		ctx,
-		device.ID,
-	)
 }

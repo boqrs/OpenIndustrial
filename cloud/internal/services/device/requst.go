@@ -32,10 +32,21 @@ type ListDevicesRequest struct {
 	ProductID *uint               `json:"product_id,omitempty"`
 	Status    *model.DeviceStatus `json:"status,omitempty"`
 	ParentID  *uint               `json:"parent_id,omitempty"`
+
 	pkg.BasePageReq
 }
 
-type DeviceActiveReq struct {
-	Sn           string `json:"sn" binding:"required"`
+// ActivateDeviceRequest contains the device information encoded
+// in the activation QR code.
+//
+// The authenticated user is NOT supplied by the client.
+// The user UUID is obtained from the authenticated access token
+// through the request context.
+//
+// ProductModel is the product model code printed/encoded in the
+// device QR code.
+type ActivateDeviceRequest struct {
+	SerialNumber string `json:"serial_number" binding:"required"`
+
 	ProductModel string `json:"product_model" binding:"required"`
 }

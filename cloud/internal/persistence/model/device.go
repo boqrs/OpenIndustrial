@@ -1,49 +1,69 @@
 package model
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-// DeviceLifecycleStatus represents ownership and business lifecycle.
-type DeviceLifecycleStatus string
-
-const (
-
-	// Device created from manufacturing execution result.
-	DeviceLifecycleManufactured DeviceLifecycleStatus = "manufactured"
-
-	// Device stored in warehouse.
-	DeviceLifecycleInStock DeviceLifecycleStatus = "in_stock"
-
-	// Device shipped to customer.
-	DeviceLifecycleShipped DeviceLifecycleStatus = "shipped"
-
-	// Device activated by end customer.
-	DeviceLifecycleActivated DeviceLifecycleStatus = "activated"
-
-	// Device retired.
-	DeviceLifecycleRetired DeviceLifecycleStatus = "retired"
-)
-
-// DeviceStatus represents the runtime status of a device, distinct from its resource lifecycle status.
+// DeviceStatus represents the runtime status of a device.
+//
+// DeviceStatus is an IoT/runtime state. It does not represent
+// warehouse or shipment lifecycle.
 type DeviceStatus string
 
 const (
-	// DeviceStatusCreated means the device has been registered in the system but has never connected.
+	// DeviceStatusCreated means the device has been created by
+	// the manufacturing process but has never connected to IoT.
 	DeviceStatusCreated DeviceStatus = "created"
-	// DeviceStatusOnline means the device is currently connected and communicating.
+
+	// DeviceStatusOnline means the device is currently connected
+	// and communicating with the IoT infrastructure.
 	DeviceStatusOnline DeviceStatus = "online"
-	// DeviceStatusOffline means the device was previously online but is now disconnected.
+
+	// DeviceStatusOffline means the device is not currently connected.
 	DeviceStatusOffline DeviceStatus = "offline"
-	// DeviceStatusFault means the device has reported an error state.
+
+	// DeviceStatusFault means the device has reported a fault state.
 	DeviceStatusFault DeviceStatus = "fault"
-	// DeviceStatusMaintenance means the device is temporarily out of service for maintenance.
+
+	// DeviceStatusMaintenance means the device is temporarily
+	// unavailable because it is under maintenance.
 	DeviceStatusMaintenance DeviceStatus = "maintenance"
 )
 
+func (s DeviceStatus) String() string {
+	return string(s)
+}
+
+func (s DeviceStatus) IsValid() bool {
+	switch s {
+	case DeviceStatusCreated,
+		DeviceStatusOnline,
+		DeviceStatusOffline,
+		DeviceStatusFault,
+		DeviceStatusMaintenance:
+		return true
+
+	default:
+		return false
+	}
+}
+
 // Device represents a physical device instance in the real world.
-// It is an instantiation of a static ProductModel.
+//
+// A Device is created only from the manufacturing process.
+// IoT provisioning or activation must never create a Device.
+//
+// Device identity is anchored by:
+//
+//	Device
+//	    └── Resource
+//	          ├── ResourceIdentity
+//	          └── ResourceCertificate
+//
+// Warehouse and shipment lifecycle is managed by WMS.
+// IoT runtime state is managed through this model.
 type Device struct {
 	ID         uint `gorm:"primaryKey"`
 	ResourceID uint `gorm:"not null;index"`
@@ -54,26 +74,39 @@ type Device struct {
 	ExecutionID       uint `gorm:"not null;index"`
 	ExecutionResultID uint `gorm:"not null;index"`
 
-	// Identity
-	SerialNumber string `gorm:"size:255;not null;index"`
-	HardwareID   string `gorm:"size:255;index"`
+	// Physical identity
+	//
+	// SerialNumber is the canonical production identity.
+	SerialNumber string `gorm:"size:255;not null;uniqueIndex"`
 
-	// Ownership
-	CustomerID uuid.UUID `gorm:"type:uuid;index"`
+	// HardwareID is optional because not every product exposes
+	// a hardware identifier during manufacturing.
+	HardwareID string `gorm:"size:255;index"`
 
-	// Business lifecycle
+	// Customer ownership.
+	//
+	// This is the UUID of the user who activated the device.
+	//
+	// It is intentionally nullable because a manufactured device
+	// does not belong to an end user yet.
+	CustomerUUID *uuid.UUID `gorm:"type:uuid;index"`
 
-	LifecycleStatus DeviceLifecycleStatus `gorm:"size:50;not null;index"`
+	// IoT runtime state.
+	//
+	// This field represents connectivity/runtime state only.
+	// It does not represent inventory or shipment state.
+	Status DeviceStatus `gorm:"size:50;not null;index"`
 
-	// Runtime status
+	// ActivatedAt records when the device was first activated
+	// by an end user.
+	ActivatedAt *time.Time
 
-	// Runtime state
-	Status DeviceStatus `gorm:"size:50;not null"`
-
-	ActivatedAt  *time.Time
+	// LastOnlineAt records the last time the device was observed
+	// online by the IoT infrastructure.
 	LastOnlineAt *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (Device) TableName() string {

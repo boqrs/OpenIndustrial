@@ -3,8 +3,11 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/google/uuid"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
@@ -15,18 +18,25 @@ type DeviceRepository struct {
 	db *database.DBProvider
 }
 
-func NewDeviceRepository(db *database.DBProvider) *DeviceRepository {
-	return &DeviceRepository{db: db}
+func NewDeviceRepository(
+	db *database.DBProvider,
+) *DeviceRepository {
+	return &DeviceRepository{
+		db: db,
+	}
 }
 
 func (r *DeviceRepository) CreateTx(
 	ctx context.Context,
 	entity *model.Device,
 ) error {
-	return dbFromContext(ctx, r.db.Get()). //TODO： 设备创建是在生产阶段的事物中完成的
-						WithContext(ctx).
-						Create(entity).
-						Error
+	return dbFromContext(
+		ctx,
+		r.db.Get(),
+	).
+		WithContext(ctx).
+		Create(entity).
+		Error
 }
 
 func (r *DeviceRepository) Create(
@@ -47,12 +57,18 @@ func (r *DeviceRepository) GetByID(
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("id = ?", id).
+		Where(
+			"id = ?",
+			id,
+		).
 		First(&d).
 		Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
 			return nil, device.ErrDeviceNotFound
 		}
 
@@ -70,12 +86,18 @@ func (r *DeviceRepository) GetByResourceID(
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("resource_id = ?", resourceID).
+		Where(
+			"resource_id = ?",
+			resourceID,
+		).
 		First(&d).
 		Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
 			return nil, device.ErrDeviceNotFound
 		}
 
@@ -91,14 +113,23 @@ func (r *DeviceRepository) GetBySerialNumber(
 ) (*model.Device, error) {
 	var d model.Device
 
-	err := dbFromContext(ctx, r.db.Get()).
+	err := dbFromContext(
+		ctx,
+		r.db.Get(),
+	).
 		WithContext(ctx).
-		Where("serial_number = ?", serialNumber).
+		Where(
+			"serial_number = ?",
+			serialNumber,
+		).
 		First(&d).
 		Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(
+			err,
+			gorm.ErrRecordNotFound,
+		) {
 			return nil, device.ErrDeviceNotFound
 		}
 
@@ -108,11 +139,91 @@ func (r *DeviceRepository) GetBySerialNumber(
 	return &d, nil
 }
 
+// ActivateBySerialNumber atomically binds a device to an end user.
+//
+// The update succeeds only when the device has not been activated.
+//
+// This prevents concurrent activation requests from assigning the
+// same device to two different users.
+func (r *DeviceRepository) ActivateBySerialNumber(
+	ctx context.Context,
+	serialNumber string,
+	customerUUID uuid.UUID,
+) (*model.Device, error) {
+	if serialNumber == "" {
+		return nil, device.ErrInvalidActivationRequest
+	}
+
+	if customerUUID == uuid.Nil {
+		return nil, device.ErrUserNotAuthenticated
+	}
+
+	now := time.Now().UTC()
+
+	db := dbFromContext(
+		ctx,
+		r.db.Get(),
+	).WithContext(ctx)
+
+	result := db.
+		Model(&model.Device{}).
+		Where(
+			"serial_number = ?",
+			serialNumber,
+		).
+		Where(
+			"customer_uuid IS NULL",
+		).
+		Where(
+			"activated_at IS NULL",
+		).
+		Updates(map[string]interface{}{
+			"customer_uuid": customerUUID,
+			"activated_at":  now,
+		})
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		// Re-read the device to distinguish between:
+		//
+		// 1. device not found
+		// 2. device already activated
+		deviceEntity, err := r.GetBySerialNumber(
+			ctx,
+			serialNumber,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if deviceEntity == nil {
+			return nil, device.ErrDeviceNotFound
+		}
+
+		if deviceEntity.CustomerUUID != nil ||
+			deviceEntity.ActivatedAt != nil {
+			return nil, device.ErrDeviceAlreadyActivated
+		}
+
+		// This should be extremely unusual. Treat it as an
+		// activation failure rather than pretending activation
+		// succeeded.
+		return nil, device.ErrDeviceAlreadyActivated
+	}
+
+	return r.GetBySerialNumber(
+		ctx,
+		serialNumber,
+	)
+}
+
 func (r *DeviceRepository) List(
 	ctx context.Context,
 	req *device.ListDevicesRequest,
 ) ([]*model.Device, int64, error) {
-
 	var items []*model.Device
 	var total int64
 
@@ -145,7 +256,9 @@ func (r *DeviceRepository) List(
 			)
 	}
 
-	if err := query.Count(&total).Error; err != nil {
+	if err := query.Count(
+		&total,
+	).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -154,7 +267,9 @@ func (r *DeviceRepository) List(
 	if err := query.
 		Offset(offset).
 		Limit(req.PageSize).
-		Order("devices.created_at DESC").
+		Order(
+			"devices.created_at DESC",
+		).
 		Find(&items).
 		Error; err != nil {
 
