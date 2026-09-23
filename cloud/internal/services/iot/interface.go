@@ -30,6 +30,32 @@ type Repository interface {
 		ctx context.Context,
 		resourceID uint,
 	) (*model.Device, error)
+
+	CreateCommand(
+		ctx context.Context,
+		cmd *model.DeviceCommand,
+	) error
+
+	GetCommand(
+		ctx context.Context,
+		id uint,
+	) (
+		*model.DeviceCommand,
+		error,
+	)
+
+	UpdateCommand(
+		ctx context.Context,
+		cmd *model.DeviceCommand,
+	) error
+
+	ListDeviceCommands(
+		ctx context.Context,
+		deviceID uint,
+	) (
+		[]*model.DeviceCommand,
+		error,
+	)
 }
 
 // Service defines the IoT business layer.
@@ -63,4 +89,33 @@ type Service interface {
 		ctx context.Context,
 		resourceID uint,
 	) (*model.Device, error)
+
+	CreateCommand(
+		ctx context.Context,
+		req *CreateCommandRequest,
+	) (
+		*CommandResponse,
+		error,
+	)
+
+	GetCommand(
+		ctx context.Context,
+		id uint,
+	) (
+		*CommandResponse,
+		error,
+	)
+
+	ListDeviceCommands(
+		ctx context.Context,
+		deviceID uint,
+	) (
+		[]*CommandResponse,
+		error,
+	)
+
+	AcknowledgeCommand(
+		ctx context.Context,
+		req *CommandAckRequest,
+	) error
 }

@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
+	"github.com/google/uuid"
 )
 
 var (
@@ -16,6 +19,18 @@ var (
 
 	ErrDeviceNotFound = errors.New(
 		"device not found",
+	)
+
+	ErrCommandNotFound = errors.New(
+		"device command not found",
+	)
+
+	ErrInvalidCommand = errors.New(
+		"invalid device command",
+	)
+
+	ErrInvalidCommandStatus = errors.New(
+		"invalid command status",
 	)
 )
 
@@ -237,4 +252,194 @@ func (s *service) DeviceHeartbeat(
 	}
 
 	return runtime, nil
+}
+
+func (s *service) CreateCommand(
+	ctx context.Context,
+	req *CreateCommandRequest,
+) (*CommandResponse, error) {
+
+	if req == nil ||
+		req.DeviceID == 0 ||
+		req.Command == "" {
+
+		return nil, ErrInvalidCommand
+
+	}
+
+	operatorID := pkg.UserIDFromContext(ctx)
+
+	if operatorID == uuid.Nil {
+
+		return nil,
+			errors.New(
+				"user id missing",
+			)
+
+	}
+
+	entity := &model.DeviceCommand{
+
+		DeviceID: req.DeviceID,
+
+		OperatorID: operatorID,
+
+		Command: req.Command,
+
+		Payload: req.Payload,
+
+		Status: model.CommandStatusCreated,
+	}
+
+	if err := s.repo.CreateCommand(
+		ctx,
+		entity,
+	); err != nil {
+
+		return nil, err
+
+	}
+
+	return commandToResponse(entity), nil
+
+}
+
+func (s *service) AcknowledgeCommand(
+	ctx context.Context,
+	req *CommandAckRequest,
+) error {
+
+	if req == nil ||
+		req.CommandID == 0 {
+
+		return ErrCommandNotFound
+
+	}
+
+	cmd, err := s.repo.GetCommand(
+		ctx,
+		req.CommandID,
+	)
+
+	if err != nil {
+
+		return err
+
+	}
+
+	if cmd == nil {
+
+		return ErrCommandNotFound
+
+	}
+
+	if cmd.Status != model.CommandStatusCreated &&
+		cmd.Status != model.CommandStatusSent {
+
+		return ErrInvalidCommandStatus
+
+	}
+
+	now := time.Now().UTC()
+
+	if req.Success {
+
+		cmd.Status =
+			model.CommandStatusAcknowledged
+
+		cmd.AcknowledgedAt = &now
+
+	} else {
+
+		cmd.Status =
+			model.CommandStatusFailed
+
+		cmd.ErrorMessage = req.Error
+
+	}
+
+	return s.repo.UpdateCommand(
+		ctx,
+		cmd,
+	)
+
+}
+
+func (s *service) GetCommand(
+	ctx context.Context,
+	id uint,
+) (
+	*CommandResponse,
+	error,
+) {
+
+	if id == 0 {
+
+		return nil, ErrCommandNotFound
+
+	}
+
+	cmd, err := s.repo.GetCommand(
+		ctx,
+		id,
+	)
+
+	if err != nil {
+
+		return nil, err
+
+	}
+
+	if cmd == nil {
+
+		return nil, ErrCommandNotFound
+
+	}
+
+	return commandToResponse(cmd), nil
+
+}
+
+func (s *service) ListDeviceCommands(
+	ctx context.Context,
+	deviceID uint,
+) (
+	[]*CommandResponse,
+	error,
+) {
+
+	if deviceID == 0 {
+
+		return nil, ErrInvalidCommand
+
+	}
+
+	items, err := s.repo.ListDeviceCommands(
+		ctx,
+		deviceID,
+	)
+
+	if err != nil {
+
+		return nil, err
+
+	}
+
+	result := make(
+		[]*CommandResponse,
+		0,
+		len(items),
+	)
+
+	for _, item := range items {
+
+		result = append(
+			result,
+			commandToResponse(item),
+		)
+
+	}
+
+	return result, nil
+
 }

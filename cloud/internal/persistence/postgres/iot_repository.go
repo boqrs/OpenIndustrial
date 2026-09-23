@@ -74,3 +74,75 @@ func (r *IoTRepository) UpdateLastOnline(ctx context.Context, resourceID uint) (
 	}
 	return r.GetDeviceByResourceID(ctx, resourceID)
 }
+
+func (r *IoTRepository) CreateCommand(
+	ctx context.Context,
+	cmd *model.DeviceCommand,
+) error {
+
+	return r.db.Get().WithContext(ctx).
+		Create(cmd).
+		Error
+
+}
+
+func (r *IoTRepository) GetCommand(
+	ctx context.Context,
+	id uint,
+) (
+	*model.DeviceCommand,
+	error,
+) {
+
+	var cmd model.DeviceCommand
+
+	err := r.db.Get().WithContext(ctx).
+		First(
+			&cmd,
+			id,
+		).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &cmd, nil
+
+}
+
+func (r *IoTRepository) UpdateCommand(
+	ctx context.Context,
+	cmd *model.DeviceCommand,
+) error {
+
+	return r.db.Get().WithContext(ctx).
+		Save(cmd).
+		Error
+
+}
+
+func (r *IoTRepository) ListDeviceCommands(
+	ctx context.Context,
+	deviceID uint,
+) (
+	[]*model.DeviceCommand,
+	error,
+) {
+
+	var result []*model.DeviceCommand
+
+	err := r.db.Get().WithContext(ctx).
+		Where(
+			"device_id = ?",
+			deviceID,
+		).
+		Order(
+			"id desc",
+		).
+		Find(&result).
+		Error
+
+	return result, err
+
+}

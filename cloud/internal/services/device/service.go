@@ -380,7 +380,6 @@ func (s *serviceImpl) ActivateDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-
 	// user identity comes from token
 	customerUUID := pkg.UserIDFromContext(ctx)
 
@@ -389,7 +388,6 @@ func (s *serviceImpl) ActivateDevice(
 			"user id not found in context",
 		)
 	}
-
 
 	device, err := s.repo.GetBySerialNumber(
 		ctx,
@@ -404,12 +402,10 @@ func (s *serviceImpl) ActivateDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-
 	// Device can only be activated once
 	if device.ActivatedAt != nil {
 		return nil, ErrDeviceAlreadyActivated
 	}
-
 
 	// Only manufactured devices can be activated.
 	//
@@ -425,9 +421,7 @@ func (s *serviceImpl) ActivateDevice(
 		return nil, ErrInvalidDeviceStatus
 	}
 
-
 	now := time.Now().UTC()
-
 
 	device.CustomerUUID = &customerUUID
 
@@ -440,7 +434,6 @@ func (s *serviceImpl) ActivateDevice(
 	// MQTT connection will update status separately.
 	device.Status = model.DeviceStatusOffline
 
-
 	if err := s.repo.Update(
 		ctx,
 		device,
@@ -448,12 +441,12 @@ func (s *serviceImpl) ActivateDevice(
 		return nil, err
 	}
 
-
 	return s.GetDevice(
 		ctx,
 		device.ID,
 	)
 }
+
 // DeleteDevice intentionally remains disabled.
 //
 // Device deletion is not part of the current manufacturing identity

@@ -24,3 +24,19 @@ type AuthorizeMQTTRequest struct {
 	Action     MQTTAction `json:"action"`
 	Topic      string     `json:"topic"`
 }
+
+type CreateCommandRequest struct {
+	DeviceID uint `json:"device_id"`
+
+	Command string `json:"command"`
+
+	Payload string `json:"payload"`
+}
+
+type CommandAckRequest struct {
+	CommandID uint `json:"command_id"`
+
+	Success bool `json:"success"`
+
+	Error string `json:"error"`
+}
