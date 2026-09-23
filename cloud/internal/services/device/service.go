@@ -55,6 +55,10 @@ var (
 	ErrUserNotAuthenticated = errors.New(
 		"user is not authenticated",
 	)
+
+	ErrInvalidDeviceStatus = errors.New(
+		"invalid device status",
+	)
 )
 
 type serviceImpl struct {
@@ -367,35 +371,31 @@ func (s *serviceImpl) ActivateDevice(
 	ctx context.Context,
 	req *ActivateDeviceRequest,
 ) (*DeviceResponse, error) {
+
 	if req == nil {
-		return nil, ErrInvalidActivationRequest
+		return nil, ErrInvalidUpdateRequest
 	}
 
-	serialNumber := strings.TrimSpace(
+	if req.SerialNumber == "" {
+		return nil, ErrDeviceNotFound
+	}
+
+
+	// user identity comes from token
+	customerUUID := pkg.UserIDFromContext(ctx)
+
+	if customerUUID == uuid.Nil {
+		return nil, errors.New(
+			"user id not found in context",
+		)
+	}
+
+
+	device, err := s.repo.GetBySerialNumber(
+		ctx,
 		req.SerialNumber,
 	)
 
-	productModel := strings.TrimSpace(
-		req.ProductModel,
-	)
-
-	if serialNumber == "" ||
-		productModel == "" {
-		return nil, ErrInvalidActivationRequest
-	}
-
-	// The customer/user identity comes exclusively from
-	// the authenticated access token.
-	customerUUID := pkg.UserIDFromContext(ctx)
-	if customerUUID == uuid.Nil {
-		return nil, ErrUserNotAuthenticated
-	}
-
-	// Locate the physical device by the canonical production identity.
-	device, err := s.repo.GetBySerialNumber(
-		ctx,
-		serialNumber,
-	)
 	if err != nil {
 		return nil, err
 	}
@@ -404,56 +404,56 @@ func (s *serviceImpl) ActivateDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-	// A device can only be activated once.
-	if device.CustomerUUID != nil ||
-		device.ActivatedAt != nil {
+
+	// Device can only be activated once
+	if device.ActivatedAt != nil {
 		return nil, ErrDeviceAlreadyActivated
 	}
 
-	// The QR code contains the product model code.
-	//
-	// We do not trust the product model from the QR code as the
-	// source of truth. Instead we compare it with the ProductModel
-	// actually associated with the Device.
-	product, err := s.productSvc.GetProductModel(
-		ctx,
-		device.ProductID,
-	)
-	if err != nil {
 
+	// Only manufactured devices can be activated.
+	//
+	// Device lifecycle:
+	//
+	// created
+	//    |
+	// activated
+	//    |
+	// online/offline
+	//
+	if device.Status != model.DeviceStatusCreated {
+		return nil, ErrInvalidDeviceStatus
+	}
+
+
+	now := time.Now().UTC()
+
+
+	device.CustomerUUID = &customerUUID
+
+	device.ActivatedAt = &now
+
+	// After activation device is ready for IoT connection.
+	//
+	// It is not online yet.
+	//
+	// MQTT connection will update status separately.
+	device.Status = model.DeviceStatusOffline
+
+
+	if err := s.repo.Update(
+		ctx,
+		device,
+	); err != nil {
 		return nil, err
 	}
 
-	if !strings.EqualFold(
-		productModel,
-		strings.TrimSpace(product.Code),
-	) {
-		return nil, ErrProductModelMismatch
-	}
-
-	// Activation is performed atomically by the repository.
-	//
-	// This is important because two requests may scan the same
-	// device at almost exactly the same time.
-	activated, err := s.repo.ActivateBySerialNumber(
-		ctx,
-		serialNumber,
-		customerUUID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if activated == nil {
-		return nil, ErrDeviceAlreadyActivated
-	}
 
 	return s.GetDevice(
 		ctx,
-		activated.ID,
+		device.ID,
 	)
 }
-
 // DeleteDevice intentionally remains disabled.
 //
 // Device deletion is not part of the current manufacturing identity
