@@ -191,6 +191,7 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		SerialNumber:      req.SerialNumber,
 		HardwareID:        req.HardwareID,
 		Status:            model.DeviceStatusCreated,
+		ConnectionStatus: model.ConnectionStatusDisconnected,
 	}
 
 	if err := s.repo.CreateTx(
@@ -424,7 +425,7 @@ func (s *serviceImpl) ActivateDevice(
 	now := time.Now().UTC()
 
 	device.CustomerUUID = &customerUUID
-
+	device.Status = model.DeviceStatusActivated
 	device.ActivatedAt = &now
 
 	// After activation device is ready for IoT connection.
@@ -432,7 +433,7 @@ func (s *serviceImpl) ActivateDevice(
 	// It is not online yet.
 	//
 	// MQTT connection will update status separately.
-	device.Status = model.DeviceStatusOffline
+	//device.ConnectionStatus = model.ConnectionStatusConnected
 
 	if err := s.repo.Update(
 		ctx,
