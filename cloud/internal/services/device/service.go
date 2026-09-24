@@ -191,7 +191,7 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		SerialNumber:      req.SerialNumber,
 		HardwareID:        req.HardwareID,
 		Status:            model.DeviceStatusCreated,
-		ConnectionStatus: model.ConnectionStatusDisconnected,
+		ConnectionStatus:  model.ConnectionStatusDisconnected,
 	}
 
 	if err := s.repo.CreateTx(

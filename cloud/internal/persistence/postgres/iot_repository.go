@@ -36,7 +36,7 @@ func (r *IoTRepository) SetOnline(ctx context.Context, resourceID uint) (*model.
 		return nil, errors.New("resource is invalid")
 	}
 	now := time.Now().UTC()
-	result := dbFromContext(ctx, r.db.Get()).WithContext(ctx).Model(&model.Device{}).Where("resource_id = ?", resourceID).Updates(map[string]interface{}{"status": model.DeviceStatusOnline, "last_online_at": now})
+	result := dbFromContext(ctx, r.db.Get()).WithContext(ctx).Model(&model.Device{}).Where("resource_id = ?", resourceID).Updates(map[string]interface{}{"connection_status": model.ConnectionStatusConnected, "last_online_at": now})
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -50,7 +50,7 @@ func (r *IoTRepository) SetOffline(ctx context.Context, resourceID uint) (*model
 	if resourceID == 0 {
 		return nil, errors.New("resource is invalid")
 	}
-	result := dbFromContext(ctx, r.db.Get()).WithContext(ctx).Model(&model.Device{}).Where("resource_id = ?", resourceID).Updates(map[string]interface{}{"status": model.DeviceStatusOffline})
+	result := dbFromContext(ctx, r.db.Get()).WithContext(ctx).Model(&model.Device{}).Where("resource_id = ?", resourceID).Updates(map[string]interface{}{"connection_status": model.ConnectionStatusDisconnected})
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -65,7 +65,7 @@ func (r *IoTRepository) UpdateLastOnline(ctx context.Context, resourceID uint) (
 		return nil, errors.New("resource is invalid")
 	}
 	now := time.Now().UTC()
-	result := dbFromContext(ctx, r.db.Get()).WithContext(ctx).Model(&model.Device{}).Where("resource_id = ?", resourceID).Updates(map[string]interface{}{"status": model.DeviceStatusOnline, "last_online_at": now})
+	result := dbFromContext(ctx, r.db.Get()).WithContext(ctx).Model(&model.Device{}).Where("resource_id = ?", resourceID).Updates(map[string]interface{}{"connection_status": model.ConnectionStatusDisconnected, "last_online_at": now})
 	if result.Error != nil {
 		return nil, result.Error
 	}
