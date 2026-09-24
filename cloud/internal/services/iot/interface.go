@@ -6,11 +6,16 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 )
 
-// Repository defines persistence operations required by IoT.
+// Repository defines the persistence operations required by IoT.
 //
-// IoT does not have a separate persistence model. Runtime state is
-// stored on the existing Device entity.
+// IoT does not own Device persistence. Runtime state is stored on
+// the existing Device entity.
 type Repository interface {
+	GetDeviceByID(
+		ctx context.Context,
+		deviceID uint,
+	) (*model.Device, error)
+
 	GetDeviceByResourceID(
 		ctx context.Context,
 		resourceID uint,
@@ -39,10 +44,7 @@ type Repository interface {
 	GetCommand(
 		ctx context.Context,
 		id uint,
-	) (
-		*model.DeviceCommand,
-		error,
-	)
+	) (*model.DeviceCommand, error)
 
 	UpdateCommand(
 		ctx context.Context,
@@ -52,10 +54,33 @@ type Repository interface {
 	ListDeviceCommands(
 		ctx context.Context,
 		deviceID uint,
-	) (
-		[]*model.DeviceCommand,
-		error,
-	)
+	) ([]*model.DeviceCommand, error)
+}
+
+// MQTTCommandPublisher is the infrastructure abstraction used by
+// IoT to publish commands to devices.
+type MQTTCommandPublisher interface {
+	PublishCommand(
+		ctx context.Context,
+		resourceID uint,
+		commandID uint,
+		command string,
+		payload string,
+	) (messageID string, err error)
+}
+
+// MQTTStatusSubscriber is the infrastructure abstraction used by
+// IoT to receive Device status messages.
+type MQTTStatusSubscriber interface {
+	SubscribeDeviceStatus(
+		ctx context.Context,
+		resourceID uint,
+		handler func(
+			ctx context.Context,
+			topic string,
+			payload []byte,
+		),
+	) error
 }
 
 // Service defines the IoT business layer.
@@ -93,29 +118,31 @@ type Service interface {
 	CreateCommand(
 		ctx context.Context,
 		req *CreateCommandRequest,
-	) (
-		*CommandResponse,
-		error,
-	)
+	) (*CommandResponse, error)
+
+	SendCommand(
+		ctx context.Context,
+		commandID uint,
+	) (*CommandResponse, error)
 
 	GetCommand(
 		ctx context.Context,
 		id uint,
-	) (
-		*CommandResponse,
-		error,
-	)
+	) (*CommandResponse, error)
 
 	ListDeviceCommands(
 		ctx context.Context,
 		deviceID uint,
-	) (
-		[]*CommandResponse,
-		error,
-	)
+	) ([]*CommandResponse, error)
 
 	AcknowledgeCommand(
 		ctx context.Context,
 		req *CommandAckRequest,
+	) error
+
+	HandleStatusMessage(
+		ctx context.Context,
+		resourceID uint,
+		payload []byte,
 	) error
 }

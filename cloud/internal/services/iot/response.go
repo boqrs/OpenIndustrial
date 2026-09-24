@@ -1,42 +1,53 @@
 package iot
 
 import (
-	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"time"
+
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 )
 
-// MQTTAuthenticationResponse represents the identity resolved from // an authenticated device certificate.
+// MQTTAuthenticationResponse represents the Device identity resolved
+// from an authenticated certificate.
 type MQTTAuthenticationResponse struct {
-	Authenticated bool   `json:"authenticated"`
-	ResourceID    uint   `json:"resource_id"`
+	Authenticated bool `json:"authenticated"`
+
+	ResourceID uint `json:"resource_id"`
+
 	CertificateID string `json:"certificate_id"`
 }
 
-// DeviceTopicsResponse contains all MQTT topics belonging to a // Resource.
+// DeviceTopicsResponse contains the MQTT topics belonging to a Device.
 type DeviceTopicsResponse struct {
-	ResourceID     uint   `json:"resource_id"`
-	TelemetryTopic string `json:"telemetry_topic"`
-	StatusTopic    string `json:"status_topic"`
-	EventTopic     string `json:"event_topic"`
-	CommandTopic   string `json:"command_topic"`
+	ResourceID uint `json:"resource_id"`
+
+	StatusTopic string `json:"status_topic"`
+
+	CommandTopic string `json:"command_topic"`
 }
 
-// DeviceRuntime represents the IoT runtime state persisted on Device.
+// DeviceRuntime represents runtime information of a Device.
 type DeviceRuntime struct {
-	DeviceID     uint
-	ResourceID   uint
-	Status       string
+	DeviceID uint
+
+	ResourceID uint
+
+	Status string
+
 	LastOnlineAt *time.Time
 }
 
-// DeviceRuntimeResponse exposes Device runtime state through the // IoT service.
+// DeviceRuntimeResponse exposes Device runtime information.
 type DeviceRuntimeResponse struct {
-	DeviceID     uint       `json:"device_id"`
-	ResourceID   uint       `json:"resource_id"`
-	Status       string     `json:"status"`
+	DeviceID uint `json:"device_id"`
+
+	ResourceID uint `json:"resource_id"`
+
+	Status string `json:"status"`
+
 	LastOnlineAt *time.Time `json:"last_online_at,omitempty"`
 }
 
+// CommandResponse represents a Device command.
 type CommandResponse struct {
 	ID uint `json:"id"`
 
@@ -64,15 +75,11 @@ type CommandResponse struct {
 func commandToResponse(
 	cmd *model.DeviceCommand,
 ) *CommandResponse {
-
 	if cmd == nil {
-
 		return nil
-
 	}
 
 	return &CommandResponse{
-
 		ID: cmd.ID,
 
 		DeviceID: cmd.DeviceID,
@@ -95,5 +102,4 @@ func commandToResponse(
 
 		AcknowledgedAt: cmd.AcknowledgedAt,
 	}
-
 }
