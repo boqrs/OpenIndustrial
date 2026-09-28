@@ -24,6 +24,7 @@ import (
 	exh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/executionresult"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/factory"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/identity"
+	iotH "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/iot"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/manufacturing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/material"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
@@ -33,6 +34,8 @@ import (
 	routing "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/routing"
 	salesorderHandler "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/salesorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/iot"
+	awsAdapter "github.com/boqrs/OpenIndustrial/cloud/internal/services/iot/adapter/aws"
 
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
@@ -209,10 +212,21 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	adaptedCA := secSrv.NewCertificateAuthorityAdapter(ca)
 
+	awsConfig := awsAdapter.LoadConfig()
+
+	awsMessageAdapter, err := awsAdapter.NewAdapter(
+		awsConfig,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"create aws iot adapter: %w",
+			err,
+		)
+	}
+
 	// =========================================================================
 	// 5. HTTP Middleware / Swagger
 	// =========================================================================
-
 	router.Use(
 		tracing.GinMiddleware(
 			cfg.Trace.ServiceName,
@@ -287,7 +301,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// ExecutionResult repository currently exposes NewRepository.
 	executionResultRepo := postgres.NewRepository(dbProv)
 	salesOrderRepo := postgres.NewSalesOrderRepository(dbProv)
-
+	iotRepo := postgres.NewIoTRepository(dbProv)
 	// =========================================================================
 	// 7. Kernel Services
 	// =========================================================================
@@ -473,6 +487,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		executionService,
 	)
 
+	iotService := iot.NewService(
+		iotRepo,
+		securityService,
+		awsMessageAdapter,
+	)
+
 	// =========================================================================
 	// 17. Manufacturing Application Service
 	// =========================================================================
@@ -644,6 +664,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		manufacturingApplicationService,
 		authService,
 	).RouterRegister(router)
+	iotH.NewHandler(iotService).RouterRegister(router)
 
 	// =========================================================================
 	// 19. Shutdown

@@ -1,4 +1,4 @@
-package provider
+package mqtt
 
 import (
 	"context"
@@ -9,18 +9,14 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-type mqttClient struct {
+type client struct {
 	client mqtt.Client
-
-	config MQTTConfig
+	config Config
 }
 
-// NewMQTTClient creates a generic MQTT client.
-//
-// This package does not know anything about AWS IoT Core.
-func NewMQTTClient(
-	config MQTTConfig,
-) (MQTTClient, error) {
+func NewClient(
+	config Config,
+) (*client, error) {
 	if config.BrokerURL == "" {
 		return nil, errors.New(
 			"mqtt broker url is required",
@@ -33,80 +29,76 @@ func NewMQTTClient(
 		)
 	}
 
-	opts := mqtt.NewClientOptions()
+	options := mqtt.NewClientOptions()
 
-	opts.AddBroker(
+	options.AddBroker(
 		config.BrokerURL,
 	)
 
-	opts.SetClientID(
+	options.SetClientID(
 		config.ClientID,
 	)
 
-	opts.SetCleanSession(
+	options.SetCleanSession(
 		config.CleanSession,
 	)
 
 	if config.Username != "" {
-		opts.SetUsername(
+		options.SetUsername(
 			config.Username,
 		)
 	}
 
 	if config.Password != "" {
-		opts.SetPassword(
+		options.SetPassword(
 			config.Password,
 		)
 	}
 
 	if config.KeepAliveSeconds > 0 {
-		opts.SetKeepAlive(
+		options.SetKeepAlive(
 			time.Duration(
 				config.KeepAliveSeconds,
 			) * time.Second,
 		)
 	}
 
-	opts.SetAutoReconnect(true)
-
-	if config.MaxReconnectSeconds > 0 {
-		opts.SetMaxReconnectInterval(
-			time.Duration(
-				config.MaxReconnectSeconds,
-			) * time.Second,
-		)
-	}
-
 	if config.ConnectTimeoutSeconds > 0 {
-		opts.SetConnectTimeout(
+		options.SetConnectTimeout(
 			time.Duration(
 				config.ConnectTimeoutSeconds,
 			) * time.Second,
 		)
 	}
 
+	if config.MaxReconnectSeconds > 0 {
+		options.SetMaxReconnectInterval(
+			time.Duration(
+				config.MaxReconnectSeconds,
+			) * time.Second,
+		)
+	}
+
+	options.SetAutoReconnect(true)
+
 	if config.TLSConfig != nil {
-		opts.SetTLSConfig(
+		options.SetTLSConfig(
 			config.TLSConfig,
 		)
 	}
 
-	client := mqtt.NewClient(
-		opts,
-	)
+	mqttClient := mqtt.NewClient(options)
 
-	return &mqttClient{
-		client: client,
+	return &client{
+		client: mqttClient,
 		config: config,
 	}, nil
 }
 
-func (c *mqttClient) Connect(
+func (c *client) Connect(
 	ctx context.Context,
 ) error {
-	if c == nil ||
-		c.client == nil {
-
+	if c == nil || c.client == nil {
 		return errors.New(
 			"mqtt client is not configured",
 		)
@@ -118,20 +110,20 @@ func (c *mqttClient) Connect(
 
 	token := c.client.Connect()
 
-	if token.Wait() &&
-		token.Error() != nil {
+	if !token.Wait() {
+		return errors.New(
+			"mqtt connect timeout",
+		)
+	}
 
-		return token.Error()
+	if err := token.Error(); err != nil {
+		return err
 	}
 
 	select {
-
 	case <-ctx.Done():
-
 		return ctx.Err()
-
 	default:
-
 	}
 
 	if !c.client.IsConnected() {
@@ -143,46 +135,36 @@ func (c *mqttClient) Connect(
 	return nil
 }
 
-func (c *mqttClient) Disconnect(
+func (c *client) Disconnect(
 	ctx context.Context,
 ) error {
-	if c == nil ||
-		c.client == nil {
-
+	if c == nil || c.client == nil {
 		return nil
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
 	if !c.client.IsConnected() {
 		return nil
 	}
 
-	select {
-
-	case <-ctx.Done():
-
-		return ctx.Err()
-
-	default:
-
-	}
-
-	c.client.Disconnect(
-		250,
-	)
+	c.client.Disconnect(250)
 
 	return nil
 }
 
-func (c *mqttClient) Publish(
+func (c *client) Publish(
 	ctx context.Context,
 	topic string,
 	payload []byte,
 	qos byte,
 	retained bool,
 ) (string, error) {
-	if c == nil ||
-		c.client == nil {
-
+	if c == nil || c.client == nil {
 		return "", errors.New(
 			"mqtt client is not configured",
 		)
@@ -217,27 +199,24 @@ func (c *mqttClient) Publish(
 		return "", err
 	}
 
-	// Paho does not expose the MQTT packet identifier through
-	// mqtt.Token. The IoT domain only needs a stable identifier
-	// for the persisted command delivery record.
-	messageID := fmt.Sprintf(
+	return fmt.Sprintf(
 		"%s-%d",
 		c.config.ClientID,
 		time.Now().UTC().UnixNano(),
-	)
-
-	return messageID, nil
+	), nil
 }
 
-func (c *mqttClient) Subscribe(
+func (c *client) Subscribe(
 	ctx context.Context,
 	topic string,
 	qos byte,
-	handler MessageHandler,
+	handler func(
+		ctx context.Context,
+		topic string,
+		payload []byte,
+	),
 ) error {
-	if c == nil ||
-		c.client == nil {
-
+	if c == nil || c.client == nil {
 		return errors.New(
 			"mqtt client is not configured",
 		)
@@ -259,7 +238,7 @@ func (c *mqttClient) Subscribe(
 		topic,
 		qos,
 		func(
-			client mqtt.Client,
+			_ mqtt.Client,
 			message mqtt.Message,
 		) {
 			handler(
@@ -281,22 +260,16 @@ func (c *mqttClient) Subscribe(
 	}
 
 	select {
-
 	case <-ctx.Done():
-
 		return ctx.Err()
-
 	default:
-
 	}
 
 	return nil
 }
 
-func (c *mqttClient) IsConnected() bool {
-	if c == nil ||
-		c.client == nil {
-
+func (c *client) IsConnected() bool {
+	if c == nil || c.client == nil {
 		return false
 	}
 

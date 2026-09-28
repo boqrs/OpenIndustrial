@@ -92,7 +92,7 @@ func (s *service) SendCommand(
 		)
 	}
 
-	if s.commandPublisher == nil {
+	if s.messageAdapter == nil {
 		return nil, ErrMQTTCommandPublisherNotConfigured
 	}
 
@@ -124,7 +124,7 @@ func (s *service) SendCommand(
 		return nil, ErrDeviceNotFound
 	}
 
-	messageID, err := s.commandPublisher.PublishCommand(
+	messageID, err := s.messageAdapter.PublishCommand(
 		ctx,
 		device.ResourceID,
 		command.ID,
@@ -137,14 +137,9 @@ func (s *service) SendCommand(
 
 	now := time.Now().UTC()
 
-	command.Status =
-		model.CommandStatusSent
-
-	command.MessageID =
-		messageID
-
-	command.SentAt =
-		&now
+	command.Status = model.CommandStatusSent
+	command.MessageID = messageID
+	command.SentAt = &now
 
 	if err := s.repo.UpdateCommand(
 		ctx,
@@ -153,9 +148,7 @@ func (s *service) SendCommand(
 		return nil, err
 	}
 
-	return commandToResponse(
-		command,
-	), nil
+	return commandToResponse(command), nil
 }
 
 // GetCommand returns a command by ID.

@@ -6,10 +6,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 )
 
-// Repository defines the persistence operations required by IoT.
-//
-// IoT does not own Device persistence. Runtime state is stored on
-// the existing Device entity.
 type Repository interface {
 	GetDeviceByID(
 		ctx context.Context,
@@ -57,33 +53,6 @@ type Repository interface {
 	) ([]*model.DeviceCommand, error)
 }
 
-// MQTTCommandPublisher is the infrastructure abstraction used by
-// IoT to publish commands to devices.
-type MQTTCommandPublisher interface {
-	PublishCommand(
-		ctx context.Context,
-		resourceID uint,
-		commandID uint,
-		command string,
-		payload string,
-	) (messageID string, err error)
-}
-
-// MQTTStatusSubscriber is the infrastructure abstraction used by
-// IoT to receive Device status messages.
-type MQTTStatusSubscriber interface {
-	SubscribeDeviceStatus(
-		ctx context.Context,
-		resourceID uint,
-		handler func(
-			ctx context.Context,
-			topic string,
-			payload []byte,
-		),
-	) error
-}
-
-// Service defines the IoT business layer.
 type Service interface {
 	AuthenticateMQTT(
 		ctx context.Context,
