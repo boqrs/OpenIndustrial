@@ -1,0 +1,51 @@
+services:
+  # ==========================================================
+  # PostgreSQL
+  # ==========================================================
+  postgres:
+    image: postgres:17-alpine
+    restart: always
+
+    environment:
+      POSTGRES_DB: wangbo
+      POSTGRES_USER: wangbo
+      POSTGRES_PASSWORD: Wb@qwer4321
+      TZ: ${TZ:-Asia/Shanghai}
+      PGTZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      # Database initialization scripts
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      # PostgreSQL logs
+      - ./postgres/logs:/var/log/postgresql
+
+  # ==========================================================
+  # OpenIndustrial Cloud Backend
+  # ==========================================================
+  cloud:
+    image: openindustrial-cloud:latest
+    restart: always
+    expose:
+      - "8080"
+    volumes:
+      - "/root/deploy/config/config.yaml:/app/config.yaml"
+      - "/mnt/data/forge/log:/app/logs/debug"
+  # ==========================================================
+  # Nginx
+  # ==========================================================
+  nginx:
+    image: nginx:latest
+    container_name: openindustrial-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./nginx/config/conf/nginx.conf:/etc/nginx/nginx.conf"
+      - "./nginx/config/html:/usr/share/nginx/html"
+      - "./nginx/logs:/var/log/nginx"
+      - "./nginx/config/conf.d/default.conf:/etc/nginx/conf.d/default.conf"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

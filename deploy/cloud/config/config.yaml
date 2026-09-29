@@ -1,0 +1,18 @@
+email_cfg:
+  server: 123
+  username: 123
+  password: 123
+db_cfg:
+  driver: postgres
+  host: 127.0.0.1
+  port: 5432
+  username: wangbo
+  password: Wb@qwer4321
+  database: wangbo
+  ssl_mode: disable
+  max_open: 5
+  max_idle: 5
+  conn_max_life: 30s
+log_cfg:
+  level: info
+  dir: /app/logs
