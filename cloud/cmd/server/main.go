@@ -27,7 +27,7 @@ func main() {
 	}
 
 	gcmd.Flags().String("host", "0.0.0.0", "http server host")
-	if err = d.ZeusStart("forge", gcmd); err != nil {
+	if err = d.ZeusStart("openIndustrial", gcmd); err != nil {
 		fmt.Printf("zeus start error %v\n", err)
 		return
 	}

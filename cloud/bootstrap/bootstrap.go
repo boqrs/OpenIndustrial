@@ -12,7 +12,7 @@ import (
 	"github.com/boqrs/nexus/email"
 	zlog "github.com/boqrs/nexus/log"
 	"github.com/boqrs/nexus/redis"
-	"github.com/boqrs/nexus/tracing"
+	//"github.com/boqrs/nexus/tracing"
 	"github.com/boqrs/zeus/ginx"
 
 	"github.com/boqrs/OpenIndustrial/cloud/config"
@@ -35,7 +35,7 @@ import (
 	salesorderHandler "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/salesorder"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/iot"
-	awsAdapter "github.com/boqrs/OpenIndustrial/cloud/internal/services/iot/adapter/aws"
+	mqttAdapter "github.com/boqrs/OpenIndustrial/cloud/internal/services/iot/adapter/mqtt"
 
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
@@ -139,12 +139,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// Tracing
 	// -------------------------------------------------------------------------
 
-	tracingProv, err := tracing.NewProvider(&cfg.Trace)
-	if err != nil {
-		return nil, fmt.Errorf("init tracing provider: %w", err)
-	}
+	// tracingProv, err := tracing.NewProvider(&cfg.Trace)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("init tracing provider: %w", err)
+	// }
 
-	cfgMgr.AddReloader(tracingProv)
+	// cfgMgr.AddReloader(tracingProv)
 
 	// -------------------------------------------------------------------------
 	// Email
@@ -212,10 +212,8 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	adaptedCA := secSrv.NewCertificateAuthorityAdapter(ca)
 
-	awsConfig := awsAdapter.LoadConfig()
-
-	awsMessageAdapter, err := awsAdapter.NewAdapter(
-		awsConfig,
+	awsMessageAdapter, err := mqttAdapter.NewAdapter(
+		cfg.Iot,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -227,11 +225,11 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// =========================================================================
 	// 5. HTTP Middleware / Swagger
 	// =========================================================================
-	router.Use(
-		tracing.GinMiddleware(
-			cfg.Trace.ServiceName,
-		),
-	)
+	// router.Use(
+	// 	tracing.GinMiddleware(
+	// 		cfg.Trace.ServiceName,
+	// 	),
+	// )
 
 	router.Handle(
 		http.MethodGet,

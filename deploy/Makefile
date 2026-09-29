@@ -1,63 +1,125 @@
-ROOT_DIR := $(abspath ..)
-CLOUD_DIR := $(ROOT_DIR)/cloud
+# ============================================================
+# OpenIndustrial Deploy Makefile
+# ============================================================
 
-IMAGE_NAME := openindustrial-cloud
-CONTAINER_NAME := openindustrial-cloud
-IMAGE_TAG := latest
+SHELL := /bin/bash
 
-.PHONY: build run stop restart logs clean
+COMPOSE := docker compose
+COMPOSE_FILE := docker-compose.yml
 
-# ==============================
+# ============================================================
+# Default
+# ============================================================
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "OpenIndustrial Deploy"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make build       Build Cloud backend image"
+	@echo "  make run         Start all Docker Compose services"
+	@echo "  make stop        Stop all Docker Compose services"
+	@echo "  make restart     Restart all Docker Compose services"
+	@echo "  make ps          Show Docker Compose services"
+	@echo "  make logs        Show Docker Compose logs"
+	@echo "  make cloud-logs  Show Cloud backend logs"
+	@echo "  make nginx-logs  Show Nginx logs"
+	@echo "  make db-logs     Show PostgreSQL logs"
+	@echo "  make config      Validate Docker Compose configuration"
+	@echo "  make clean       Stop services and remove containers"
+	@echo ""
+
+
+# ============================================================
 # Build
-# ==============================
+# ============================================================
 
-# 编译后端 Docker 镜像
-# 前端 console 不参与构建
+.PHONY: build
 build:
-	@echo "==> Building cloud backend image..."
+	@echo "==> Building OpenIndustrial Cloud..."
 	docker build \
-		-t $(IMAGE_NAME):$(IMAGE_TAG) \
-		$(CLOUD_DIR)
-	@echo "==> Cloud backend image built: $(IMAGE_NAME):$(IMAGE_TAG)"
+		-t openindustrial-cloud:latest \
+		../cloud
 
-# ==============================
+
+# ============================================================
 # Run
-# ==============================
+# ============================================================
 
-# 更新后端镜像并重新运行容器
-run: build
-	@echo "==> Removing old cloud container..."
-	-docker rm -f $(CONTAINER_NAME)
+.PHONY: run
+run:
+	@echo "==> Starting OpenIndustrial..."
+	$(COMPOSE) -f $(COMPOSE_FILE) up -d
 
-	@echo "==> Starting cloud container..."
-	docker run -d \
-		--name $(CONTAINER_NAME) \
-		-p 8080:8080 \
-		$(IMAGE_NAME):$(IMAGE_TAG)
 
-	@echo "==> Cloud container started."
+# ============================================================
+# Stop
+# ============================================================
 
-# ==============================
-# Container
-# ==============================
-
+.PHONY: stop
 stop:
-	@echo "==> Stopping cloud container..."
-	-docker stop $(CONTAINER_NAME)
+	@echo "==> Stopping OpenIndustrial..."
+	$(COMPOSE) -f $(COMPOSE_FILE) stop
 
+
+# ============================================================
+# Restart
+# ============================================================
+
+.PHONY: restart
 restart:
-	@$(MAKE) run
+	@echo "==> Restarting OpenIndustrial..."
+	$(COMPOSE) -f $(COMPOSE_FILE) restart
 
+
+# ============================================================
+# Status
+# ============================================================
+
+.PHONY: ps
+ps:
+	$(COMPOSE) -f $(COMPOSE_FILE) ps
+
+
+# ============================================================
+# Logs
+# ============================================================
+
+.PHONY: logs
 logs:
-	docker logs -f $(CONTAINER_NAME)
+	$(COMPOSE) -f $(COMPOSE_FILE) logs -f
 
-# ==============================
+
+.PHONY: cloud-logs
+cloud-logs:
+	$(COMPOSE) -f $(COMPOSE_FILE) logs -f cloud
+
+
+.PHONY: nginx-logs
+nginx-logs:
+	$(COMPOSE) -f $(COMPOSE_FILE) logs -f nginx
+
+
+.PHONY: db-logs
+db-logs:
+	$(COMPOSE) -f $(COMPOSE_FILE) logs -f postgres
+
+
+# ============================================================
+# Validate
+# ============================================================
+
+.PHONY: config
+config:
+	$(COMPOSE) -f $(COMPOSE_FILE) config
+
+
+# ============================================================
 # Clean
-# ==============================
+# ============================================================
 
+.PHONY: clean
 clean:
-	@echo "==> Removing cloud container..."
-	-docker rm -f $(CONTAINER_NAME)
-
-	@echo "==> Removing cloud image..."
-	-docker rmi $(IMAGE_NAME):$(IMAGE_TAG)
+	@echo "==> Stopping and removing OpenIndustrial containers..."
+	$(COMPOSE) -f $(COMPOSE_FILE) down

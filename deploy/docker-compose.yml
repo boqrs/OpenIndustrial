@@ -5,7 +5,8 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: always
-
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: wangbo
       POSTGRES_USER: wangbo
@@ -14,21 +15,32 @@ services:
       PGTZ: ${TZ:-Asia/Shanghai}
     volumes:
       # Database initialization scripts
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ../cloud/migrations:/docker-entrypoint-initdb.d:ro
       # PostgreSQL logs
       - ./postgres/logs:/var/log/postgresql
 
+  # ==========================================================
+  # Redis
+  # ==========================================================
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/data:/data
+    command: redis-server --appendonly yes
   # ==========================================================
   # OpenIndustrial Cloud Backend
   # ==========================================================
   cloud:
     image: openindustrial-cloud:latest
     restart: always
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     volumes:
-      - "/root/deploy/config/config.yaml:/app/config.yaml"
-      - "/mnt/data/forge/log:/app/logs/debug"
+      - "./cloud/config/config.yaml:/app/config.yaml"
+      - "./cloud/logs:/app/logs/debug"
   # ==========================================================
   # Nginx
   # ==========================================================
@@ -38,7 +50,6 @@ services:
     restart: always
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - "./nginx/config/conf/nginx.conf:/etc/nginx/nginx.conf"
       - "./nginx/config/html:/usr/share/nginx/html"

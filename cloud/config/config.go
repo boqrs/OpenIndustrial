@@ -6,6 +6,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/iot/adapter/mqtt"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security/provider"
 	config "github.com/boqrs/nexus/config/v2"
 	"github.com/boqrs/nexus/email"
@@ -25,6 +26,7 @@ type MyAppConfig struct {
 	// Demo 业务配置
 	UserJwtSecret string                  `json:"user_jwt_secret" yaml:"user_jwt_secret" mapstructure:"user_jwt_secret"`
 	Ca            provider.ProviderConfig `json:"ca" yaml:"ca" mapstructure:"ca"`
+	Iot           mqtt.Config             `json:"iot" yaml:"iot" mapstructure:"iot"`
 }
 
 // Reload implements comm/config.ConfigReloader.
@@ -34,8 +36,8 @@ func (c *MyAppConfig) Reload(config map[string]interface{}) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Metadata:         nil,
 		Result:           c,
-		WeaklyTypedInput: true,   // 允许弱类型转换，例如 float64 转 int
-		TagName:          "yaml", // 【关键修改】指定使用 json tag 进行字段匹配
+		WeaklyTypedInput: true,
+		TagName:          "mapstructure", // 指定使用 mapstructure tag 进行字段匹配
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 		),
@@ -48,10 +50,10 @@ func (c *MyAppConfig) Reload(config map[string]interface{}) error {
 		return fmt.Errorf("failed to decode config: %w", err)
 	}
 
-	fmt.Printf("Config reloaded successfully, Result is: %#v", config)
+	fmt.Printf("Config reloaded successfully, Result is: %#v\n", config)
+	fmt.Printf("MyAppConfig after decode in Reload method: %#v\n", c) // <-- 添加这一行
 	return nil
 }
-
 func InitConfig() (*MyAppConfig, error) {
 	cfg, _, err := InitConfigWithManager()
 	return cfg, err

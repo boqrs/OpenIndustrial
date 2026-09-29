@@ -23,14 +23,14 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	group := router.Group("/api/v1/external")
 	group.Use(h.auth.Authenticate())
 	// --------------------------------------------------------------------- // Production Execution // ---------------------------------------------------------------------
-	group.Handle(http.MethodPost, "/work-orders/:work_order_id/execution", h.CreateProductionExecution)
-	group.Handle(http.MethodPost, "/executions/:id/start", h.StartProductionExecution)
+	group.Handle(http.MethodPost, "/executions/execution/:work_order_id", h.CreateProductionExecution)
+	group.Handle(http.MethodPost, "/executions/start/:id", h.StartProductionExecution)
 	// --------------------------------------------------------------------- // Production Operation // ---------------------------------------------------------------------
-	group.Handle(http.MethodPost, "/executions/:id/operations/:op_id/start", h.StartProductionOperation)
-	group.Handle(http.MethodPost, "/executions/:id/operations/:op_id/complete", h.CompleteProductionOperation)
-	group.Handle(http.MethodPost, "/executions/:id/operations/:op_id/fail", h.FailProductionOperation)
+	group.Handle(http.MethodPost, "/executions/:id/operations/start/:op_id", h.StartProductionOperation)
+	group.Handle(http.MethodPost, "/executions/:id/operations/complete/:op_id", h.CompleteProductionOperation)
+	group.Handle(http.MethodPost, "/executions/:id/operations/fail/:op_id", h.FailProductionOperation)
 	// --------------------------------------------------------------------- // Production Result // ---------------------------------------------------------------------
-	group.Handle(http.MethodPost, "/execution-results/:id/confirm", h.ConfirmExecutionResult)
+	group.Handle(http.MethodPost, "/executions/results/:id/confirm", h.ConfirmExecutionResult)
 }
 
 func (h *Handler) CreateProductionExecution(ctx *gin.Context) ginx.Render {
