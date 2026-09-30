@@ -11,100 +11,74 @@ import (
 // Repository
 // =====================================================
 
-// PermissionRepository defines the interface for permission-related database operations.
-type PermissionRepository interface {
-	// CheckPermissionForUser checks if a user has a specific permission through their roles.
-	CheckPermissionForUser(ctx context.Context, userID uuid.UUID, permissionName string) (bool, error)
-
-	// CreatePermission adds a new permission to the database.
-	CreatePermission(ctx context.Context, p *model.Permission) error
-
-	// GetPermission retrieves a permission by its key and action.
-	GetPermission(ctx context.Context, resourceKey, action string) (*model.Permission, error)
-
-	// ListPermissionsByRole retrieves all permissions associated with a specific role.
-	ListPermissionsByRole(ctx context.Context, roleID uuid.UUID) ([]*model.Permission, error)
-}
-
-// UserRepository
+// UserRepository defines persistence operations for the
+// identity domain.
 //
-// Identity domain persistence interface.
+// Identity persistence includes:
 //
-// 包含:
-// Tenant
-// User
-// Invitation
-// Principal
+//   - Tenant
+//   - User
+//   - Role
+//   - Permission
+//   - Invitation
+//   - Principal
 //
-// Role / Permission 后续独立实现
+// Tenant is the isolation boundary of the identity domain.
+//
+// A user belongs to exactly one tenant and exactly one role.
+// Permissions are granted to roles through role_permissions.
 type UserRepository interface {
 
 	// =====================================================
 	// Tenant
 	// =====================================================
 
-	// 根据Tenant Code查询工厂
+	// GetTenantByCode retrieves a tenant by its unique code.
 	//
-	// 登录入口使用
-	//
+	// Tenant code is used by the login flow to identify
+	// the factory before authenticating the user.
 	GetTenantByCode(
 		ctx context.Context,
 		code string,
-	) (
-		*model.Tenant,
-		error,
-	)
+	) (*model.Tenant, error)
 
-	// 根据Tenant ID查询工厂
-	//
+	// GetTenantByID retrieves a tenant by its database ID.
 	GetTenantByID(
 		ctx context.Context,
 		id uint,
-	) (
-		*model.Tenant,
-		error,
-	)
+	) (*model.Tenant, error)
 
 	// =====================================================
 	// User
 	// =====================================================
 
+	// CreateUser creates a user inside a tenant.
+	//
+	// RoleID must reference a role belonging to the same tenant.
 	CreateUser(
 		ctx context.Context,
 		user *model.User,
 	) error
 
-	// Tenant隔离查询用户
+	// GetUserByID retrieves a user by tenant ID and user UUID.
 	//
-	// TenantID + User UUID
-	//
+	// TenantID is required to enforce tenant isolation.
 	GetUserByID(
 		ctx context.Context,
 		tenantID uint,
 		userID uuid.UUID,
-	) (
-		*model.User,
-		error,
-	)
+	) (*model.User, error)
 
+	// GetUserByEmail retrieves a user by tenant ID and email.
+	//
+	// Email uniqueness is tenant-scoped.
 	GetUserByEmail(
 		ctx context.Context,
 		tenantID uint,
 		email string,
-	) (
-		*model.User,
-		error,
-	)
+	) (*model.User, error)
 
-	UpdateUser(
-		ctx context.Context,
-		user *model.User,
-	) error
-
-	// 用户列表
-	//
-	// Tenant隔离
-	//
+	// ListUsers retrieves users belonging to a tenant.
 	ListUsers(
 		ctx context.Context,
 		tenantID uint,
@@ -113,37 +87,100 @@ type UserRepository interface {
 		status string,
 		userType string,
 		keyword string,
-	) (
-		[]*model.User,
-		error,
-	)
+	) ([]*model.User, error)
+
+	// UpdateUser updates an existing user.
+	UpdateUser(
+		ctx context.Context,
+		user *model.User,
+	) error
+
+	// =====================================================
+	// Role
+	// =====================================================
+
+	// GetRole retrieves a role by tenant and name.
+	//
+	// Role names are unique within a tenant.
+	GetRole(
+		ctx context.Context,
+		tenantID uint,
+		name string,
+	) (*model.Role, error)
+
+	// GetRoleByID retrieves a role by tenant and role ID.
+	//
+	// TenantID is intentionally required to prevent a role
+	// belonging to another tenant from being used.
+	GetRoleByID(
+		ctx context.Context,
+		tenantID uint,
+		roleID uint,
+	) (*model.Role, error)
+
+	// CheckRolePermission checks whether the specified role
+	// belonging to the specified tenant has a permission.
+	//
+	// The permission relationship is:
+	//
+	// Role
+	//   -> RolePermission
+	//      -> Permission
+	CheckRolePermission(
+		ctx context.Context,
+		tenantID uint,
+		roleID uint,
+		permissionName string,
+	) (bool, error)
+
+	// =====================================================
+	// Permission
+	// =====================================================
+
+	// CreatePermission creates a system-defined permission.
+	//
+	// Permissions are global and are not tenant-specific.
+	// This is primarily intended for bootstrap/system data.
+	CreatePermission(
+		ctx context.Context,
+		permission *model.Permission,
+	) error
+
+	// GetPermission retrieves a permission by resource and action.
+	//
+	// The resulting permission name is:
+	//
+	//     resourceKey:action
+	GetPermission(
+		ctx context.Context,
+		resourceKey string,
+		action string,
+	) (*model.Permission, error)
 
 	// =====================================================
 	// Invitation
 	// =====================================================
 
+	// CreateInvitation creates a user invitation.
 	CreateInvitation(
 		ctx context.Context,
 		invitation *model.UserInvitation,
 	) error
 
+	// GetInvitationByToken retrieves an invitation by its hashed token.
 	GetInvitationByToken(
 		ctx context.Context,
 		tokenHash string,
-	) (
-		*model.UserInvitation,
-		error,
-	)
+	) (*model.UserInvitation, error)
 
+	// GetInvitationByID retrieves an invitation by tenant and UUID.
 	GetInvitationByID(
 		ctx context.Context,
 		tenantID uint,
 		id uuid.UUID,
-	) (
-		*model.UserInvitation,
-		error,
-	)
+	) (*model.UserInvitation, error)
 
+	// UpdateInvitation updates an existing invitation.
 	UpdateInvitation(
 		ctx context.Context,
 		invitation *model.UserInvitation,
@@ -153,21 +190,22 @@ type UserRepository interface {
 	// Principal
 	// =====================================================
 
+	// CreatePrincipal creates an authentication principal.
 	CreatePrincipal(
 		ctx context.Context,
 		principal *model.Principal,
 	) error
 
+	// GetPrincipal retrieves a principal by tenant, provider,
+	// and identifier.
 	GetPrincipal(
 		ctx context.Context,
 		tenantID uint,
 		provider string,
 		identifier string,
-	) (
-		*model.Principal,
-		error,
-	)
+	) (*model.Principal, error)
 
+	// UpdatePrincipal updates an existing authentication principal.
 	UpdatePrincipal(
 		ctx context.Context,
 		principal *model.Principal,
