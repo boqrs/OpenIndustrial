@@ -332,5 +332,5 @@ func (r *permissionRepository) ListPermissionsByRole(ctx context.Context, roleID
 	if err != nil {
 		return nil, err
 	}
-	return role.Permissions, nil
+	return nil, nil
 }
