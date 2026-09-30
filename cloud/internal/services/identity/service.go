@@ -2,306 +2,713 @@ package identity
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// Service provides use cases for the identity domain.
+var (
+	ErrInvalidCredential = errors.New("invalid credential")
+	ErrUserDisabled      = errors.New("user disabled")
+	ErrInvitationInvalid = errors.New("invalid invitation")
+)
+
 type service struct {
-	tenantRepo TenantRepository
-	userRepo   UserRepository
-	roleRepo   RoleRepository
-	groupRepo  GroupRepository
-	jwtSecret  string
-	publisher  event.Publisher
+	repo UserRepository
+
+	jwtSecret string
+
+	accessExpire  time.Duration
+	refreshExpire time.Duration
 }
 
-// NewService creates a new identity service.
-func NewService(tenantRepo TenantRepository, userRepo UserRepository, roleRepo RoleRepository, groupRepo GroupRepository, jwtSecret string, publisher event.Publisher) Service {
+func NewService(
+	repo UserRepository,
+	jwtSecret string,
+) Service {
+
 	return &service{
-		tenantRepo: tenantRepo,
-		userRepo:   userRepo,
-		roleRepo:   roleRepo,
-		groupRepo:  groupRepo,
-		jwtSecret:  jwtSecret,
-		publisher:  publisher,
+		repo: repo,
+
+		jwtSecret: jwtSecret,
+
+		accessExpire:  time.Hour * 2,
+		refreshExpire: time.Hour * 24 * 7,
 	}
 }
 
-// RegisterNewTenant handles the business logic of creating a new tenant.
-func (s *service) RegisterNewTenant(ctx context.Context, req *RegisterTenantRequest) (*RegisterTenantResponse, error) {
-	// This entire function should be wrapped in a transaction.
-	tenant := &model.Tenant{
-		Name:   req.TenantName,
-		Status: "active",
-	}
-	if err := s.tenantRepo.CreateTenant(ctx, tenant); err != nil {
-		return nil, err
-	}
+// =====================================================
+// Authentication
+// =====================================================
 
-	profileJSON, _ := json.Marshal(map[string]string{"name": req.AdminEmail})
-	adminUser := &model.User{
-		TenantID: tenant.UUID,
-		UserType: string(UserTypeAdmin),
-		Profile:  profileJSON,
-	}
-	if err := s.userRepo.CreateUser(ctx, adminUser); err != nil {
-		return nil, err
-	}
+func (s *service) Login(
+	ctx context.Context,
+	req LoginRequest,
+) (
+	*LoginResponse,
+	error,
+) {
 
-	hashedPassword, err := HashPassword(req.AdminPassword)
-	if err != nil {
-		return nil, err
-	}
-
-	adminPrincipal := &model.Principal{
-		UserID:     adminUser.UUID,
-		TenantID:   tenant.UUID,
-		Provider:   "password",
-		Identifier: req.AdminEmail,
-		Credential: hashedPassword,
-	}
-	if err := s.userRepo.CreatePrincipal(ctx, adminPrincipal); err != nil {
-		return nil, err
-	}
-
-	adminRole, err := s.roleRepo.GetRoleByName(ctx, uuid.Nil, "Admin")
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.roleRepo.AddUserToRole(ctx, adminUser.UUID, adminRole.UUID, tenant.UUID); err != nil {
-		return nil, err
-	}
-
-	adminGroup := &model.Group{
-		TenantID:    tenant.UUID,
-		Name:        "Administrators",
-		Description: "Default administrators group",
-	}
-	if err := s.groupRepo.CreateGroup(ctx, adminGroup); err != nil {
-		return nil, err
-	}
-
-	if err := s.groupRepo.AddUserToGroup(ctx, tenant.UUID, adminUser.UUID, adminGroup.UUID); err != nil {
-		return nil, err
-	}
-
-	return &RegisterTenantResponse{
-		TenantID:    tenant.UUID,
-		AdminUserID: adminUser.UUID,
-	}, nil
-}
-
-// Login handles the user authentication logic.
-func (s *service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		return nil, errors.New("invalid tenant id format")
-	}
-
-	principal, err := s.userRepo.GetPrincipal(ctx, tenantID, "password", req.Email)
-	if err != nil {
-		return nil, errors.New("invalid credentials")
-	}
-
-	if !CheckPasswordHash(req.Password, principal.Credential) {
-		return nil, errors.New("invalid credentials")
-	}
-
-	token, err := GenerateToken(principal.UserID, principal.TenantID, s.jwtSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	return &LoginResponse{Token: token}, nil
-}
-
-// GetCurrentUser retrieves the currently authenticated user's information.
-func (s *service) GetCurrentUser(ctx context.Context, tenantID, userID uuid.UUID) (*GetCurrentUserResponse, error) {
-	user, err := s.userRepo.GetUserByID(ctx, tenantID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &GetCurrentUserResponse{
-		ID:       user.UUID,
-		UserType: user.UserType,
-		Profile:  user.Profile,
-	}, nil
-}
-
-// CreateUser creates a new user within a tenant.
-func (s *service) CreateUser(ctx context.Context, tenantID uuid.UUID, req *CreateUserRequest) (*CreateUserResponse, error) {
-	// Note: In a real application, this entire function should run within a single database transaction.
-	profile := req.Profile
-	if profile == nil {
-		profile = json.RawMessage("{}")
-	}
-
-	newUser := &model.User{
-		TenantID: tenantID,
-		UserType: req.UserType,
-		Profile:  profile,
-	}
-	if err := s.userRepo.CreateUser(ctx, newUser); err != nil {
-		return nil, fmt.Errorf("failed to create user record: %w", err)
-	}
-
-	hashedPassword, err := HashPassword(req.Password)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
-	}
-
-	newPrincipal := &model.Principal{
-		UserID:     newUser.UUID,
-		TenantID:   tenantID,
-		Provider:   "password",
-		Identifier: req.Email,
-		Credential: hashedPassword,
-	}
-	if err := s.userRepo.CreatePrincipal(ctx, newPrincipal); err != nil {
-		return nil, fmt.Errorf("failed to create user principal: %w", err)
-	}
-
-	roleToAssign, err := s.roleRepo.GetRoleByName(ctx, tenantID, req.RoleName)
-	if err != nil {
-		return nil, fmt.Errorf("role '%s' not found for this tenant: %w", req.RoleName, err)
-	}
-
-	if err := s.roleRepo.AddUserToRole(ctx, newUser.UUID, roleToAssign.UUID, tenantID); err != nil {
-		return nil, fmt.Errorf("failed to assign role to user: %w", err)
-	}
-
-	return &CreateUserResponse{
-		ID: newUser.UUID,
-	}, nil
-}
-
-// ListUsers retrieves a list of users for a tenant.
-func (s *service) ListUsers(ctx context.Context, tenantID uuid.UUID, req *ListUsersRequest) ([]*UserResponse, error) {
-	if req.Limit <= 0 {
-		req.Limit = 20
-	}
-	if req.Offset < 0 {
-		req.Offset = 0
-	}
-
-	repoParams := ListUsersRepoReq{
-		Limit:  req.Limit,
-		Offset: req.Offset,
-	}
-
-	users, err := s.userRepo.ListUsers(ctx, tenantID, repoParams)
-	if err != nil {
-		return nil, err
-	}
-
-	userResponses := make([]*UserResponse, 0, len(users))
-	for _, u := range users {
-		userResponses = append(userResponses, ToUserResponse(u))
-	}
-	if userResponses == nil {
-		return []*UserResponse{}, nil
-	}
-	return userResponses, nil
-}
-
-// UpdateUser updates a user's information.
-func (s *service) UpdateUser(ctx context.Context, tenantID, userID uuid.UUID, req *UpdateUserRequest) error {
-	return errors.New("not implemented")
-}
-
-// DeleteUser deletes a user.
-func (s *service) DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error {
-	return errors.New("not implemented")
-}
-
-// ListRoles retrieves all available roles for a tenant.
-func (s *service) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*RoleResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// AssignRoleToUser assigns a role to a user.
-func (s *service) AssignRoleToUser(ctx context.Context, tenantID, userID uuid.UUID, req *AssignRoleToUserRequest) error {
-	return errors.New("not implemented")
-}
-
-// ListUserGroups lists all groups a user is a member of.
-func (s *service) ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID) ([]*GroupResponse, error) {
-	groups, err := s.groupRepo.ListGroupsByUserID(ctx, tenantID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	groupResponses := make([]*GroupResponse, 0, len(groups))
-	for _, g := range groups {
-		groupResponses = append(groupResponses, ToGroupResponse(g))
-	}
-	if groupResponses == nil {
-		return []*GroupResponse{}, nil
-	}
-	return groupResponses, nil
-}
-
-// --- Event Publishing Helper Methods ---
-
-func (s *service) publishUserCreatedEvent(userID, tenantID uuid.UUID, email string) {
-	payload := event.UserCreatedPayload{
-		UserID: userID.String(),
-		Email:  email,
-	}
-	userCreatedEvent, err := event.NewEnvelope(
-		event.IdentityUserCreated,
-		"user",
-		userID.String(),
-		tenantID.String(),
-		payload,
+	tenant, err := s.repo.GetTenantByCode(
+		ctx,
+		req.TenantCode,
 	)
-	if err != nil {
-		log.Printf("ERROR: failed to create user.created event envelope: %v", err)
-		return
-	}
-	s.publishWithRetry(userCreatedEvent)
-}
 
-func (s *service) publishTenantCreatedEvent(tenantID uuid.UUID, name, code string, adminUserID uuid.UUID) {
-	payload := event.TenantCreatedPayload{
-		TenantID:    tenantID.String(),
-		Name:        name,
-		Code:        code,
-		AdminUserID: adminUserID.String(),
+	if err != nil {
+		return nil, err
 	}
-	tenantCreatedEvent, err := event.NewEnvelope(
-		event.IdentityTenantCreated,
-		"tenant",
-		tenantID.String(),
-		tenantID.String(), // For tenant-level events, aggregate ID and tenant ID are the same
-		payload,
+
+	user, err := s.repo.GetUserByEmail(
+		ctx,
+		tenant.ID,
+		req.Email,
 	)
+
 	if err != nil {
-		log.Printf("ERROR: failed to create tenant.created event envelope: %v", err)
-		return
+		return nil, ErrInvalidCredential
 	}
-	s.publishWithRetry(tenantCreatedEvent)
+
+	if user.Status != model.UserStatusActive {
+		return nil, ErrUserDisabled
+	}
+
+	principal, err := s.repo.GetPrincipal(
+		ctx,
+		tenant.ID,
+		model.PrincipalProviderPassword,
+		req.Email,
+	)
+
+	if err != nil {
+		return nil, ErrInvalidCredential
+	}
+
+	if bcrypt.CompareHashAndPassword(
+		[]byte(principal.SecretHash),
+		[]byte(req.Password),
+	) != nil {
+
+		return nil, ErrInvalidCredential
+	}
+
+	accessToken, err :=
+		GenerateAccessToken(
+			s.jwtSecret,
+			user,
+			s.accessExpire,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err :=
+		GenerateRefreshToken(
+			s.jwtSecret,
+			user,
+			s.refreshExpire,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{
+
+		AccessToken: accessToken,
+
+		RefreshToken: refreshToken,
+
+		User: user,
+	}, nil
 }
 
-func (s *service) publishWithRetry(evt *event.Envelope) {
-	for i := 0; i < 3; i++ {
-		err := s.publisher.Publish(context.Background(), "openindustrial:events", evt)
-		if err == nil {
-			log.Printf("INFO: successfully published event %s of type %s", evt.ID, evt.Type)
-			return
+func (s *service) Logout(
+	ctx context.Context,
+	req LogoutRequest,
+) error {
+
+	// 当前JWT无状态
+	//
+	// 后续接入redis blacklist
+	//
+	// 当前仅完成接口闭环
+
+	return nil
+}
+
+func (s *service) RefreshToken(
+	ctx context.Context,
+	req RefreshTokenRequest,
+) (
+	*LoginResponse,
+	error,
+) {
+
+	claims, err :=
+		ParseRefreshToken(
+			s.jwtSecret,
+			req.RefreshToken,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			claims.TenantID,
+			claims.UserID,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err :=
+		GenerateAccessToken(
+			s.jwtSecret,
+			user,
+			s.accessExpire,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err :=
+		GenerateRefreshToken(
+			s.jwtSecret,
+			user,
+			s.refreshExpire,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{
+
+		AccessToken: accessToken,
+
+		RefreshToken: refreshToken,
+
+		User: user,
+	}, nil
+}
+
+// =====================================================
+// Invitation
+// =====================================================
+
+func (s *service) InviteUser(
+	ctx context.Context,
+	req InviteUserRequest,
+) error {
+
+	user := &model.User{
+
+		UUID: uuid.New(),
+
+		TenantID: req.TenantID,
+
+		Name: req.Name,
+
+		Email: req.Email,
+
+		UserType: model.UserTypeEmployee,
+
+		Status: model.UserStatusInvited,
+	}
+
+	if err :=
+		s.repo.CreateUser(
+			ctx,
+			user,
+		); err != nil {
+
+		return err
+	}
+
+	token, hash, err :=
+		GenerateInvitationToken()
+
+	if err != nil {
+		return err
+	}
+
+	invitation :=
+		&model.UserInvitation{
+
+			UUID: uuid.New(),
+
+			TenantID: req.TenantID,
+
+			UserID: user.ID,
+
+			Email: req.Email,
+
+			TokenHash: hash,
+
+			ExpiresAt: time.Now().
+				Add(24 * time.Hour),
+
+			CreatedBy: req.CreatedBy,
 		}
-		log.Printf("WARN: failed to publish event %s, retrying... (%d/3): %v", evt.ID, i+1, err)
-		time.Sleep(time.Second * time.Duration(i+1))
+
+	if err :=
+		s.repo.CreateInvitation(
+			ctx,
+			invitation,
+		); err != nil {
+
+		return err
 	}
-	log.Printf("ERROR: failed to publish event %s after multiple retries", evt.ID)
+
+	// TODO:
+	//
+	// Email Service
+	//
+	// 发送:
+	//
+	// /register?token=<token>
+
+	_ = token
+
+	return nil
+}
+
+func (s *service) AcceptInvitation(
+	ctx context.Context,
+	req AcceptInvitationRequest,
+) error {
+
+	invitation, err :=
+		s.repo.GetInvitationByToken(
+			ctx,
+			req.Token,
+		)
+
+	if err != nil {
+		return ErrInvitationInvalid
+	}
+
+	if invitation.UsedAt != nil ||
+		time.Now().After(invitation.ExpiresAt) {
+
+		return ErrInvitationInvalid
+	}
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			invitation.TenantID,
+			invitation.User.UUID,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	hash, err :=
+		HashPassword(
+			req.Password,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	principal :=
+		&model.Principal{
+
+			UUID: uuid.New(),
+
+			TenantID: user.TenantID,
+
+			UserID: user.ID,
+
+			Provider: model.PrincipalProviderPassword,
+
+			Identifier: user.Email,
+
+			SecretHash: hash,
+		}
+
+	if err :=
+		s.repo.CreatePrincipal(
+			ctx,
+			principal,
+		); err != nil {
+
+		return err
+	}
+
+	user.Status =
+		model.UserStatusActive
+
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+
+	if err :=
+		s.repo.UpdateUser(
+			ctx,
+			user,
+		); err != nil {
+
+		return err
+	}
+
+	now := time.Now()
+
+	invitation.UsedAt = &now
+
+	return s.repo.UpdateInvitation(
+		ctx,
+		invitation,
+	)
+}
+
+func (s *service) GetInvitation(
+	ctx context.Context,
+	tenantID uint,
+	id uuid.UUID,
+) (
+	*model.UserInvitation,
+	error,
+) {
+
+	return nil, errors.New(
+		"repository method required",
+	)
+}
+
+// =====================================================
+// User Management
+// =====================================================
+
+func (s *service) CreateUser(
+	ctx context.Context,
+	req CreateUserRequest,
+) (
+	*model.User,
+	error,
+) {
+
+	user := &model.User{
+
+		UUID: req.UUID,
+
+		TenantID: req.TenantID,
+
+		Name: req.Name,
+
+		Email: req.Email,
+
+		UserType: req.UserType,
+
+		Status: req.Status,
+	}
+
+	if user.UUID == uuid.Nil {
+		user.UUID = uuid.New()
+	}
+
+	if user.UserType == "" {
+		user.UserType =
+			model.UserTypeEmployee
+	}
+
+	if user.Status == "" {
+		user.Status =
+			model.UserStatusInvited
+	}
+
+	if err :=
+		s.repo.CreateUser(
+			ctx,
+			user,
+		); err != nil {
+
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *service) GetUser(
+	ctx context.Context,
+	tenantID uint,
+	userID uuid.UUID,
+) (
+	*model.User,
+	error,
+) {
+
+	return s.repo.GetUserByID(
+		ctx,
+		tenantID,
+		userID,
+	)
+}
+
+func (s *service) GetUserByEmail(
+	ctx context.Context,
+	tenantID uint,
+	email string,
+) (
+	*model.User,
+	error,
+) {
+
+	return s.repo.GetUserByEmail(
+		ctx,
+		tenantID,
+		email,
+	)
+}
+
+func (s *service) ListUsers(
+	ctx context.Context,
+	req ListUsersRequest,
+) (
+	[]*model.User,
+	error,
+) {
+
+	// repository负责tenant隔离
+	return s.repo.ListUsers(
+		ctx,
+		req.TenantID,
+		req.Limit,
+		req.Offset,
+		req.Status,
+		req.UserType,
+		req.Keyword,
+	)
+}
+
+func (s *service) UpdateUser(
+	ctx context.Context,
+	req UpdateUserRequest,
+) error {
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			req.TenantID,
+			req.UserID,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+
+	if req.Email != "" {
+		user.Email = req.Email
+	}
+
+	return s.repo.UpdateUser(
+		ctx,
+		user,
+	)
+}
+
+func (s *service) DisableUser(
+	ctx context.Context,
+	req DisableUserRequest,
+) error {
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			req.TenantID,
+			req.UserID,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	user.Status =
+		model.UserStatusDisabled
+
+	return s.repo.UpdateUser(
+		ctx,
+		user,
+	)
+}
+
+func (s *service) EnableUser(
+	ctx context.Context,
+	req EnableUserRequest,
+) error {
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			req.TenantID,
+			req.UserID,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	user.Status =
+		model.UserStatusActive
+
+	return s.repo.UpdateUser(
+		ctx,
+		user,
+	)
+}
+
+// =====================================================
+// Principal
+// =====================================================
+
+func (s *service) UpdatePassword(
+	ctx context.Context,
+	req UpdatePasswordRequest,
+) error {
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			req.TenantID,
+			req.UserID,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	principal, err :=
+		s.repo.GetPrincipal(
+			ctx,
+			req.TenantID,
+			model.PrincipalProviderPassword,
+			user.Email,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	if bcrypt.CompareHashAndPassword(
+		[]byte(principal.SecretHash),
+		[]byte(req.OldPassword),
+	) != nil {
+
+		return errors.New(
+			"old password incorrect",
+		)
+	}
+
+	hash, err :=
+		HashPassword(
+			req.NewPassword,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	principal.SecretHash =
+		hash
+
+	// 当前repo缺少UpdatePrincipal
+	//
+	// 后续补充
+
+	return errors.New(
+		"UpdatePrincipal repository method required",
+	)
+}
+
+func (s *service) ResetPassword(
+	ctx context.Context,
+	req ResetPasswordRequest,
+) error {
+
+	user, err :=
+		s.repo.GetUserByID(
+			ctx,
+			req.TenantID,
+			req.UserID,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	principal, err :=
+		s.repo.GetPrincipal(
+			ctx,
+			req.TenantID,
+			model.PrincipalProviderPassword,
+			user.Email,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	hash, err :=
+		HashPassword(
+			req.NewPassword,
+		)
+
+	if err != nil {
+		return err
+	}
+
+	principal.SecretHash =
+		hash
+
+	return errors.New(
+		"UpdatePrincipal repository method required",
+	)
+}
+
+// =====================================================
+// Tenant
+// =====================================================
+
+func (s *service) GetTenant(
+	ctx context.Context,
+	tenantID uint,
+) (
+	*model.Tenant,
+	error,
+) {
+
+	return s.repo.GetTenantByID(
+		ctx,
+		tenantID,
+	)
+}
+
+func (s *service) GetTenantByCode(
+	ctx context.Context,
+	code string,
+) (
+	*model.Tenant,
+	error,
+) {
+
+	return s.repo.GetTenantByCode(
+		ctx,
+		code,
+	)
 }

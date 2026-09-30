@@ -1,5 +1,6 @@
 package postgres
 
+/*
 import (
 	"context"
 
@@ -88,3 +89,4 @@ func (r *groupRepository) ListGroupsByUserID(ctx context.Context, tenantID, user
 	// The preloaded groups are now available in the user object.
 	return user.Groups, nil
 }
+*/

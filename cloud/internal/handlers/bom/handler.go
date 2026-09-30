@@ -24,7 +24,7 @@ type Handler struct {
 func NewHandler(service bom.Service, auth middleware.Service) *Handler {
 	return &Handler{
 		service: service,
-		auth: auth,
+		auth:    auth,
 	}
 }
 

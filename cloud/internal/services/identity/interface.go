@@ -7,17 +7,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// GroupRepository defines the interface for accessing group data.
-type GroupRepository interface {
-	CreateGroup(ctx context.Context, group *model.Group) error
-	GetGroupByID(ctx context.Context, tenantID, groupID uuid.UUID) (*model.Group, error)
-	AddUserToGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error
-	RemoveUserFromGroup(ctx context.Context, tenantID, userID, groupID uuid.UUID) error
-	ListGroupsByUserID(ctx context.Context, tenantID, userID uuid.UUID) ([]*model.Group, error)
-	// Note: The methods for adding/removing resources from groups are intentionally
-	// left out here. That logic belongs to a higher-level service or the resource kernel
-	// itself, which would hold a reference to a group ID.
-}
+// =====================================================
+// Repository
+// =====================================================
 
 // PermissionRepository defines the interface for permission-related database operations.
 type PermissionRepository interface {
@@ -34,40 +26,331 @@ type PermissionRepository interface {
 	ListPermissionsByRole(ctx context.Context, roleID uuid.UUID) ([]*model.Permission, error)
 }
 
-// RoleRepository defines the interface for role persistence.
-type RoleRepository interface {
-	CreateRole(ctx context.Context, role *model.Role) error
-	GetRoleByID(ctx context.Context, tenantID, id uuid.UUID) (*model.Role, error)
-	GetRoleByName(ctx context.Context, tenantID uuid.UUID, name string) (*model.Role, error)
-	AddUserToRole(ctx context.Context, userID, roleID, tenantID uuid.UUID) error
-}
-
-// TenantRepository defines the interface for tenant persistence.
-type TenantRepository interface {
-	CreateTenant(ctx context.Context, tenant *model.Tenant) error
-	GetTenantByID(ctx context.Context, id uuid.UUID) (*model.Tenant, error)
-}
-
-// UserRepository defines the interface for user persistence.
+// UserRepository
+//
+// Identity domain persistence interface.
+//
+// 包含:
+// Tenant
+// User
+// Invitation
+// Principal
+//
+// Role / Permission 后续独立实现
 type UserRepository interface {
-	CreateUser(ctx context.Context, user *model.User) error
-	GetUserByID(ctx context.Context, tenantID, userID uuid.UUID) (*model.User, error)
-	CreatePrincipal(ctx context.Context, principal *model.Principal) error
-	GetPrincipal(ctx context.Context, tenantID uuid.UUID, provider, identifier string) (*model.Principal, error)
-	ListUsers(ctx context.Context, tenantID uuid.UUID, params ListUsersRepoReq) ([]*model.User, error)
+
+	// =====================================================
+	// Tenant
+	// =====================================================
+
+	// 根据Tenant Code查询工厂
+	//
+	// 登录入口使用
+	//
+	GetTenantByCode(
+		ctx context.Context,
+		code string,
+	) (
+		*model.Tenant,
+		error,
+	)
+
+	// 根据Tenant ID查询工厂
+	//
+	GetTenantByID(
+		ctx context.Context,
+		id uint,
+	) (
+		*model.Tenant,
+		error,
+	)
+
+	// =====================================================
+	// User
+	// =====================================================
+
+	CreateUser(
+		ctx context.Context,
+		user *model.User,
+	) error
+
+	// Tenant隔离查询用户
+	//
+	// TenantID + User UUID
+	//
+	GetUserByID(
+		ctx context.Context,
+		tenantID uint,
+		userID uuid.UUID,
+	) (
+		*model.User,
+		error,
+	)
+
+	GetUserByEmail(
+		ctx context.Context,
+		tenantID uint,
+		email string,
+	) (
+		*model.User,
+		error,
+	)
+
+	UpdateUser(
+		ctx context.Context,
+		user *model.User,
+	) error
+
+	// 用户列表
+	//
+	// Tenant隔离
+	//
+	ListUsers(
+		ctx context.Context,
+		tenantID uint,
+		limit int,
+		offset int,
+		status string,
+		userType string,
+		keyword string,
+	) (
+		[]*model.User,
+		error,
+	)
+
+	// =====================================================
+	// Invitation
+	// =====================================================
+
+	CreateInvitation(
+		ctx context.Context,
+		invitation *model.UserInvitation,
+	) error
+
+	GetInvitationByToken(
+		ctx context.Context,
+		tokenHash string,
+	) (
+		*model.UserInvitation,
+		error,
+	)
+
+	GetInvitationByID(
+		ctx context.Context,
+		tenantID uint,
+		id uuid.UUID,
+	) (
+		*model.UserInvitation,
+		error,
+	)
+
+	UpdateInvitation(
+		ctx context.Context,
+		invitation *model.UserInvitation,
+	) error
+
+	// =====================================================
+	// Principal
+	// =====================================================
+
+	CreatePrincipal(
+		ctx context.Context,
+		principal *model.Principal,
+	) error
+
+	GetPrincipal(
+		ctx context.Context,
+		tenantID uint,
+		provider string,
+		identifier string,
+	) (
+		*model.Principal,
+		error,
+	)
+
+	UpdatePrincipal(
+		ctx context.Context,
+		principal *model.Principal,
+	) error
 }
 
-// Service defines the interface for the identity service.
-// This is the contract that the rest of the application will use.
+// =====================================================
+// Service
+// =====================================================
+
+// Service
+//
+// Identity business service.
+//
+// Responsibility:
+//
+// - Authentication
+// - User lifecycle
+// - Invitation
+// - Password management
 type Service interface {
-	RegisterNewTenant(ctx context.Context, req *RegisterTenantRequest) (*RegisterTenantResponse, error)
-	Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error)
-	GetCurrentUser(ctx context.Context, tenantID, userID uuid.UUID) (*GetCurrentUserResponse, error)
-	CreateUser(ctx context.Context, tenantID uuid.UUID, req *CreateUserRequest) (*CreateUserResponse, error)
-	ListUsers(ctx context.Context, tenantID uuid.UUID, req *ListUsersRequest) ([]*UserResponse, error)
-	UpdateUser(ctx context.Context, tenantID, userID uuid.UUID, req *UpdateUserRequest) error
-	DeleteUser(ctx context.Context, tenantID, userID uuid.UUID) error
-	ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*RoleResponse, error)
-	AssignRoleToUser(ctx context.Context, tenantID, userID uuid.UUID, req *AssignRoleToUserRequest) error
-	ListUserGroups(ctx context.Context, tenantID, userID uuid.UUID) ([]*GroupResponse, error)
+
+	// =====================================================
+	// Authentication
+	// =====================================================
+
+	// 用户登录
+	//
+	// tenant_code + email + password
+	//
+	Login(
+		ctx context.Context,
+		req LoginRequest,
+	) (
+		*LoginResponse,
+		error,
+	)
+
+	// 用户退出登录
+	//
+	// 第一阶段:
+	// refresh token失效
+	//
+	// 后续:
+	// token blacklist
+	//
+	Logout(
+		ctx context.Context,
+		req LogoutRequest,
+	) error
+
+	// 刷新Token
+	//
+	RefreshToken(
+		ctx context.Context,
+		req RefreshTokenRequest,
+	) (
+		*LoginResponse,
+		error,
+	)
+
+	// =====================================================
+	// Invitation
+	// =====================================================
+
+	// 管理员邀请用户
+	//
+	// Tenant Admin
+	//
+	// User(invited)
+	//
+	// Invitation
+	//
+	InviteUser(
+		ctx context.Context,
+		req InviteUserRequest,
+	) error
+
+	// 接受邀请完成注册
+	//
+	// Token
+	// Password
+	// Principal
+	// Active User
+	//
+	AcceptInvitation(
+		ctx context.Context,
+		req AcceptInvitationRequest,
+	) error
+
+	GetInvitation(
+		ctx context.Context,
+		tenantID uint,
+		id uuid.UUID,
+	) (
+		*model.UserInvitation,
+		error,
+	)
+
+	// =====================================================
+	// User Management
+	// =====================================================
+
+	CreateUser(
+		ctx context.Context,
+		req CreateUserRequest,
+	) (
+		*model.User,
+		error,
+	)
+
+	GetUser(
+		ctx context.Context,
+		tenantID uint,
+		userID uuid.UUID,
+	) (
+		*model.User,
+		error,
+	)
+
+	GetUserByEmail(
+		ctx context.Context,
+		tenantID uint,
+		email string,
+	) (
+		*model.User,
+		error,
+	)
+
+	ListUsers(
+		ctx context.Context,
+		req ListUsersRequest,
+	) (
+		[]*model.User,
+		error,
+	)
+
+	UpdateUser(
+		ctx context.Context,
+		req UpdateUserRequest,
+	) error
+
+	DisableUser(
+		ctx context.Context,
+		req DisableUserRequest,
+	) error
+
+	EnableUser(
+		ctx context.Context,
+		req EnableUserRequest,
+	) error
+
+	// =====================================================
+	// Password
+	// =====================================================
+
+	UpdatePassword(
+		ctx context.Context,
+		req UpdatePasswordRequest,
+	) error
+
+	ResetPassword(
+		ctx context.Context,
+		req ResetPasswordRequest,
+	) error
+
+	// =====================================================
+	// Tenant
+	// =====================================================
+
+	GetTenant(
+		ctx context.Context,
+		tenantID uint,
+	) (
+		*model.Tenant,
+		error,
+	)
+
+	GetTenantByCode(
+		ctx context.Context,
+		code string,
+	) (
+		*model.Tenant,
+		error,
+	)
 }

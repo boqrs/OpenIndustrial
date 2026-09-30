@@ -1,94 +1,120 @@
 package identity
 
 import (
-	"encoding/json"
+	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-// RegisterTenantResponse defines the result of a tenant registration.
-type RegisterTenantResponse struct {
-	TenantID    uuid.UUID `json:"tenant_id"`
-	AdminUserID uuid.UUID `json:"admin_user_id"`
-}
+// =====================================================
+// Authentication Response
+// =====================================================
 
-// LoginResponse defines the result of a successful login.
+// LoginResponse
+//
+// 登录成功返回
+//
+// access token:
+//
+//	用于API访问
+//
+// refresh token:
+//
+//	用于刷新access token
 type LoginResponse struct {
-	Token string `json:"token"`
+
+	// JWT Access Token
+	//
+	AccessToken string `json:"access_token"`
+
+	// Refresh Token
+	//
+	RefreshToken string `json:"refresh_token"`
+
+	// Access Token过期时间
+	//
+	ExpiresIn int64 `json:"expires_in"`
+
+	// Token类型
+	//
+	// Bearer
+	//
+	TokenType string `json:"token_type"`
+
+	// 当前登录用户
+	//
+	User *model.User `json:"user"`
 }
 
-// GetCurrentUserResponse defines the result for getting the current user.
-type GetCurrentUserResponse struct {
-	ID       uuid.UUID       `json:"id"`
-	UserType string          `json:"user_type"`
-	Profile  json.RawMessage `json:"profile"`
-}
-
-// CreateUserResponse defines the result of creating a new user.
-type CreateUserResponse struct {
-	ID uuid.UUID `json:"id"`
-}
-
-// UserResponse defines the public representation of a user.
+// UserResponse
+//
+// 对外返回用户信息
+//
+// 避免直接暴露model
 type UserResponse struct {
-	ID        uuid.UUID       `json:"id"`
-	TenantID  uuid.UUID       `json:"tenant_id"`
-	UserType  string          `json:"user_type"`
-	Profile   json.RawMessage `json:"profile"`
-	CreatedAt int64           `json:"created_at"`
+	ID uint `json:"id"`
+
+	UUID uuid.UUID `json:"uuid"`
+
+	TenantID uint `json:"tenant_id"`
+
+	Email string `json:"email"`
+
+	Name string `json:"name"`
+
+	UserType string `json:"user_type"`
+
+	Status string `json:"status"`
+
+	CreatedAt time.Time `json:"created_at"`
 }
 
-// RoleResponse defines the public representation of a role.
-type RoleResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	IsSystem    bool      `json:"is_system"`
-}
+func NewUserResponse(
+	user *model.User,
+) *UserResponse {
 
-// GroupResponse defines the public representation of a group.
-type GroupResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-}
-
-// ToUserResponse converts a model.User to a public-facing UserResponse.
-func ToUserResponse(user *model.User) *UserResponse {
 	if user == nil {
 		return nil
 	}
+
 	return &UserResponse{
-		ID:        user.UUID,
-		TenantID:  user.TenantID,
-		UserType:  user.UserType,
-		Profile:   user.Profile,
-		CreatedAt: user.CreatedAt.Unix(),
+
+		ID: user.ID,
+
+		UUID: user.UUID,
+
+		TenantID: user.TenantID,
+
+		Email: user.Email,
+
+		Name: user.Name,
+
+		UserType: user.UserType,
+
+		Status: user.Status,
+
+		CreatedAt: user.CreatedAt,
 	}
+
 }
 
-// ToRoleResponse converts a model.Role to a public-facing RoleResponse.
-func ToRoleResponse(role *model.Role) *RoleResponse {
-	if role == nil {
-		return nil
-	}
-	return &RoleResponse{
-		ID:          role.UUID,
-		Name:        role.Name,
-		Description: role.Description,
-		IsSystem:    role.IsSystem,
-	}
-}
+// =====================================================
+// JWT
+// =====================================================
 
-// ToGroupResponse converts a model.Group to a public-facing GroupResponse.
-func ToGroupResponse(group *model.Group) *GroupResponse {
-	if group == nil {
-		return nil
-	}
-	return &GroupResponse{
-		ID:          group.UUID,
-		Name:        group.Name,
-		Description: group.Description,
-	}
+// JWTClaims
+//
+// access token / refresh token
+type JWTClaims struct {
+	UserID uuid.UUID `json:"user_id"`
+
+	TenantID uint `json:"tenant_id"`
+
+	Email string `json:"email"`
+
+	TokenType string `json:"token_type"`
+
+	jwt.RegisteredClaims
 }

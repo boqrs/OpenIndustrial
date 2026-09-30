@@ -42,7 +42,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	customerSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/customer"
 	dSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
+	//"github.com/boqrs/OpenIndustrial/cloud/internal/services/event"
 	fSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	idtSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	rSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
@@ -274,10 +274,10 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// Identity
 	// -------------------------------------------------------------------------
 
-	tenantRepo := postgres.NewTenantRepository(dbProv)
+	//tenantRepo := postgres.NewTenantRepository(dbProv)
 	userRepo := postgres.NewUserRepository(dbProv)
-	roleRepo := postgres.NewRoleRepository(dbProv)
-	groupRepo := postgres.NewGroupRepository(dbProv)
+	//roleRepo := postgres.NewRoleRepository(dbProv)
+	//groupRepo := postgres.NewGroupRepository(dbProv)
 	// -------------------------------------------------------------------------
 	// WMS
 	// -------------------------------------------------------------------------
@@ -362,7 +362,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// 9. Identity
 	// =========================================================================
 
-	eventPubSub := event.NewEventPubSub()
+	//eventPubSub := event.NewEventPubSub()
 
 	authService := middleware.NewAuthService(
 		cfg.UserJwtSecret,
@@ -370,12 +370,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	)
 
 	identityService := idtSrv.NewService(
-		tenantRepo,
+		//tenantRepo,
 		userRepo,
-		roleRepo,
-		groupRepo,
+		//roleRepo,
+		//groupRepo,
 		cfg.UserJwtSecret,
-		eventPubSub,
+		//eventPubSub,
 	)
 
 	// =========================================================================
