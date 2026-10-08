@@ -1,7 +1,3 @@
--- ============================================================
--- OpenIndustrial initial tenants
--- ============================================================
-
 INSERT INTO tenants (
     uuid,
     name,
@@ -29,9 +25,6 @@ VALUES
     )
 ON CONFLICT (code) DO NOTHING;
 
--- ============================================================
--- Admin roles
--- ============================================================
 
 INSERT INTO roles (
     uuid,
@@ -56,13 +49,6 @@ WHERE t.code IN ('suzhou', 'dongguan', 'chengdu')
         AND r.deleted_at IS NULL
   );
 
--- ============================================================
--- Initial administrators
---
--- IMPORTANT:
--- These are development/bootstrap credentials.
--- Change them immediately after first login.
--- ============================================================
 
 INSERT INTO users (
     uuid,
@@ -103,14 +89,6 @@ WHERE t.code IN ('suzhou', 'dongguan', 'chengdu')
         AND u.deleted_at IS NULL
   );
 
--- ============================================================
--- Initial password principals
---
--- Development password:
--- OpenIndustrial@123
---
--- MUST be changed after first login.
--- ============================================================
 
 INSERT INTO principals (
     uuid,
@@ -145,9 +123,6 @@ WHERE u.user_type = 'admin'
         AND p.deleted_at IS NULL
   );
 
--- ============================================================
--- Grant all currently defined permissions to tenant Admin roles
--- ============================================================
 
 INSERT INTO role_permissions (
     role_id,

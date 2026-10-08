@@ -1,33 +1,28 @@
--- =============================================================================
--- Devices
--- =============================================================================
-
-CREATE TABLE IF NOT EXISTS devices (
+CREATE TABLE devices (
     id BIGSERIAL PRIMARY KEY,
 
     resource_id BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
 
-    -- Manufacturing provenance
     work_order_id BIGINT NOT NULL,
     execution_id BIGINT NOT NULL,
     execution_result_id BIGINT NOT NULL,
 
-    -- Device identity
-    serial_number VARCHAR(255) NOT NULL,
+    serial_number VARCHAR(255) NOT NULL UNIQUE,
     hardware_id VARCHAR(255),
 
-    -- Runtime state
     status VARCHAR(50) NOT NULL,
 
-    activated_at TIMESTAMPTZ NULL,
-    last_online_at TIMESTAMPTZ NULL,
+    customer_uuid UUID,
+    activated_at TIMESTAMPTZ,
 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    connection_status VARCHAR(50) NOT NULL DEFAULT 'disconnected',
+    client_id VARCHAR(255),
 
-    CONSTRAINT uq_devices_resource_id
-        UNIQUE (resource_id),
+    last_online_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_devices_resource
         FOREIGN KEY (resource_id)
@@ -36,7 +31,7 @@ CREATE TABLE IF NOT EXISTS devices (
 
     CONSTRAINT fk_devices_product
         FOREIGN KEY (product_id)
-        REFERENCES products(id)
+        REFERENCES product_models(id)
         ON DELETE RESTRICT,
 
     CONSTRAINT fk_devices_work_order
@@ -55,27 +50,32 @@ CREATE TABLE IF NOT EXISTS devices (
         ON DELETE RESTRICT
 );
 
-CREATE INDEX IF NOT EXISTS idx_devices_product_id
+CREATE INDEX idx_devices_resource_id
+    ON devices(resource_id);
+
+CREATE INDEX idx_devices_product_id
     ON devices(product_id);
 
-CREATE INDEX IF NOT EXISTS idx_devices_work_order_id
+CREATE INDEX idx_devices_work_order_id
     ON devices(work_order_id);
 
-CREATE INDEX IF NOT EXISTS idx_devices_execution_id
+CREATE INDEX idx_devices_execution_id
     ON devices(execution_id);
 
-CREATE INDEX IF NOT EXISTS idx_devices_execution_result_id
+CREATE INDEX idx_devices_execution_result_id
     ON devices(execution_result_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_serial_number_unique
-    ON devices(serial_number);
-
-CREATE INDEX IF NOT EXISTS idx_devices_hardware_id
+CREATE INDEX idx_devices_hardware_id
     ON devices(hardware_id);
 
-CREATE INDEX IF NOT EXISTS idx_devices_status
+CREATE INDEX idx_devices_status
     ON devices(status);
 
-CREATE UNIQUE INDEX IF NOT EXISTS
-idx_devices_execution_id_unique
-ON devices(execution_id);
+CREATE INDEX idx_devices_customer_uuid
+    ON devices(customer_uuid);
+
+CREATE INDEX idx_devices_connection_status
+    ON devices(connection_status);
+
+CREATE INDEX idx_devices_client_id
+    ON devices(client_id);

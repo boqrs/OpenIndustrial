@@ -41,6 +41,9 @@ services:
     volumes:
       - "./cloud/config/config.yaml:/app/config.yaml"
       - "./cloud/logs:/app/logs/debug"
+    depends_on:
+      - postgres
+      - redis
   # ==========================================================
   # Nginx
   # ==========================================================

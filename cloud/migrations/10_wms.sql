@@ -1,89 +1,130 @@
--- ============================================================================
--- 015_wms_tenant.sql
---
--- Add tenant isolation to WMS.
---
--- Tenant-owned root entities:
---   warehouses
---   shipments
---
--- Child entities inherit tenant ownership through their parent:
---   warehouse_locations -> warehouses
---   shipment_items      -> shipments
---   shipment_tracking_events -> shipments
---
--- DeviceInventory inherits tenant ownership through:
---   device_inventories -> devices -> resources -> tenant
--- ============================================================================
+CREATE TABLE warehouses (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-BEGIN;
+CREATE INDEX idx_warehouses_tenant_id
+    ON warehouses(tenant_id);
 
--- ============================================================================
--- Warehouses
--- ============================================================================
+CREATE INDEX idx_warehouses_code
+    ON warehouses(code);
 
-ALTER TABLE warehouses
-    ADD COLUMN IF NOT EXISTS tenant_id UUID;
 
--- The old schema used a globally unique warehouse code.
--- Warehouse codes only need to be unique inside a tenant.
-DROP INDEX IF EXISTS warehouses_code_key;
+CREATE TABLE warehouse_locations (
+    id BIGSERIAL PRIMARY KEY,
+    warehouse_id BIGINT NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_warehouses_tenant_code
-    ON warehouses (tenant_id, code);
+    CONSTRAINT fk_warehouse_locations_warehouse
+        FOREIGN KEY (warehouse_id)
+        REFERENCES warehouses(id)
+        ON DELETE CASCADE
+);
 
-CREATE INDEX IF NOT EXISTS idx_warehouses_tenant_id
-    ON warehouses (tenant_id);
+CREATE INDEX idx_warehouse_locations_warehouse_id
+    ON warehouse_locations(warehouse_id);
 
--- ============================================================================
--- Shipments
--- ============================================================================
+CREATE INDEX idx_warehouse_locations_code
+    ON warehouse_locations(code);
 
-ALTER TABLE shipments
-    ADD COLUMN IF NOT EXISTS tenant_id UUID;
 
-CREATE INDEX IF NOT EXISTS idx_shipments_tenant_id
-    ON shipments (tenant_id);
+CREATE TABLE device_inventories (
+    id BIGSERIAL PRIMARY KEY,
+    device_id BIGINT NOT NULL UNIQUE,
+    warehouse_id BIGINT NOT NULL,
+    location_id BIGINT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    inbound_at TIMESTAMPTZ NOT NULL,
+    outbound_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- ============================================================================
--- Existing data guard
--- ============================================================================
---
--- We intentionally do NOT invent a tenant for existing WMS records.
---
--- This project is a new system and historical data migration must explicitly
--- assign the correct tenant before this migration can be completed against a
--- database containing old WMS records.
---
--- On an empty/new database the following checks pass immediately.
--- ============================================================================
+CREATE INDEX idx_device_inventories_warehouse_id
+    ON device_inventories(warehouse_id);
 
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM warehouses
-        WHERE tenant_id IS NULL
-    ) THEN
-        RAISE EXCEPTION
-            '015_wms_tenant: warehouses contains rows without tenant_id; backfill tenant_id before applying this migration';
-    END IF;
+CREATE INDEX idx_device_inventories_location_id
+    ON device_inventories(location_id);
 
-    IF EXISTS (
-        SELECT 1
-        FROM shipments
-        WHERE tenant_id IS NULL
-    ) THEN
-        RAISE EXCEPTION
-            '015_wms_tenant: shipments contains rows without tenant_id; backfill tenant_id before applying this migration';
-    END IF;
-END
-$$;
+CREATE INDEX idx_device_inventories_status
+    ON device_inventories(status);
 
-ALTER TABLE warehouses
-    ALTER COLUMN tenant_id SET NOT NULL;
 
-ALTER TABLE shipments
-    ALTER COLUMN tenant_id SET NOT NULL;
+CREATE TABLE shipments (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    sales_order_id BIGINT,
+    external_order_id VARCHAR(255),
+    carrier VARCHAR(100) NOT NULL,
+    tracking_number VARCHAR(255),
+    status VARCHAR(50) NOT NULL,
+    shipped_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-COMMIT;
+CREATE INDEX idx_shipments_tenant_id
+    ON shipments(tenant_id);
+
+CREATE INDEX idx_shipments_sales_order_id
+    ON shipments(sales_order_id);
+
+CREATE INDEX idx_shipments_external_order_id
+    ON shipments(external_order_id);
+
+CREATE INDEX idx_shipments_tracking_number
+    ON shipments(tracking_number);
+
+CREATE INDEX idx_shipments_status
+    ON shipments(status);
+
+
+CREATE TABLE shipment_items (
+    id BIGSERIAL PRIMARY KEY,
+    shipment_id BIGINT NOT NULL,
+    device_id BIGINT NOT NULL,
+    sales_order_item_id BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_shipment_items_shipment_id
+    ON shipment_items(shipment_id);
+
+CREATE INDEX idx_shipment_items_device_id
+    ON shipment_items(device_id);
+
+CREATE INDEX idx_shipment_items_sales_order_item_id
+    ON shipment_items(sales_order_item_id);
+
+
+CREATE TABLE shipment_tracking_events (
+    id BIGSERIAL PRIMARY KEY,
+    shipment_id BIGINT NOT NULL,
+    external_event_id VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    location VARCHAR(255),
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_shipment_tracking_events_shipment_id
+    ON shipment_tracking_events(shipment_id);
+
+CREATE INDEX idx_shipment_tracking_events_external_event_id
+    ON shipment_tracking_events(external_event_id);
+
+CREATE INDEX idx_shipment_tracking_events_status
+    ON shipment_tracking_events(status);
+
+CREATE INDEX idx_shipment_tracking_events_occurred_at
+    ON shipment_tracking_events(occurred_at);
