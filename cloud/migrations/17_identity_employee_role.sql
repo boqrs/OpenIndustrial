@@ -10,7 +10,7 @@ SELECT
     t.id,
     'Employee',
     'Tenant employee',
-    TRUE
+    FALSE
 FROM tenants t
 WHERE t.code IN ('suzhou', 'dongguan', 'chengdu')
   AND NOT EXISTS (

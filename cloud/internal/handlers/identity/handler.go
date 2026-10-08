@@ -63,6 +63,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 		h.auth.RequireAdmin())
 
 	adminGroup.Handle(http.MethodPost, "/identity/invitations", h.handleInviteUser)
+	adminGroup.Handle(http.MethodGet, "/identity/roles", h.ListRoles)
 
 	users := adminGroup.Group("/users")
 	users.Handle(http.MethodGet, "/lists", h.handleListUsers)
@@ -492,4 +493,29 @@ func (h *Handler) handleRequestAccess(
 	}
 
 	return ginx.Success(nil)
+}
+
+func (h *Handler) ListRoles(c *gin.Context) ginx.Render {
+	tenantID, err := middleware.GetTenantIDFromContextV2(c)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	roles, err := h.service.ListRoles(
+		c.Request.Context(),
+		tenantID,
+	)
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	response := make([]*srv.RoleResponse, 0, len(roles))
+	for _, role := range roles {
+		response = append(
+			response,
+			srv.NewRoleResponse(role),
+		)
+	}
+
+	return ginx.Success(response)
 }

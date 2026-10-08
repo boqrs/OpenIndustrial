@@ -25,11 +25,10 @@ type RefreshTokenRequest struct {
 // =====================================================
 // Access Request
 // =====================================================
-
 // RequestAccessRequest is submitted by a user who wants to join a tenant.
 //
-// It does NOT create a User.
-// It only notifies the tenant administrator.
+// The request creates a User in init state.
+// The tenant administrator can later invite the user.
 type RequestAccessRequest struct {
 	TenantCode string `json:"tenant_code" validate:"required"`
 	Name       string `json:"name" validate:"required"`
