@@ -178,7 +178,7 @@ func (h *Handler) handleInviteUser(ctx *gin.Context) ginx.Render {
 	}
 
 	userId, err := middleware.GetUserIDFromContext(ctx)
-	if err == nil {
+	if err != nil {
 
 		return ginx.Error(fmt.Errorf("user id is error"))
 	}
