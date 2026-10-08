@@ -364,8 +364,8 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	//eventPubSub := event.NewEventPubSub()
 
 	authService := middleware.NewAuthService(
-		cfg.UserJwtSecret,
-		permissionRepo,
+		&cfg.UserJwtSecret,
+		userRepo,
 	)
 
 	identityService := idtSrv.NewService(

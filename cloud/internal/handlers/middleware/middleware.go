@@ -2,19 +2,36 @@ package middleware
 
 import (
 	"errors"
+	//"fmt"
+	"context"
 	"net/http"
 	"strings"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+)
 
-	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
+type Permission interface {
+	CheckRolePermission(
+		ctx context.Context,
+		tenantID uint,
+		roleID uint,
+		permissionName string,
+	) (bool, error)
+}
+
+const (
+	contextUserID   = "user_id"
+	contextTenantID = "tenant_id"
+	contextRoleID   = "role_id"
+	contextClaims   = "auth_claims"
 )
 
 type service struct {
-	jwtSecret string
-	repo      identity.PermissionRepository
+	jwtSecret *string
+	perm      Permission
 }
 
 type Service interface {
@@ -23,25 +40,27 @@ type Service interface {
 }
 
 func NewAuthService(
-	jwtSecret string,
-	repo identity.PermissionRepository,
+	jwtSecret *string,
+	repo Permission,
 ) Service {
 	return &service{
 		jwtSecret: jwtSecret,
-		repo:      repo,
+		perm:      repo,
 	}
 }
 
 // Authenticate validates the JWT access token and stores the
-// authenticated user information in the Gin context.
+// authenticated identity information in the Gin context.
 //
 // Context values:
 //
 //	user_id   -> uuid.UUID
 //	tenant_id -> uint
+//	role_id   -> uint
+//	auth_claims -> jwt.MapClaims
 func (s *service) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if s.jwtSecret == "" {
+		if s.jwtSecret == nil || *s.jwtSecret == "" {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"error": "jwt secret is not configured",
 			})
@@ -79,12 +98,12 @@ func (s *service) Authenticate() gin.HandlerFunc {
 		token, err := jwt.Parse(
 			tokenString,
 			func(token *jwt.Token) (interface{}, error) {
-				// Only accept HMAC signing methods.
+				// Only accept HMAC SHA-256.
 				if token.Method != jwt.SigningMethodHS256 {
 					return nil, errors.New("unexpected signing method")
 				}
 
-				return []byte(s.jwtSecret), nil
+				return []byte(*s.jwtSecret), nil
 			},
 		)
 		if err != nil {
@@ -109,9 +128,10 @@ func (s *service) Authenticate() gin.HandlerFunc {
 			return
 		}
 
-		// jwt/v5 validates registered claims such as exp when
-		// Parse is used with MapClaims, but we still explicitly
-		// check the token type below.
+		// --------------------------------------------------------
+		// token_type
+		// --------------------------------------------------------
+
 		tokenType, ok := claims["token_type"].(string)
 		if !ok || tokenType == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -127,7 +147,10 @@ func (s *service) Authenticate() gin.HandlerFunc {
 			return
 		}
 
-		// user_id is stored as UUID string in JWT.
+		// --------------------------------------------------------
+		// user_id
+		// --------------------------------------------------------
+
 		userIDRaw, ok := claims["user_id"].(string)
 		if !ok || userIDRaw == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -137,17 +160,17 @@ func (s *service) Authenticate() gin.HandlerFunc {
 		}
 
 		userID, err := uuid.Parse(userIDRaw)
-		if err != nil {
+		if err != nil || userID == uuid.Nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid user_id",
 			})
 			return
 		}
 
-		// tenant_id is stored as a numeric JWT claim.
-		//
-		// JSON numbers are decoded into float64 by MapClaims,
-		// so we convert it explicitly to uint.
+		// --------------------------------------------------------
+		// tenant_id
+		// --------------------------------------------------------
+
 		tenantIDRaw, ok := claims["tenant_id"].(float64)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -156,7 +179,8 @@ func (s *service) Authenticate() gin.HandlerFunc {
 			return
 		}
 
-		if tenantIDRaw <= 0 || tenantIDRaw != float64(uint(tenantIDRaw)) {
+		if tenantIDRaw <= 0 ||
+			tenantIDRaw != float64(uint(tenantIDRaw)) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid tenant_id",
 			})
@@ -165,21 +189,57 @@ func (s *service) Authenticate() gin.HandlerFunc {
 
 		tenantID := uint(tenantIDRaw)
 
-		c.Set("user_id", userID)
-		c.Set("tenant_id", tenantID)
-		c.Set("auth_claims", claims)
+		// --------------------------------------------------------
+		// role_id
+		// --------------------------------------------------------
+
+		roleIDRaw, ok := claims["role_id"].(float64)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid role_id",
+			})
+			return
+		}
+
+		if roleIDRaw <= 0 ||
+			roleIDRaw != float64(uint(roleIDRaw)) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid role_id",
+			})
+			return
+		}
+
+		roleID := uint(roleIDRaw)
+
+		// --------------------------------------------------------
+		// Store authenticated identity in context.
+		// --------------------------------------------------------
+
+		c.Set(contextUserID, userID)
+		c.Set(contextTenantID, tenantID)
+		c.Set(contextRoleID, roleID)
+		c.Set(contextClaims, claims)
 
 		c.Next()
 	}
 }
 
-// RequirePermission checks whether the authenticated user
+// RequirePermission checks whether the authenticated user's role
 // has the specified permission.
 //
 // Authentication must be applied before this middleware.
-func (s *service) RequirePermission(permissionKey string) gin.HandlerFunc {
+func (s *service) RequirePermission(
+	permissionKey string,
+) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, err := GetUserIDFromContext(c)
+		if permissionKey == "" {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": "permission key is empty",
+			})
+			return
+		}
+
+		tenantID, err := GetTenantIDFromContextV2(c)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": err.Error(),
@@ -187,30 +247,30 @@ func (s *service) RequirePermission(permissionKey string) gin.HandlerFunc {
 			return
 		}
 
-		// tenantID, err := GetTenantIDFromContext(c)
-		// if err != nil {
-		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-		// 		"error": err.Error(),
-		// 	})
-		// 	return
-		// }
+		roleID, err := GetRoleIDFromContext(c)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 
-		if s.repo == nil {
+		if s.perm == nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"error": "permission repository is not configured",
 			})
 			return
 		}
 
-		hasPermission, err := s.repo.CheckPermissionForUser(
+		hasPermission, err := s.perm.CheckRolePermission(
 			c.Request.Context(),
-			//tenantID,
-			userID,
+			tenantID,
+			roleID,
 			permissionKey,
 		)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
+				"error": "failed to check permission",
 			})
 			return
 		}
@@ -224,6 +284,25 @@ func (s *service) RequirePermission(permissionKey string) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// GetRoleIDFromContext returns the authenticated role ID.
+func GetRoleIDFromContext(c *gin.Context) (uint, error) {
+	value, exists := c.Get(contextRoleID)
+	if !exists {
+		return 0, errors.New("role_id not found in context")
+	}
+
+	roleID, ok := value.(uint)
+	if !ok {
+		return 0, errors.New("invalid role_id in context")
+	}
+
+	if roleID == 0 {
+		return 0, errors.New("invalid role_id in context")
+	}
+
+	return roleID, nil
 }
 
 // GetTenantIDFromContext returns the authenticated tenant ID.
