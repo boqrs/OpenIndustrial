@@ -66,6 +66,9 @@ type InviteUserRequest struct {
 	// 用户邮箱
 	Email string `json:"email" validate:"required,email"`
 
+	// 用户角色
+	RoleID uint `json:"role_id" validate:"required"`
+
 	// 创建人
 	//
 	// 当前管理员用户
@@ -101,6 +104,8 @@ type CreateUserRequest struct {
 	Name string `json:"name" validate:"required"`
 
 	Email string `json:"email" validate:"required,email"`
+
+	RoleID uint `json:"role_id" validate:"required"`
 
 	UserType string `json:"user_type"`
 

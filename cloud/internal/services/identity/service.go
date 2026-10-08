@@ -13,7 +13,13 @@ import (
 var (
 	ErrInvalidCredential = errors.New("invalid credential")
 	ErrUserDisabled      = errors.New("user disabled")
+
 	ErrInvitationInvalid = errors.New("invalid invitation")
+	ErrInvitationExpired = errors.New("invitation expired")
+	ErrInvitationUsed    = errors.New("invitation already used")
+
+	ErrRoleInvalid   = errors.New("invalid role")
+	ErrUserNotActive = errors.New("user is not active")
 )
 
 type service struct {
@@ -56,7 +62,7 @@ func (s *service) Login(
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidCredential
 	}
 
 	user, err := s.repo.GetUserByEmail(
@@ -69,8 +75,12 @@ func (s *service) Login(
 		return nil, ErrInvalidCredential
 	}
 
-	if user.Status != model.UserStatusActive {
+	if user.Status == model.UserStatusDisabled {
 		return nil, ErrUserDisabled
+	}
+
+	if user.Status != model.UserStatusActive {
+		return nil, ErrInvalidCredential
 	}
 
 	principal, err := s.repo.GetPrincipal(
@@ -81,6 +91,10 @@ func (s *service) Login(
 	)
 
 	if err != nil {
+		return nil, ErrInvalidCredential
+	}
+
+	if principal.Status != model.UserStatusActive {
 		return nil, ErrInvalidCredential
 	}
 
@@ -153,7 +167,7 @@ func (s *service) RefreshToken(
 		)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidCredential
 	}
 
 	user, err :=
@@ -164,7 +178,15 @@ func (s *service) RefreshToken(
 		)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidCredential
+	}
+
+	if user.Status != model.UserStatusActive {
+		if user.Status == model.UserStatusDisabled {
+			return nil, ErrUserDisabled
+		}
+
+		return nil, ErrUserNotActive
 	}
 
 	accessToken, err :=
@@ -208,11 +230,32 @@ func (s *service) InviteUser(
 	req InviteUserRequest,
 ) error {
 
+	if req.TenantID == 0 ||
+		req.CreatedBy == 0 ||
+		req.RoleID == 0 {
+
+		return ErrInvalidCredential
+	}
+
+	// Role必须属于当前Tenant。
+	_, err :=
+		s.repo.GetRoleByID(
+			ctx,
+			req.TenantID,
+			req.RoleID,
+		)
+
+	if err != nil {
+		return ErrRoleInvalid
+	}
+
 	user := &model.User{
 
 		UUID: uuid.New(),
 
 		TenantID: req.TenantID,
+
+		RoleID: req.RoleID,
 
 		Name: req.Name,
 
@@ -274,7 +317,9 @@ func (s *service) InviteUser(
 	// 发送:
 	//
 	// /register?token=<token>
-
+	//
+	// 当前阶段先保留token生成逻辑。
+	// 后续接入Email Provider后，由通知层负责发送。
 	_ = token
 
 	return nil
@@ -285,9 +330,8 @@ func (s *service) AcceptInvitation(
 	req AcceptInvitationRequest,
 ) error {
 
-	invitation, err :=
-		s.repo.GetInvitationByToken(
-			ctx,
+	tokenHash, err :=
+		HashToken(
 			req.Token,
 		)
 
@@ -295,21 +339,41 @@ func (s *service) AcceptInvitation(
 		return ErrInvitationInvalid
 	}
 
-	if invitation.UsedAt != nil ||
-		time.Now().After(invitation.ExpiresAt) {
-
-		return ErrInvitationInvalid
-	}
-
-	user, err :=
-		s.repo.GetUserByID(
+	invitation, err :=
+		s.repo.GetInvitationByToken(
 			ctx,
-			invitation.TenantID,
-			invitation.User.UUID,
+			tokenHash,
 		)
 
 	if err != nil {
-		return err
+		return ErrInvitationInvalid
+	}
+
+	if invitation.UsedAt != nil {
+		return ErrInvitationUsed
+	}
+
+	if !invitation.ExpiresAt.After(time.Now()) {
+		return ErrInvitationExpired
+	}
+
+	user, err := s.repo.GetUserByEmail(
+		ctx,
+		invitation.TenantID,
+		invitation.Email,
+	)
+
+	if err != nil {
+		return ErrInvitationInvalid
+	}
+
+	if user.Status != model.UserStatusInvited {
+		return ErrInvitationInvalid
+	}
+
+	// 防止用户邮箱已经被其他流程修改。
+	if user.Email != invitation.Email {
+		return ErrInvitationInvalid
 	}
 
 	hash, err :=
@@ -335,6 +399,8 @@ func (s *service) AcceptInvitation(
 			Identifier: user.Email,
 
 			SecretHash: hash,
+
+			Status: model.UserStatusActive,
 		}
 
 	if err :=
@@ -381,8 +447,10 @@ func (s *service) GetInvitation(
 	error,
 ) {
 
-	return nil, errors.New(
-		"repository method required",
+	return s.repo.GetInvitationByID(
+		ctx,
+		tenantID,
+		id,
 	)
 }
 
@@ -398,11 +466,31 @@ func (s *service) CreateUser(
 	error,
 ) {
 
+	if req.TenantID == 0 ||
+		req.RoleID == 0 {
+
+		return nil, ErrRoleInvalid
+	}
+
+	// Role必须属于当前Tenant。
+	_, err :=
+		s.repo.GetRoleByID(
+			ctx,
+			req.TenantID,
+			req.RoleID,
+		)
+
+	if err != nil {
+		return nil, ErrRoleInvalid
+	}
+
 	user := &model.User{
 
 		UUID: req.UUID,
 
 		TenantID: req.TenantID,
+
+		RoleID: req.RoleID,
 
 		Name: req.Name,
 
@@ -479,7 +567,6 @@ func (s *service) ListUsers(
 	error,
 ) {
 
-	// repository负责tenant隔离
 	return s.repo.ListUsers(
 		ctx,
 		req.TenantID,
@@ -591,6 +678,10 @@ func (s *service) UpdatePassword(
 		return err
 	}
 
+	if user.Status != model.UserStatusActive {
+		return ErrUserNotActive
+	}
+
 	principal, err :=
 		s.repo.GetPrincipal(
 			ctx,
@@ -625,12 +716,9 @@ func (s *service) UpdatePassword(
 	principal.SecretHash =
 		hash
 
-	// 当前repo缺少UpdatePrincipal
-	//
-	// 后续补充
-
-	return errors.New(
-		"UpdatePrincipal repository method required",
+	return s.repo.UpdatePrincipal(
+		ctx,
+		principal,
 	)
 }
 
@@ -648,6 +736,10 @@ func (s *service) ResetPassword(
 
 	if err != nil {
 		return err
+	}
+
+	if user.Status != model.UserStatusActive {
+		return ErrUserNotActive
 	}
 
 	principal, err :=
@@ -674,8 +766,9 @@ func (s *service) ResetPassword(
 	principal.SecretHash =
 		hash
 
-	return errors.New(
-		"UpdatePrincipal repository method required",
+	return s.repo.UpdatePrincipal(
+		ctx,
+		principal,
 	)
 }
 

@@ -2,6 +2,7 @@ package identity
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"time"
@@ -28,11 +29,10 @@ func HashPassword(
 	error,
 ) {
 
-	hash, err :=
-		bcrypt.GenerateFromPassword(
-			[]byte(password),
-			passwordCost,
-		)
+	hash, err := bcrypt.GenerateFromPassword(
+		[]byte(password),
+		passwordCost,
+	)
 
 	if err != nil {
 		return "",
@@ -50,11 +50,10 @@ func VerifyPassword(
 	password string,
 ) bool {
 
-	err :=
-		bcrypt.CompareHashAndPassword(
-			[]byte(hash),
-			[]byte(password),
-		)
+	err := bcrypt.CompareHashAndPassword(
+		[]byte(hash),
+		[]byte(password),
+	)
 
 	return err == nil
 }
@@ -67,6 +66,8 @@ type IdentityClaims struct {
 	UserID uuid.UUID `json:"user_id"`
 
 	TenantID uint `json:"tenant_id"`
+
+	RoleID uint `json:"role_id"`
 
 	TokenType string `json:"token_type"`
 
@@ -91,30 +92,31 @@ func GenerateAccessToken(
 	error,
 ) {
 
-	claims :=
-		IdentityClaims{
+	claims := IdentityClaims{
 
-			UserID: user.UUID,
+		UserID: user.UUID,
 
-			TenantID: user.TenantID,
+		TenantID: user.TenantID,
 
-			TokenType: TokenTypeAccess,
+		RoleID: user.RoleID,
 
-			RegisteredClaims: jwt.RegisteredClaims{
+		TokenType: TokenTypeAccess,
 
-				ExpiresAt: jwt.NewNumericDate(
-					time.Now().
-						Add(expire),
-				),
+		RegisteredClaims: jwt.RegisteredClaims{
 
-				IssuedAt: jwt.NewNumericDate(
-					time.Now(),
-				),
+			ExpiresAt: jwt.NewNumericDate(
+				time.Now().
+					Add(expire),
+			),
 
-				ID: uuid.New().
-					String(),
-			},
-		}
+			IssuedAt: jwt.NewNumericDate(
+				time.Now(),
+			),
+
+			ID: uuid.New().
+				String(),
+		},
+	}
 
 	return signJWT(
 		secret,
@@ -134,30 +136,31 @@ func GenerateRefreshToken(
 	error,
 ) {
 
-	claims :=
-		IdentityClaims{
+	claims := IdentityClaims{
 
-			UserID: user.UUID,
+		UserID: user.UUID,
 
-			TenantID: user.TenantID,
+		TenantID: user.TenantID,
 
-			TokenType: TokenTypeRefresh,
+		RoleID: user.RoleID,
 
-			RegisteredClaims: jwt.RegisteredClaims{
+		TokenType: TokenTypeRefresh,
 
-				ExpiresAt: jwt.NewNumericDate(
-					time.Now().
-						Add(expire),
-				),
+		RegisteredClaims: jwt.RegisteredClaims{
 
-				IssuedAt: jwt.NewNumericDate(
-					time.Now(),
-				),
+			ExpiresAt: jwt.NewNumericDate(
+				time.Now().
+					Add(expire),
+			),
 
-				ID: uuid.New().
-					String(),
-			},
-		}
+			IssuedAt: jwt.NewNumericDate(
+				time.Now(),
+			),
+
+			ID: uuid.New().
+				String(),
+		},
+	}
 
 	return signJWT(
 		secret,
@@ -174,11 +177,10 @@ func signJWT(
 	error,
 ) {
 
-	token :=
-		jwt.NewWithClaims(
-			jwt.SigningMethodHS256,
-			claims,
-		)
+	token := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		claims,
+	)
 
 	return token.SignedString(
 		[]byte(secret),
@@ -196,27 +198,24 @@ func ParseRefreshToken(
 	error,
 ) {
 
-	token, err :=
-		jwt.ParseWithClaims(
-			tokenString,
-			&IdentityClaims{},
-			func(token *jwt.Token) (
-				interface{},
-				error,
-			) {
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&IdentityClaims{},
+		func(token *jwt.Token) (
+			interface{},
+			error,
+		) {
 
-				if _, ok :=
-					token.Method.(*jwt.SigningMethodHMAC); !ok {
+			if token.Method != jwt.SigningMethodHS256 {
+				return nil,
+					errors.New(
+						"invalid signing method",
+					)
+			}
 
-					return nil,
-						errors.New(
-							"invalid signing method",
-						)
-				}
-
-				return []byte(secret), nil
-			},
-		)
+			return []byte(secret), nil
+		},
+	)
 
 	if err != nil {
 		return nil, err
@@ -242,6 +241,16 @@ func ParseRefreshToken(
 			)
 	}
 
+	if claims.UserID == uuid.Nil ||
+		claims.TenantID == 0 ||
+		claims.RoleID == 0 {
+
+		return nil,
+			errors.New(
+				"invalid identity claims",
+			)
+	}
+
 	return claims, nil
 }
 
@@ -261,8 +270,7 @@ func GenerateInvitationToken() (
 	error,
 ) {
 
-	buf :=
-		make([]byte, 32)
+	buf := make([]byte, 32)
 
 	_, err :=
 		rand.Read(buf)
@@ -274,18 +282,15 @@ func GenerateInvitationToken() (
 			err
 	}
 
-	token :=
-		hex.EncodeToString(
-			buf,
-		)
+	token := hex.EncodeToString(
+		buf,
+	)
 
-	hash, err :=
-		HashToken(
-			token,
-		)
+	hash, err := HashToken(
+		token,
+	)
 
 	if err != nil {
-
 		return "",
 			"",
 			err
@@ -294,6 +299,13 @@ func GenerateInvitationToken() (
 	return token, hash, nil
 }
 
+// HashToken
+//
+// Invitation Token 使用 SHA-256 做确定性 hash。
+//
+// 与密码不同，Invitation Token 本身已经是高熵随机值，
+// 因此不需要 bcrypt 的随机 salt。
+// Repository 可以直接通过 hash 查询 invitation。
 func HashToken(
 	token string,
 ) (
@@ -301,28 +313,37 @@ func HashToken(
 	error,
 ) {
 
-	hash, err :=
-		bcrypt.GenerateFromPassword(
-			[]byte(token),
-			bcrypt.DefaultCost,
-		)
-
-	if err != nil {
-
+	if token == "" {
 		return "",
-			err
+			errors.New(
+				"token is empty",
+			)
 	}
 
-	return string(hash), nil
+	digest := sha256.Sum256(
+		[]byte(token),
+	)
+
+	return hex.EncodeToString(
+		digest[:],
+	), nil
 }
 
+// VerifyToken
+//
+// 校验 Invitation Token。
 func VerifyToken(
 	hash string,
 	token string,
 ) bool {
 
-	return bcrypt.CompareHashAndPassword(
-		[]byte(hash),
-		[]byte(token),
-	) == nil
+	computed, err := HashToken(
+		token,
+	)
+
+	if err != nil {
+		return false
+	}
+
+	return computed == hash
 }

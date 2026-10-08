@@ -36,16 +36,27 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 
 	group := router.Group("/api/v1/external")
 
-	group.Handle(http.MethodPost, "/login", h.handleLogin) //todo: 前端需要修改
+	group.Handle(http.MethodPost, "/login", h.handleLogin)
 	group.Handle(http.MethodPost, "/logout", h.handleLogout)
 	group.Handle(http.MethodPost, "/refresh", h.handleRefreshToken)
-
-	// invitation
+	// =====================================================
+	// Public Invitation
+	// =====================================================
+	//
+	// 首次注册没有JWT。
+	//
+	// 用户通过邮件中的token完成注册，
+	// 因此AcceptInvitation必须是公开接口。
+	//
+	group.Handle(http.MethodPost, "/identity/invitations/accept", h.handleAcceptInvitation)
+	// =====================================================
+	// Authenticated
+	// =====================================================
 	authGroup := router.Group("/api/v1/external")
 	authGroup.Use(h.auth.Authenticate())
-	authGroup.Handle(http.MethodPost, "/identity/invitations", h.handleInviteUser)
-	authGroup.Handle(http.MethodPost, "/identity/invitations/accept", h.handleAcceptInvitation)
 
+	// invitation
+	authGroup.Handle(http.MethodPost, "/identity/invitations", h.handleInviteUser)
 	// users
 	users := authGroup.Group("/users")
 	users.Handle(http.MethodGet, "/lists", h.handleListUsers)
