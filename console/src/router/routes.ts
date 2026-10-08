@@ -4,7 +4,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: "/login",
     name: "Login",
-    component: () => import("../views/Login.vue"),
+    component: () => import("../views/login/Login.vue"),
     meta: {
       guestOnly: true,
     },
@@ -13,7 +13,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: "/access-request",
     name: "AccessRequest",
-    component: () => import("../views/AccessRequest.vue"),
+    component: () => import("../views/login/AccessRequest.vue"),
     meta: {
       guestOnly: true,
     },
@@ -22,7 +22,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: "/dashboard",
     name: "Dashboard",
-    component: () => import("../views/Dashboard.vue"),
+    component: () => import("../views/dashboard/Dashboard.vue"),
     meta: {
       requiresAuth: true,
     },

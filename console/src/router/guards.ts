@@ -6,7 +6,7 @@ export function setupRouterGuards(router: Router) {
 
     const requiresAuth = to.meta.requiresAuth === true;
 
-    const isGuestOnly = to.meta.guestOnly === true;
+    const guestOnly = to.meta.guestOnly === true;
 
     if (requiresAuth && !accessToken) {
       return {
@@ -17,7 +17,7 @@ export function setupRouterGuards(router: Router) {
       };
     }
 
-    if (isGuestOnly && accessToken) {
+    if (guestOnly && accessToken) {
       return "/dashboard";
     }
 

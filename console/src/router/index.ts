@@ -5,6 +5,7 @@ import { setupRouterGuards } from "./guards";
 
 const router = createRouter({
   history: createWebHistory(),
+
   routes,
 });
 

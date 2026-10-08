@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 
-import { requestAccess as requestAccessApi } from "../api/auth";
+import { requestAccess as requestAccessApi } from "../../api/auth";
 
 const router = useRouter();
 const route = useRoute();
@@ -17,7 +17,7 @@ const email = ref(String(route.query.email || ""));
 const loading = ref(false);
 const submitted = ref(false);
 
-const handleSubmit = async () => {
+async function handleSubmit() {
   if (!tenantCode.value.trim()) {
     ElMessage.error("请输入工厂代码");
     return;
@@ -52,22 +52,24 @@ const handleSubmit = async () => {
   } finally {
     loading.value = false;
   }
-};
+}
 
-const backToLogin = () => {
+function backToLogin() {
   router.replace({
     path: "/login",
+
     query: {
       tenant_code: tenantCode.value.trim(),
+
       email: email.value.trim(),
     },
   });
-};
+}
 </script>
 
 <template>
-  <div class="access-request-page">
-    <div class="access-request-card">
+  <div class="page">
+    <div class="card">
       <template v-if="!submitted">
         <div class="header">
           <div class="brand-mark">ID</div>
@@ -123,7 +125,7 @@ const backToLogin = () => {
         </form>
 
         <div class="footer">
-          <button type="button" class="back-button" @click="backToLogin">
+          <button type="button" class="back" @click="backToLogin">
             返回登录
           </button>
         </div>
@@ -147,21 +149,28 @@ const backToLogin = () => {
 </template>
 
 <style scoped>
-.access-request-page {
+.page {
   min-height: 100vh;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   padding: 40px 24px;
+
   background: #0e1f33;
 }
 
-.access-request-card {
+.card {
   width: 100%;
   max-width: 460px;
+
   padding: 42px;
+
   background: #ffffff;
+
   border-radius: 8px;
+
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
 
@@ -172,6 +181,7 @@ const backToLogin = () => {
 .brand-mark {
   width: 42px;
   height: 42px;
+
   margin-bottom: 22px;
 
   display: flex;
@@ -179,14 +189,17 @@ const backToLogin = () => {
   justify-content: center;
 
   background: #0e1f33;
+
   color: #f0a030;
 
   font-size: 14px;
   font-weight: 700;
+
   letter-spacing: 1px;
 }
 
-h1 {
+.header h1,
+.success h1 {
   margin: 0 0 12px;
 
   color: #0e1f33;
@@ -197,23 +210,24 @@ h1 {
 
 .header p,
 .success p {
-  margin: 0;
-
   color: #667085;
 
   font-size: 14px;
+
   line-height: 1.7;
 }
 
 .form {
   display: flex;
   flex-direction: column;
+
   gap: 20px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
+
   gap: 8px;
 }
 
@@ -226,20 +240,19 @@ h1 {
 
 .field input {
   width: 100%;
+  height: 44px;
+
   box-sizing: border-box;
 
-  padding: 12px 14px;
+  padding: 0 14px;
 
   border: 1px solid #d0d5dd;
+
   border-radius: 4px;
 
   outline: none;
 
   font-size: 14px;
-
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
 }
 
 .field input:focus {
@@ -256,12 +269,11 @@ h1 {
   border-radius: 4px;
 
   background: #0e1f33;
+
   color: #ffffff;
 
   font-size: 14px;
   font-weight: 500;
-
-  cursor: pointer;
 }
 
 .form > button:hover,
@@ -271,27 +283,29 @@ h1 {
 
 .form > button:disabled {
   opacity: 0.6;
+
   cursor: not-allowed;
 }
 
 .footer {
   margin-top: 24px;
+
   text-align: center;
 }
 
-.back-button {
-  border: 0;
+.back {
   padding: 0;
 
+  border: 0;
+
   background: transparent;
+
   color: #667085;
 
   font-size: 14px;
-
-  cursor: pointer;
 }
 
-.back-button:hover {
+.back:hover {
   color: #0e1f33;
 }
 
@@ -312,14 +326,11 @@ h1 {
   border-radius: 50%;
 
   background: #edf7ed;
+
   color: #2e7d32;
 
   font-size: 28px;
   font-weight: 600;
-}
-
-.success h1 {
-  margin-bottom: 16px;
 }
 
 .success p + p {
@@ -328,6 +339,7 @@ h1 {
 
 .success > button {
   width: 100%;
+
   margin-top: 28px;
 }
 </style>

@@ -1,10 +1,18 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 
-import type { LoginResponse, User } from "../api/auth";
+import {
+  login as loginApi,
+  logout as logoutApi,
+  type LoginRequest,
+  type LoginResponse,
+  type User,
+} from "../api/auth";
 
 const ACCESS_TOKEN_KEY = "access_token";
+
 const REFRESH_TOKEN_KEY = "refresh_token";
+
 const AUTH_USER_KEY = "auth_user";
 
 export const useAuthStore = defineStore("auth", () => {
@@ -18,18 +26,36 @@ export const useAuthStore = defineStore("auth", () => {
 
   const isAuthenticated = computed(() => Boolean(accessToken.value));
 
-  function setSession(response: LoginResponse, remember = true) {
+  async function login(data: LoginRequest): Promise<LoginResponse> {
+    const response = await loginApi(data);
+
+    setSession(response);
+
+    return response;
+  }
+
+  async function logout() {
+    try {
+      if (accessToken.value) {
+        await logoutApi();
+      }
+    } finally {
+      clearSession();
+    }
+  }
+
+  function setSession(response: LoginResponse) {
     accessToken.value = response.access_token;
+
     refreshToken.value = response.refresh_token;
+
     user.value = response.user;
 
-    if (remember) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
+    localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
 
-      localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
+    localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
 
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
-    }
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
   }
 
   function clearSession() {
@@ -49,6 +75,10 @@ export const useAuthStore = defineStore("auth", () => {
     refreshToken,
     user,
     isAuthenticated,
+
+    login,
+    logout,
+
     setSession,
     clearSession,
   };
