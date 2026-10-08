@@ -26,6 +26,19 @@ function clearAuth() {
   localStorage.removeItem("auth_user");
 }
 
+function isPublicAuthRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false;
+  }
+
+  return (
+    url.includes("/login") ||
+    url.includes("/refresh") ||
+    url.includes("/identity/access-requests") ||
+    url.includes("/identity/invitations/accept")
+  );
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const token = getRefreshToken();
 
@@ -60,16 +73,14 @@ async function refreshAccessToken(): Promise<string | null> {
       const accessToken = data?.access_token;
       const refreshToken = data?.refresh_token;
 
-      if (!accessToken) {
+      if (!accessToken || !refreshToken) {
         clearAuth();
         return null;
       }
 
       localStorage.setItem("access_token", accessToken);
 
-      if (refreshToken) {
-        localStorage.setItem("refresh_token", refreshToken);
-      }
+      localStorage.setItem("refresh_token", refreshToken);
 
       return accessToken;
     })
@@ -115,11 +126,13 @@ request.interceptors.response.use(
         })
       | undefined;
 
+    const isPublicRequest = isPublicAuthRequest(originalRequest?.url);
+
     if (
       status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/refresh")
+      !isPublicRequest
     ) {
       originalRequest._retry = true;
 

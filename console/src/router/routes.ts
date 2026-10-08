@@ -20,6 +20,15 @@ export const routes: RouteRecordRaw[] = [
   },
 
   {
+    path: "/invitation/accept",
+    name: "AcceptInvitation",
+    component: () => import("../views/login/AcceptInvitation.vue"),
+    meta: {
+      guestOnly: true,
+    },
+  },
+
+  {
     path: "/dashboard",
     name: "Dashboard",
     component: () => import("../views/dashboard/Dashboard.vue"),

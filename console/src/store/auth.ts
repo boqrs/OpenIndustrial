@@ -10,9 +10,7 @@ import {
 } from "../api/auth";
 
 const ACCESS_TOKEN_KEY = "access_token";
-
 const REFRESH_TOKEN_KEY = "refresh_token";
-
 const AUTH_USER_KEY = "auth_user";
 
 export const useAuthStore = defineStore("auth", () => {
@@ -46,9 +44,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   function setSession(response: LoginResponse) {
     accessToken.value = response.access_token;
-
     refreshToken.value = response.refresh_token;
-
     user.value = response.user;
 
     localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
@@ -58,15 +54,22 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
   }
 
+  function setTokens(newAccessToken: string, newRefreshToken: string) {
+    accessToken.value = newAccessToken;
+    refreshToken.value = newRefreshToken;
+
+    localStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken);
+
+    localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+  }
+
   function clearSession() {
     accessToken.value = "";
     refreshToken.value = "";
     user.value = null;
 
     localStorage.removeItem(ACCESS_TOKEN_KEY);
-
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-
     localStorage.removeItem(AUTH_USER_KEY);
   }
 
@@ -80,6 +83,7 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
 
     setSession,
+    setTokens,
     clearSession,
   };
 });
