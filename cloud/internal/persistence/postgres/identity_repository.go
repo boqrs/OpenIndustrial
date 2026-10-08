@@ -9,41 +9,30 @@ import (
 	"github.com/google/uuid"
 )
 
+// userRepository implements repository.UserRepository.
+//
+// Identity-related persistence is intentionally kept in one repository:
+// Tenant, User, Role, Permission, Invitation and Principal.
+//
+// The repository does not contain business authorization decisions.
+// It only provides the persistence operations required by the identity
+// service.
 type userRepository struct {
 	db *database.DBProvider
 }
 
-func NewUserRepository(
-	db *database.DBProvider,
-) *userRepository {
+// NewUserRepository creates a new identity repository.
+func NewUserRepository(db *database.DBProvider) *userRepository {
 	return &userRepository{
 		db: db,
 	}
 }
 
-// =====================
+// ============================================================
 // Tenant
-// =====================
+// ============================================================
 
-func (r *userRepository) GetTenantByID(
-	ctx context.Context,
-	id uint,
-) (*model.Tenant, error) {
-	var tenant model.Tenant
-
-	err := r.db.Get().
-		WithContext(ctx).
-		Where("id = ?", id).
-		First(&tenant).
-		Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &tenant, nil
-}
-
+// GetTenantByCode retrieves a tenant by its unique code.
 func (r *userRepository) GetTenantByCode(
 	ctx context.Context,
 	code string,
@@ -53,9 +42,7 @@ func (r *userRepository) GetTenantByCode(
 	err := r.db.Get().
 		WithContext(ctx).
 		Where("code = ?", code).
-		First(&tenant).
-		Error
-
+		First(&tenant).Error
 	if err != nil {
 		return nil, err
 	}
@@ -63,20 +50,43 @@ func (r *userRepository) GetTenantByCode(
 	return &tenant, nil
 }
 
-// =====================
-// User
-// =====================
+// GetTenantByID retrieves a tenant by its primary key.
+func (r *userRepository) GetTenantByID(
+	ctx context.Context,
+	id uint,
+) (*model.Tenant, error) {
+	var tenant model.Tenant
 
+	err := r.db.Get().
+		WithContext(ctx).
+		Where("id = ?", id).
+		First(&tenant).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &tenant, nil
+}
+
+// ============================================================
+// User
+// ============================================================
+
+// CreateUser creates a user inside a tenant.
 func (r *userRepository) CreateUser(
 	ctx context.Context,
 	user *model.User,
 ) error {
+	if user == nil {
+		return fmt.Errorf("user is nil")
+	}
+
 	return r.db.Get().
 		WithContext(ctx).
-		Create(user).
-		Error
+		Create(user).Error
 }
 
+// GetUserByID retrieves a user by tenant and UUID.
 func (r *userRepository) GetUserByID(
 	ctx context.Context,
 	tenantID uint,
@@ -87,13 +97,11 @@ func (r *userRepository) GetUserByID(
 	err := r.db.Get().
 		WithContext(ctx).
 		Where(
-			"uuid = ? AND tenant_id = ?",
-			userID,
+			"tenant_id = ? AND uuid = ?",
 			tenantID,
+			userID,
 		).
-		First(&user).
-		Error
-
+		First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +109,7 @@ func (r *userRepository) GetUserByID(
 	return &user, nil
 }
 
+// GetUserByEmail retrieves a user by tenant and email.
 func (r *userRepository) GetUserByEmail(
 	ctx context.Context,
 	tenantID uint,
@@ -115,9 +124,7 @@ func (r *userRepository) GetUserByEmail(
 			tenantID,
 			email,
 		).
-		First(&user).
-		Error
-
+		First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -125,16 +132,7 @@ func (r *userRepository) GetUserByEmail(
 	return &user, nil
 }
 
-func (r *userRepository) UpdateUser(
-	ctx context.Context,
-	user *model.User,
-) error {
-	return r.db.Get().
-		WithContext(ctx).
-		Save(user).
-		Error
-}
-
+// ListUsers lists users belonging to a tenant.
 func (r *userRepository) ListUsers(
 	ctx context.Context,
 	tenantID uint,
@@ -146,45 +144,65 @@ func (r *userRepository) ListUsers(
 ) ([]*model.User, error) {
 	var users []*model.User
 
-	q := r.db.Get().
+	query := r.db.Get().
 		WithContext(ctx).
 		Where("tenant_id = ?", tenantID)
 
 	if status != "" {
-		q = q.Where("status = ?", status)
+		query = query.Where("status = ?", status)
 	}
 
 	if userType != "" {
-		q = q.Where("user_type = ?", userType)
+		query = query.Where("user_type = ?", userType)
 	}
 
 	if keyword != "" {
-		keywordPattern := "%" + keyword + "%"
+		keyword = "%" + keyword + "%"
 
-		q = q.Where(
+		query = query.Where(
 			"(name ILIKE ? OR email ILIKE ?)",
-			keywordPattern,
-			keywordPattern,
+			keyword,
+			keyword,
 		)
 	}
 
-	err := q.
-		Order("created_at DESC").
-		Limit(limit).
-		Offset(offset).
-		Find(&users).
-		Error
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
 
-	return users, err
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	err := query.
+		Order("id ASC").
+		Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
-// =====================
-// Role
-// =====================
+// UpdateUser updates an existing user.
+func (r *userRepository) UpdateUser(
+	ctx context.Context,
+	user *model.User,
+) error {
+	if user == nil {
+		return fmt.Errorf("user is nil")
+	}
 
-// GetRole returns a role belonging to the specified tenant.
-//
-// Role names are unique within a tenant.
+	return r.db.Get().
+		WithContext(ctx).
+		Save(user).Error
+}
+
+// ============================================================
+// Role
+// ============================================================
+
+// GetRole retrieves a role by tenant and name.
 func (r *userRepository) GetRole(
 	ctx context.Context,
 	tenantID uint,
@@ -199,9 +217,7 @@ func (r *userRepository) GetRole(
 			tenantID,
 			name,
 		).
-		First(&role).
-		Error
-
+		First(&role).Error
 	if err != nil {
 		return nil, err
 	}
@@ -209,10 +225,7 @@ func (r *userRepository) GetRole(
 	return &role, nil
 }
 
-// GetRoleByID returns a role only when it belongs to the specified tenant.
-//
-// tenantID is intentionally part of the query to prevent a role from
-// another tenant from being used.
+// GetRoleByID retrieves a role by tenant and ID.
 func (r *userRepository) GetRoleByID(
 	ctx context.Context,
 	tenantID uint,
@@ -227,9 +240,7 @@ func (r *userRepository) GetRoleByID(
 			roleID,
 			tenantID,
 		).
-		First(&role).
-		Error
-
+		First(&role).Error
 	if err != nil {
 		return nil, err
 	}
@@ -237,17 +248,23 @@ func (r *userRepository) GetRoleByID(
 	return &role, nil
 }
 
-// CheckRolePermission checks whether a role belonging to the specified
-// tenant has the requested permission.
+// CheckRolePermission checks whether a role has a permission.
 //
-// The permission relationship is:
+// Permission resolution:
 //
-// roles
-//   -> role_permissions
-//       -> permissions
+//	User
+//	  |
+//	  v
+//	Role
+//	  |
+//	  v
+//	RolePermission
+//	  |
+//	  v
+//	Permission
 //
-// Both tenantID and roleID are required so a role ID from another tenant
-// cannot be used to obtain permissions.
+// The tenant constraint is intentionally applied to the Role so that
+// a role from another tenant can never satisfy this check.
 func (r *userRepository) CheckRolePermission(
 	ctx context.Context,
 	tenantID uint,
@@ -274,9 +291,10 @@ func (r *userRepository) CheckRolePermission(
 			"permissions.name = ?",
 			permissionName,
 		).
-		Count(&count).
-		Error
-
+		Where(
+			"permissions.deleted_at IS NULL",
+		).
+		Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -284,20 +302,150 @@ func (r *userRepository) CheckRolePermission(
 	return count > 0, nil
 }
 
-// =====================
-// Principal
-// =====================
+// ============================================================
+// Permission
+// ============================================================
 
+// CreatePermission creates a system-defined permission.
+//
+// Permissions are global and are not tenant-specific.
+// This is primarily intended for bootstrap/system data.
+func (r *userRepository) CreatePermission(
+	ctx context.Context,
+	permission *model.Permission,
+) error {
+	if permission == nil {
+		return fmt.Errorf("permission is nil")
+	}
+
+	return r.db.Get().
+		WithContext(ctx).
+		Create(permission).Error
+}
+
+// GetPermission retrieves a permission by resource and action.
+//
+// The permission name is stored as:
+//
+//	resourceKey:action
+//
+// For example:
+//
+//	devices:read
+//	devices:activate
+//	production_plan:release
+func (r *userRepository) GetPermission(
+	ctx context.Context,
+	resourceKey string,
+	action string,
+) (*model.Permission, error) {
+	var permission model.Permission
+
+	name := fmt.Sprintf("%s:%s", resourceKey, action)
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Where("name = ?", name).
+		First(&permission).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &permission, nil
+}
+
+// ============================================================
+// Invitation
+// ============================================================
+
+// CreateInvitation creates a user invitation.
+func (r *userRepository) CreateInvitation(
+	ctx context.Context,
+	invitation *model.UserInvitation,
+) error {
+	if invitation == nil {
+		return fmt.Errorf("invitation is nil")
+	}
+
+	return r.db.Get().
+		WithContext(ctx).
+		Create(invitation).Error
+}
+
+// GetInvitationByToken retrieves an invitation by its hashed token.
+func (r *userRepository) GetInvitationByToken(
+	ctx context.Context,
+	tokenHash string,
+) (*model.UserInvitation, error) {
+	var invitation model.UserInvitation
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Where("token_hash = ?", tokenHash).
+		First(&invitation).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &invitation, nil
+}
+
+// GetInvitationByID retrieves an invitation by tenant and UUID.
+func (r *userRepository) GetInvitationByID(
+	ctx context.Context,
+	tenantID uint,
+	id uuid.UUID,
+) (*model.UserInvitation, error) {
+	var invitation model.UserInvitation
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Where(
+			"tenant_id = ? AND uuid = ?",
+			tenantID,
+			id,
+		).
+		First(&invitation).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &invitation, nil
+}
+
+// UpdateInvitation updates an existing invitation.
+func (r *userRepository) UpdateInvitation(
+	ctx context.Context,
+	invitation *model.UserInvitation,
+) error {
+	if invitation == nil {
+		return fmt.Errorf("invitation is nil")
+	}
+
+	return r.db.Get().
+		WithContext(ctx).
+		Save(invitation).Error
+}
+
+// ============================================================
+// Principal
+// ============================================================
+
+// CreatePrincipal creates an authentication principal.
 func (r *userRepository) CreatePrincipal(
 	ctx context.Context,
 	principal *model.Principal,
 ) error {
+	if principal == nil {
+		return fmt.Errorf("principal is nil")
+	}
+
 	return r.db.Get().
 		WithContext(ctx).
-		Create(principal).
-		Error
+		Create(principal).Error
 }
 
+// GetPrincipal retrieves a principal by tenant, provider and identifier.
 func (r *userRepository) GetPrincipal(
 	ctx context.Context,
 	tenantID uint,
@@ -314,9 +462,7 @@ func (r *userRepository) GetPrincipal(
 			provider,
 			identifier,
 		).
-		First(&principal).
-		Error
-
+		First(&principal).Error
 	if err != nil {
 		return nil, err
 	}
@@ -324,128 +470,16 @@ func (r *userRepository) GetPrincipal(
 	return &principal, nil
 }
 
+// UpdatePrincipal updates an existing principal.
 func (r *userRepository) UpdatePrincipal(
 	ctx context.Context,
 	principal *model.Principal,
 ) error {
-	return r.db.Get().
-		WithContext(ctx).
-		Save(principal).
-		Error
-}
-
-// =====================
-// Invitation
-// =====================
-
-func (r *userRepository) CreateInvitation(
-	ctx context.Context,
-	invitation *model.UserInvitation,
-) error {
-	return r.db.Get().
-		WithContext(ctx).
-		Create(invitation).
-		Error
-}
-
-func (r *userRepository) GetInvitationByToken(
-	ctx context.Context,
-	tokenHash string,
-) (*model.UserInvitation, error) {
-	var invitation model.UserInvitation
-
-	err := r.db.Get().
-		WithContext(ctx).
-		Where(
-			"token_hash = ?",
-			tokenHash,
-		).
-		First(&invitation).
-		Error
-
-	if err != nil {
-		return nil, err
+	if principal == nil {
+		return fmt.Errorf("principal is nil")
 	}
 
-	return &invitation, nil
-}
-
-func (r *userRepository) GetInvitationByID(
-	ctx context.Context,
-	tenantID uint,
-	id uuid.UUID,
-) (*model.UserInvitation, error) {
-	var invitation model.UserInvitation
-
-	err := r.db.Get().
-		WithContext(ctx).
-		Where(
-			"uuid = ? AND tenant_id = ?",
-			id,
-			tenantID,
-		).
-		First(&invitation).
-		Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &invitation, nil
-}
-
-func (r *userRepository) UpdateInvitation(
-	ctx context.Context,
-	invitation *model.UserInvitation,
-) error {
 	return r.db.Get().
 		WithContext(ctx).
-		Save(invitation).
-		Error
-}
-
-// =====================
-// Permission
-// =====================
-
-// CreatePermission is kept for system/bootstrap usage.
-//
-// Permissions are global and are not tenant-specific.
-func (r *userRepository) CreatePermission(
-	ctx context.Context,
-	permission *model.Permission,
-) error {
-	return r.db.Get().
-		WithContext(ctx).
-		Create(permission).
-		Error
-}
-
-func (r *userRepository) GetPermission(
-	ctx context.Context,
-	resourceKey string,
-	action string,
-) (*model.Permission, error) {
-	var permission model.Permission
-
-	permissionName := fmt.Sprintf(
-		"%s:%s",
-		resourceKey,
-		action,
-	)
-
-	err := r.db.Get().
-		WithContext(ctx).
-		Where(
-			"name = ?",
-			permissionName,
-		).
-		First(&permission).
-		Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &permission, nil
+		Save(principal).Error
 }

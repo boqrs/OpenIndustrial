@@ -257,7 +257,6 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// Security
 	// -------------------------------------------------------------------------
 
-	permissionRepo := postgres.NewPermissionRepository(dbProv)
 	credentialRepo := postgres.NewCredentialRepository(dbProv)
 	identityRepo := postgres.NewIdentityRepository(dbProv)
 	certificateRepo := postgres.NewCertificateRepository(dbProv)

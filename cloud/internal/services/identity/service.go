@@ -31,10 +31,8 @@ func NewService(
 ) Service {
 
 	return &service{
-		repo: repo,
-
-		jwtSecret: jwtSecret,
-
+		repo:          repo,
+		jwtSecret:     jwtSecret,
 		accessExpire:  time.Hour * 2,
 		refreshExpire: time.Hour * 24 * 7,
 	}
