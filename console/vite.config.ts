@@ -3,4 +3,13 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [vue()],
+
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:80",
+        changeOrigin: true,
+      },
+    },
+  },
 });
