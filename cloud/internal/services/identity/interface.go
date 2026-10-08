@@ -215,6 +215,19 @@ type UserRepository interface {
 		ctx context.Context,
 		tenantID uint,
 	) (*model.User, error)
+
+	GetUserStats(
+		ctx context.Context,
+		tenantID uint,
+	) (
+		*UserStats,
+		error,
+	)
+
+	ListRoles(
+		ctx context.Context,
+		tenantID uint,
+	) ([]*model.Role, error)
 }
 
 // =====================================================
@@ -401,4 +414,17 @@ type Service interface {
 		ctx context.Context,
 		req RequestAccessRequest,
 	) error
+
+	GetUserStats(
+		ctx context.Context,
+		tenantID uint,
+	) (
+		*UserStats,
+		error,
+	)
+
+	ListRoles(
+		ctx context.Context,
+		tenantID uint,
+	) ([]*model.Role, error)
 }

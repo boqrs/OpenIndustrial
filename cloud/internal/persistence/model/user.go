@@ -38,6 +38,8 @@ const (
 	UserStatusActive = "active"
 
 	UserStatusDisabled = "disabled"
+
+	UserStatusInit = "init"
 )
 
 const (
@@ -68,8 +70,7 @@ type User struct {
 
 	UserType string `gorm:"type:varchar(32);not null;default:'employee'"`
 
-	Status string `gorm:"type:varchar(32);not null;default:'invited'"`
-
+	Status    string `gorm:"type:varchar(32);not null;default:'init'"`
 	CreatedAt time.Time
 
 	UpdatedAt time.Time

@@ -28,6 +28,7 @@ var (
 	ErrAdminCannotBeModified = errors.New("administrator cannot be modified")
 
 	ErrEmailAlreadyExists = errors.New("email already exists")
+	ErrUserAlreadyInvited = errors.New("user already invited")
 )
 
 type service struct {
@@ -203,7 +204,6 @@ func (s *service) RefreshToken(
 // =====================================================
 // Access Request
 // =====================================================
-
 func (s *service) RequestAccess(
 	ctx context.Context,
 	req RequestAccessRequest,
@@ -220,34 +220,55 @@ func (s *service) RequestAccess(
 		return err
 	}
 
-	admin, err := s.repo.GetAdminByTenantID(
+	existing, err := s.repo.GetUserByEmail(
 		ctx,
 		tenant.ID,
+		req.Email,
+	)
+
+	if err == nil && existing != nil {
+		switch existing.Status {
+		case model.UserStatusInit:
+			// 已经申请过，保持幂等。
+			return nil
+
+		case model.UserStatusInvited:
+			return ErrUserAlreadyInvited
+
+		case model.UserStatusActive:
+			return ErrEmailAlreadyExists
+
+		case model.UserStatusDisabled:
+			return ErrEmailAlreadyExists
+		}
+	}
+
+	// 申请阶段默认使用 Employee 角色。
+	role, err := s.repo.GetRole(
+		ctx,
+		tenant.ID,
+		"Employee",
 	)
 	if err != nil {
-		return err
+		return ErrRoleInvalid
 	}
 
-	if s.notification == nil {
-		return errors.New("notification service is not configured")
+	user := &model.User{
+		UUID:     uuid.New(),
+		TenantID: tenant.ID,
+		RoleID:   role.ID,
+		Email:    req.Email,
+		Name:     req.Name,
+		UserType: model.UserTypeEmployee,
+		Status:   model.UserStatusInit,
 	}
 
-	return s.notification.SendAccessRequest(
-		ctx,
-		notification.AccessRequestEmail{
-			AdminEmail: admin.Email,
-			Name:       req.Name,
-			Email:      req.Email,
-			TenantName: tenant.Name,
-			TenantCode: tenant.Code,
-		},
-	)
+	return s.repo.CreateUser(ctx, user)
 }
 
 // =====================================================
 // Invitation
 // =====================================================
-
 func (s *service) InviteUser(
 	ctx context.Context,
 	tenantID uint,
@@ -275,39 +296,53 @@ func (s *service) InviteUser(
 		return ErrRoleInvalid
 	}
 
-	_, err = s.repo.GetRoleByID(
+	role, err := s.repo.GetRoleByID(
 		ctx,
 		tenantID,
 		req.RoleID,
 	)
-	if err != nil {
+	if err != nil || role == nil {
 		return ErrRoleInvalid
 	}
 
-	if existing, err := s.repo.GetUserByEmail(
+	user, err := s.repo.GetUserByEmail(
 		ctx,
 		tenantID,
 		req.Email,
-	); err == nil && existing != nil {
-		return ErrEmailAlreadyExists
-	}
-
-	tenant, err := s.repo.GetTenantByID(ctx, tenantID)
+	)
 	if err != nil {
 		return err
 	}
 
-	user := &model.User{
-		UUID:     uuid.New(),
-		TenantID: tenantID,
-		RoleID:   req.RoleID,
-		Name:     req.Name,
-		Email:    req.Email,
-		UserType: model.UserTypeEmployee,
-		Status:   model.UserStatusInvited,
+	if user.Status == model.UserStatusInvited {
+		return ErrUserAlreadyInvited
 	}
 
-	if err := s.repo.CreateUser(ctx, user); err != nil {
+	if user.Status == model.UserStatusActive {
+		return ErrEmailAlreadyExists
+	}
+
+	if user.Status == model.UserStatusDisabled {
+		return ErrEmailAlreadyExists
+	}
+
+	if user.Status != model.UserStatusInit {
+		return ErrEmailAlreadyExists
+	}
+
+	tenant, err := s.repo.GetTenantByID(
+		ctx,
+		tenantID,
+	)
+	if err != nil {
+		return err
+	}
+
+	user.Name = req.Name
+	user.RoleID = role.ID
+	user.Status = model.UserStatusInvited
+
+	if err := s.repo.UpdateUser(ctx, user); err != nil {
 		return err
 	}
 
@@ -320,7 +355,7 @@ func (s *service) InviteUser(
 		UUID:      uuid.New(),
 		TenantID:  tenantID,
 		UserID:    user.ID,
-		Email:     req.Email,
+		Email:     user.Email,
 		TokenHash: hash,
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 		CreatedBy: operator.ID,
@@ -698,5 +733,25 @@ func (s *service) GetTenantByCode(
 	return s.repo.GetTenantByCode(
 		ctx,
 		strings.TrimSpace(code),
+	)
+}
+
+func (s *service) GetUserStats(
+	ctx context.Context,
+	tenantID uint,
+) (*UserStats, error) {
+	return s.repo.GetUserStats(
+		ctx,
+		tenantID,
+	)
+}
+
+func (s *service) ListRoles(
+	ctx context.Context,
+	tenantID uint,
+) ([]*model.Role, error) {
+	return s.repo.ListRoles(
+		ctx,
+		tenantID,
 	)
 }

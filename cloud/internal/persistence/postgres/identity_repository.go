@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	identity "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/boqrs/nexus/database"
 	"github.com/google/uuid"
 )
@@ -507,4 +508,76 @@ func (r *userRepository) GetAdminByTenantID(
 	}
 
 	return &user, nil
+}
+
+func (r *userRepository) GetUserStats(
+	ctx context.Context,
+	tenantID uint,
+) (*identity.UserStats, error) {
+	var stats identity.UserStats
+
+	type row struct {
+		Status string
+		Count  int64
+	}
+
+	var rows []row
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Model(&model.User{}).
+		Select("status, COUNT(*) AS count").
+		Where("tenant_id = ?", tenantID).
+		Group("status").
+		Scan(&rows).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, item := range rows {
+		switch item.Status {
+		case model.UserStatusInit:
+			stats.Init = item.Count
+
+		case model.UserStatusInvited:
+			stats.Invited = item.Count
+
+		case model.UserStatusActive:
+			stats.Active = item.Count
+
+		case model.UserStatusDisabled:
+			stats.Disabled = item.Count
+		}
+	}
+
+	stats.Total =
+		stats.Init +
+			stats.Invited +
+			stats.Active +
+			stats.Disabled
+
+	return &stats, nil
+}
+
+func (r *userRepository) ListRoles(
+	ctx context.Context,
+	tenantID uint,
+) ([]*model.Role, error) {
+	var roles []*model.Role
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Where(
+			"tenant_id = ?",
+			tenantID,
+		).
+		Order("id ASC").
+		Find(&roles).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return roles, nil
 }

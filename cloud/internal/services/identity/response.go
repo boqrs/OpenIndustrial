@@ -69,3 +69,68 @@ type JWTClaims struct {
 
 	jwt.RegisteredClaims
 }
+type UserStats struct {
+	Total    int64 `json:"total"`
+	Init     int64 `json:"init"`
+	Invited  int64 `json:"invited"`
+	Active   int64 `json:"active"`
+	Disabled int64 `json:"disabled"`
+}
+
+type RoleResponse struct {
+	ID          uint      `json:"id"`
+	UUID        uuid.UUID `json:"uuid"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsSystem    bool      `json:"is_system"`
+}
+
+func NewRoleResponse(role *model.Role) *RoleResponse {
+	if role == nil {
+		return nil
+	}
+
+	return &RoleResponse{
+		ID:          role.ID,
+		UUID:        role.UUID,
+		Name:        role.Name,
+		Description: role.Description,
+		IsSystem:    role.IsSystem,
+	}
+}
+
+type UserStatsResponse struct {
+	Total    int64 `json:"total"`
+	Init     int64 `json:"init"`
+	Invited  int64 `json:"invited"`
+	Active   int64 `json:"active"`
+	Disabled int64 `json:"disabled"`
+}
+
+func NewUserStatsResponse(
+	stats *UserStats,
+) *UserStatsResponse {
+	if stats == nil {
+		return nil
+	}
+
+	return &UserStatsResponse{
+		Total:    stats.Total,
+		Init:     stats.Init,
+		Invited:  stats.Invited,
+		Active:   stats.Active,
+		Disabled: stats.Disabled,
+	}
+}
+
+type DashboardOverviewResponse struct {
+	Users *UserStatsResponse `json:"users"`
+}
+
+func NewDashboardOverviewResponse(
+	stats *UserStats,
+) *DashboardOverviewResponse {
+	return &DashboardOverviewResponse{
+		Users: NewUserStatsResponse(stats),
+	}
+}

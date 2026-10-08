@@ -18,6 +18,8 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/config"
 
 	allocationHandler "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/allocation"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/dashboard"
+
 	bomh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/bom"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/customer"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/device"
@@ -667,6 +669,10 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	).RouterRegister(router)
 	iotH.NewHandler(iotService).RouterRegister(router)
 
+	dashboard.NewDashboardHandler(
+		identityService,
+		authService,
+	).RouterRegister(router)
 	// =========================================================================
 	// 19. Shutdown
 	// =========================================================================
