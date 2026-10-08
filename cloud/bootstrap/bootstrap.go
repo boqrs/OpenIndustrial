@@ -36,6 +36,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wms"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/iot"
 	mqttAdapter "github.com/boqrs/OpenIndustrial/cloud/internal/services/iot/adapter/mqtt"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/services/notification"
 
 	sh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/security"
 	wh "github.com/boqrs/OpenIndustrial/cloud/internal/handlers/wokerorder"
@@ -357,6 +358,12 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 		factoryRepo,
 	)
 
+	notificationService := notification.NewService(
+		emailProv,
+		cfg.EmailCfg.Username,
+		cfg.ConsoleBaseURL,
+	)
+
 	// =========================================================================
 	// 9. Identity
 	// =========================================================================
@@ -369,12 +376,9 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	)
 
 	identityService := idtSrv.NewService(
-		//tenantRepo,
 		userRepo,
-		//roleRepo,
-		//groupRepo,
+		notificationService,
 		cfg.UserJwtSecret,
-		//eventPubSub,
 	)
 
 	// =========================================================================

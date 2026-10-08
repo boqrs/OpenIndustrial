@@ -483,3 +483,28 @@ func (r *userRepository) UpdatePrincipal(
 		WithContext(ctx).
 		Save(principal).Error
 }
+
+// GetAdminByTenantID retrieves the active administrator of a tenant.
+//
+// Each tenant must have exactly one active administrator.
+func (r *userRepository) GetAdminByTenantID(
+	ctx context.Context,
+	tenantID uint,
+) (*model.User, error) {
+	var user model.User
+
+	err := r.db.Get().
+		WithContext(ctx).
+		Where(
+			"tenant_id = ? AND user_type = ? AND status = ?",
+			tenantID,
+			model.UserTypeAdmin,
+			model.UserStatusActive,
+		).
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}

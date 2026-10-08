@@ -39,33 +39,46 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	group.Handle(http.MethodPost, "/login", h.handleLogin)
 	group.Handle(http.MethodPost, "/logout", h.handleLogout)
 	group.Handle(http.MethodPost, "/refresh", h.handleRefreshToken)
+
 	// =====================================================
-	// Public Invitation
+	// Public
 	// =====================================================
-	//
-	// 首次注册没有JWT。
-	//
-	// 用户通过邮件中的token完成注册，
-	// 因此AcceptInvitation必须是公开接口。
-	//
+
+	group.Handle(http.MethodPost, "/identity/access-requests", h.handleRequestAccess)
 	group.Handle(http.MethodPost, "/identity/invitations/accept", h.handleAcceptInvitation)
 	// =====================================================
 	// Authenticated
 	// =====================================================
+
 	authGroup := router.Group("/api/v1/external")
 	authGroup.Use(h.auth.Authenticate())
 
-	// invitation
-	authGroup.Handle(http.MethodPost, "/identity/invitations", h.handleInviteUser)
-	// users
-	users := authGroup.Group("/users")
+	// =====================================================
+	// Admin only
+	// =====================================================
+
+	adminGroup := router.Group("/api/v1/external")
+	adminGroup.Use(
+		h.auth.Authenticate(),
+		h.auth.RequireAdmin())
+
+	adminGroup.Handle(http.MethodPost, "/identity/invitations", h.handleInviteUser)
+
+	users := adminGroup.Group("/users")
 	users.Handle(http.MethodGet, "/lists", h.handleListUsers)
 	users.Handle(http.MethodGet, "/:id", h.handleGetUser)
+
 	users.Handle(http.MethodPut, "/:id", h.handleUpdateUser)
+
 	users.Handle(http.MethodPost, "/:id/disable", h.handleDisableUser)
+
 	users.Handle(http.MethodPost, "/:id/enable", h.handleEnableUser)
-	users.Handle(http.MethodPost, "/:id/password", h.handleUpdatePassword)
+
 	users.Handle(http.MethodPost, "/:id/reset-password", h.handleResetPassword)
+	// =====================================================
+	// Self only
+	// =====================================================
+	authGroup.Handle(http.MethodPost, "/users/:id/password", h.handleUpdatePassword)
 }
 
 // =====================================================
@@ -159,9 +172,20 @@ func (h *Handler) handleInviteUser(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 
 	}
+	tenantId, err := middleware.GetTenantIDFromContextV2(ctx)
+	if err != nil {
+		return ginx.Error(err)
+	}
 
+	userId, err := middleware.GetUserIDFromContext(ctx)
+	if err == nil {
+
+		return ginx.Error(fmt.Errorf("user id is error"))
+	}
 	if err := h.service.InviteUser(
 		ctx.Request.Context(),
+		tenantId,
+		userId,
 		req,
 	); err != nil {
 
@@ -412,23 +436,29 @@ func (h *Handler) handleResetPassword(ctx *gin.Context) ginx.Render {
 	if err != nil {
 
 		return ginx.Error(err)
-
 	}
 
 	var req srv.ResetPasswordRequest
-
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 
 		return ginx.Error(err)
 
 	}
 
-	req.TenantID, err = middleware.GetTenantIDFromContextV2(ctx)
+	req.UserID = id
+	tenantId, err := middleware.GetTenantIDFromContextV2(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
+	req.TenantID = tenantId
 
-	req.UserID = id
+	OperateID, err := middleware.GetUserIDFromContext(ctx)
+	if err != nil {
+		return ginx.Error(err)
+	}
+	req.OperatorID = OperateID
+
+	//req.UserID = UserID
 	if err := h.service.ResetPassword(
 		ctx.Request.Context(),
 		req,
@@ -440,4 +470,26 @@ func (h *Handler) handleResetPassword(ctx *gin.Context) ginx.Render {
 
 	return ginx.Success(nil)
 
+}
+
+func (h *Handler) handleRequestAccess(
+	ctx *gin.Context,
+) ginx.Render {
+
+	var req srv.RequestAccessRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return ginx.Error(err)
+	}
+
+	err := h.service.RequestAccess(
+		ctx.Request.Context(),
+		req,
+	)
+
+	if err != nil {
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(nil)
 }

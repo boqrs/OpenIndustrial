@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -20,6 +21,12 @@ type Permission interface {
 		roleID uint,
 		permissionName string,
 	) (bool, error)
+
+	GetUserByID(
+		ctx context.Context,
+		tenantID uint,
+		userID uuid.UUID,
+	) (*model.User, error)
 }
 
 const (
@@ -37,6 +44,7 @@ type service struct {
 type Service interface {
 	Authenticate() gin.HandlerFunc
 	RequirePermission(permissionKey string) gin.HandlerFunc
+	RequireAdmin() gin.HandlerFunc
 }
 
 func NewAuthService(
@@ -278,6 +286,55 @@ func (s *service) RequirePermission(
 		if !hasPermission {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error": "permission denied",
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func (s *service) RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tenantID, err := GetTenantIDFromContextV2(c)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		userID, err := GetUserIDFromContext(c)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if s.perm == nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": "identity repository is not configured",
+			})
+			return
+		}
+
+		user, err := s.perm.GetUserByID(
+			c.Request.Context(),
+			tenantID,
+			userID,
+		)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "administrator privileges required",
+			})
+			return
+		}
+
+		if user.UserType != model.UserTypeAdmin ||
+			user.Status != model.UserStatusActive {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "administrator privileges required",
 			})
 			return
 		}

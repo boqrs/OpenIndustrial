@@ -8,57 +8,26 @@ import (
 	"github.com/google/uuid"
 )
 
-// =====================================================
-// Authentication Response
-// =====================================================
-
-// LoginResponse
-//
-// 登录成功返回
-//
-// access token:
-//
-//	用于API访问
-//
-// refresh token:
-//
-//	用于刷新access token
 type LoginResponse struct {
-
-	// JWT Access Token
-	//
 	AccessToken string `json:"access_token"`
 
-	// Refresh Token
-	//
 	RefreshToken string `json:"refresh_token"`
 
-	// Access Token过期时间
-	//
 	ExpiresIn int64 `json:"expires_in"`
 
-	// Token类型
-	//
-	// Bearer
-	//
 	TokenType string `json:"token_type"`
 
-	// 当前登录用户
-	//
-	User *model.User `json:"user"`
+	User *UserResponse `json:"user"`
 }
 
-// UserResponse
-//
-// 对外返回用户信息
-//
-// 避免直接暴露model
 type UserResponse struct {
 	ID uint `json:"id"`
 
 	UUID uuid.UUID `json:"uuid"`
 
 	TenantID uint `json:"tenant_id"`
+
+	RoleID uint `json:"role_id"`
 
 	Email string `json:"email"`
 
@@ -71,48 +40,30 @@ type UserResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUserResponse(
-	user *model.User,
-) *UserResponse {
-
+func NewUserResponse(user *model.User) *UserResponse {
 	if user == nil {
 		return nil
 	}
 
 	return &UserResponse{
-
-		ID: user.ID,
-
-		UUID: user.UUID,
-
-		TenantID: user.TenantID,
-
-		Email: user.Email,
-
-		Name: user.Name,
-
-		UserType: user.UserType,
-
-		Status: user.Status,
-
+		ID:        user.ID,
+		UUID:      user.UUID,
+		TenantID:  user.TenantID,
+		RoleID:    user.RoleID,
+		Email:     user.Email,
+		Name:      user.Name,
+		UserType:  user.UserType,
+		Status:    user.Status,
 		CreatedAt: user.CreatedAt,
 	}
-
 }
 
-// =====================================================
-// JWT
-// =====================================================
-
-// JWTClaims
-//
-// access token / refresh token
 type JWTClaims struct {
 	UserID uuid.UUID `json:"user_id"`
 
 	TenantID uint `json:"tenant_id"`
 
-	Email string `json:"email"`
+	RoleID uint `json:"role_id"`
 
 	TokenType string `json:"token_type"`
 

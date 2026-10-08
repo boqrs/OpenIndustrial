@@ -17,12 +17,13 @@ import (
 )
 
 type MyAppConfig struct {
-	DBCfg    config.DBConfig `json:"db_cfg" yaml:"db_cfg" mapstructure:"db_cfg"`
-	RedisCfg redis.Config    `json:"redis_cfg" yaml:"redis_cfg" mapstructure:"redis_cfg"`
-	Trace    tracing.Config  `json:"tracing_cfg" yaml:"tracing_cfg" mapstructure:"tracing_cfg"`
-	Media    media.Config    `json:"media_cfg" yaml:"media_cfg" mapstructure:"media_cfg"`
-	LogCfg   log.LogConfig   `json:"log_cfg" yaml:"log_cfg" mapstructure:"log_cfg"`
-	EmailCfg email.Config    `json:"email_cfg" yaml:"email_cfg" mapstructure:"email_cfg"`
+	DBCfg          config.DBConfig `json:"db_cfg" yaml:"db_cfg" mapstructure:"db_cfg"`
+	RedisCfg       redis.Config    `json:"redis_cfg" yaml:"redis_cfg" mapstructure:"redis_cfg"`
+	Trace          tracing.Config  `json:"tracing_cfg" yaml:"tracing_cfg" mapstructure:"tracing_cfg"`
+	Media          media.Config    `json:"media_cfg" yaml:"media_cfg" mapstructure:"media_cfg"`
+	LogCfg         log.LogConfig   `json:"log_cfg" yaml:"log_cfg" mapstructure:"log_cfg"`
+	EmailCfg       email.Config    `json:"email_cfg" yaml:"email_cfg" mapstructure:"email_cfg"`
+	ConsoleBaseURL string          `json:"console_base_url" yaml:"console_base_url" mapstructure:"console_base_url"`
 	// Demo 业务配置
 	UserJwtSecret string                  `json:"user_jwt_secret" yaml:"user_jwt_secret" mapstructure:"user_jwt_secret"`
 	Ca            provider.ProviderConfig `json:"ca" yaml:"ca" mapstructure:"ca"`

@@ -210,6 +210,11 @@ type UserRepository interface {
 		ctx context.Context,
 		principal *model.Principal,
 	) error
+
+	GetAdminByTenantID(
+		ctx context.Context,
+		tenantID uint,
+	) (*model.User, error)
 }
 
 // =====================================================
@@ -281,9 +286,10 @@ type Service interface {
 	//
 	InviteUser(
 		ctx context.Context,
+		tenantID uint,
+		operatorID uuid.UUID,
 		req InviteUserRequest,
 	) error
-
 	// 接受邀请完成注册
 	//
 	// Token
@@ -371,7 +377,6 @@ type Service interface {
 		ctx context.Context,
 		req ResetPasswordRequest,
 	) error
-
 	// =====================================================
 	// Tenant
 	// =====================================================
@@ -391,4 +396,9 @@ type Service interface {
 		*model.Tenant,
 		error,
 	)
+
+	RequestAccess(
+		ctx context.Context,
+		req RequestAccessRequest,
+	) error
 }

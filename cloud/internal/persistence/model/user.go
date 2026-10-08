@@ -54,20 +54,15 @@ type User struct {
 
 	UUID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_uuid"`
 
-	TenantID uint `gorm:"not null;index;uniqueIndex:idx_tenant_user"`
+	TenantID uint `gorm:"not null;index"`
 
 	Tenant Tenant `gorm:"foreignKey:TenantID"`
 
-	// RoleID defines the user's single role inside the tenant.
-	//
-	// A user has exactly one role. If a user needs a different
-	// permission combination, a dedicated role should be created
-	// instead of assigning multiple roles to the user.
 	RoleID uint `gorm:"not null;index"`
 
 	Role Role `gorm:"foreignKey:RoleID"`
 
-	Email string `gorm:"type:varchar(255);not null;uniqueIndex:idx_tenant_email"`
+	Email string `gorm:"type:varchar(255);not null"`
 
 	Name string `gorm:"type:varchar(128);not null"`
 
