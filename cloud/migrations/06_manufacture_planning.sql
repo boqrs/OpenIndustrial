@@ -42,7 +42,7 @@ CREATE INDEX idx_factories_resource_id
 
 CREATE TABLE production_plans (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
     plan_no VARCHAR(100) NOT NULL,
     product_id BIGINT NOT NULL,
     factory_id BIGINT NOT NULL,

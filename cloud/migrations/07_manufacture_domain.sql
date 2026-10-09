@@ -63,7 +63,7 @@ CREATE INDEX idx_routing_operations_workstation_id
 CREATE TABLE work_orders (
     id BIGSERIAL PRIMARY KEY,
     resource_id BIGINT NOT NULL,
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
     production_plan_id BIGINT NOT NULL,
     factory_id BIGINT NOT NULL,
     production_line_id BIGINT NOT NULL,
@@ -139,7 +139,7 @@ CREATE INDEX idx_work_orders_status
 CREATE TABLE production_executions (
     id BIGSERIAL PRIMARY KEY,
     resource_id BIGINT NOT NULL,
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
     work_order_id BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
     routing_id BIGINT NOT NULL,
@@ -232,7 +232,7 @@ CREATE INDEX idx_execution_operations_workstation_id
 
 CREATE TABLE execution_results (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
     execution_id BIGINT NOT NULL UNIQUE,
     work_order_id BIGINT NOT NULL,
     produced_quantity BIGINT NOT NULL DEFAULT 0,
