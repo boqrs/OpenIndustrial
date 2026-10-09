@@ -7,29 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func TenantIDFromGinContext(ctx *gin.Context) uuid.UUID {
-	value, exists := ctx.Get("tenant_id")
-	if !exists {
-		return uuid.Nil
-	}
-
-	switch value := value.(type) {
-	case uuid.UUID:
-		return value
-
-	case string:
-		id, err := uuid.Parse(value)
-		if err != nil {
-			return uuid.Nil
-		}
-
-		return id
-
-	default:
-		return uuid.Nil
-	}
-}
-
 func TenantIDUintFromGinContext(ctx *gin.Context) uint {
 	value := ctx.Value("tenant_id")
 	tenantID, ok := value.(uint)
@@ -45,26 +22,6 @@ func GetUserIDFromGinContext(ctx *gin.Context) uuid.UUID {
 	if !exists {
 		return uuid.Nil
 	}
-
-	switch value := value.(type) {
-	case uuid.UUID:
-		return value
-
-	case string:
-		id, err := uuid.Parse(value)
-		if err != nil {
-			return uuid.Nil
-		}
-
-		return id
-
-	default:
-		return uuid.Nil
-	}
-}
-
-func TenantIDFromContext(ctx context.Context) uuid.UUID {
-	value := ctx.Value("tenant_id")
 
 	switch value := value.(type) {
 	case uuid.UUID:

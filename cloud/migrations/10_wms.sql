@@ -1,6 +1,6 @@
 CREATE TABLE warehouses (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
     code VARCHAR(100) NOT NULL,
     name VARCHAR(255) NOT NULL,
     address TEXT,
@@ -60,7 +60,7 @@ CREATE INDEX idx_device_inventories_status
 
 CREATE TABLE shipments (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
     sales_order_id BIGINT,
     external_order_id VARCHAR(255),
     carrier VARCHAR(100) NOT NULL,

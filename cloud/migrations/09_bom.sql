@@ -1,6 +1,6 @@
 CREATE TABLE boms (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
     product_id BIGINT NOT NULL,
     bom_no VARCHAR(100) NOT NULL,
     version INTEGER NOT NULL,
@@ -26,7 +26,7 @@ CREATE INDEX idx_boms_deleted_at
 
 CREATE TABLE bom_items (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id)
     bom_id BIGINT NOT NULL,
     material_id BIGINT NOT NULL,
     quantity NUMERIC(20,6) NOT NULL,

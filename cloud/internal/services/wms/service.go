@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	salesorderSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/salesorder"
@@ -146,8 +144,8 @@ func (s *service) CreateWarehouse(
 		return nil, ErrWarehouseNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
