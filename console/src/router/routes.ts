@@ -46,4 +46,12 @@ export const routes: RouteRecordRaw[] = [
     path: "/:pathMatch(.*)*",
     redirect: "/dashboard",
   },
+  {
+    path: "/users",
+    name: "Users",
+    component: () => import("../views/users/Users.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+  },
 ];

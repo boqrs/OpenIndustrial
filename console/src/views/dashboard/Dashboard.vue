@@ -82,7 +82,7 @@ const statusRows = computed(() => {
       label: "正常用户",
       value: data.active,
       percent: total > 0 ? (data.active / total) * 100 : 0,
-      color: "var(--color-success, #16a34a)",
+      color: "#16a34a",
     },
     {
       key: "init",
@@ -107,6 +107,24 @@ const statusRows = computed(() => {
     },
   ];
 });
+
+/**
+ * 统计卡片统一进入用户列表。
+ * total 不附带状态参数，其他卡片通过 status 查询参数筛选。
+ */
+function openStatCard(key: string) {
+  if (key === "total") {
+    void router.push("/users");
+    return;
+  }
+
+  void router.push({
+    path: "/users",
+    query: {
+      status: key,
+    },
+  });
+}
 
 async function loadOverview() {
   loading.value = true;
@@ -205,7 +223,7 @@ onMounted(() => {
         <div class="section-heading">
           <div>
             <h2>账号概览</h2>
-            <p>当前工厂的用户账号状态</p>
+            <p>点击统计卡片，查看对应的用户列表</p>
           </div>
 
           <el-button
@@ -233,7 +251,14 @@ onMounted(() => {
         </div>
 
         <div class="stats-grid" :aria-busy="loading">
-          <article v-for="card in statCards" :key="card.key" class="stat-card">
+          <button
+            v-for="card in statCards"
+            :key="card.key"
+            type="button"
+            class="stat-card"
+            :aria-label="`${card.label}，${card.value ?? 0}，点击查看列表`"
+            @click="openStatCard(card.key)"
+          >
             <div class="stat-card-top">
               <span class="stat-label">{{ card.label }}</span>
 
@@ -251,8 +276,15 @@ onMounted(() => {
               <span v-else>{{ card.value ?? "—" }}</span>
             </div>
 
-            <div class="stat-description">{{ card.description }}</div>
-          </article>
+            <div class="stat-description">
+              {{ card.description }}
+            </div>
+
+            <div class="stat-card-action">
+              <span>查看列表</span>
+              <span aria-hidden="true">↗</span>
+            </div>
+          </button>
         </div>
       </section>
 
@@ -673,11 +705,17 @@ onMounted(() => {
 }
 
 .stat-card {
+  display: block;
+  width: 100%;
   min-width: 0;
   padding: 20px;
   border: 1px solid #e5eaf0;
   border-radius: 10px;
   background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -685,9 +723,18 @@ onMounted(() => {
 }
 
 .stat-card:hover {
-  border-color: #d5dfea;
-  box-shadow: 0 7px 22px rgb(14 31 51 / 5%);
+  border-color: #f0a030;
+  box-shadow: 0 7px 22px rgb(14 31 51 / 8%);
   transform: translateY(-2px);
+}
+
+.stat-card:focus-visible {
+  outline: 2px solid #f0a030;
+  outline-offset: 3px;
+}
+
+.stat-card:active {
+  transform: translateY(0);
 }
 
 .stat-card-top {
@@ -752,9 +799,23 @@ onMounted(() => {
 }
 
 .stat-description {
+  min-height: 18px;
   color: #98a2b3;
   font-size: 11px;
   line-height: 1.6;
+}
+
+.stat-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: 1px solid #edf0f4;
+  color: #9b641a;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .skeleton-value {
@@ -1130,6 +1191,10 @@ onMounted(() => {
   }
 
   .stat-description {
+    font-size: 10px;
+  }
+
+  .stat-card-action {
     font-size: 10px;
   }
 }
