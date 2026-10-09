@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +22,7 @@ const (
 type ProductionPlan struct {
 	ID uint `gorm:"primaryKey"`
 
-	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
+	TenantID uint `gorm:"not null;index"`
 
 	PlanNo string `gorm:"type:varchar(100);not null"`
 

@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/boqrs/zeus/ginx"
 
@@ -35,37 +34,17 @@ func (h *Handler) RouterRegister(
 ) {
 	externalGroup := router.Group("/api/v1/external")
 	externalGroup.Use(h.auth.Authenticate())
-
-	externalGroup.Handle(
-		http.MethodPost,
-		"/production-plan-allocations",
-		h.create,
-	)
-
-	externalGroup.Handle(
-		http.MethodGet,
-		"/production-plan-allocations/:id",
-		h.getByID,
-	)
-
-	externalGroup.Handle(
-		http.MethodGet,
-		"/sales-order-items/:id/production-plan-allocations",
-		h.listBySalesOrderItemID,
-	)
-
-	externalGroup.Handle(
-		http.MethodGet,
-		"/production-plans/:id/allocations",
-		h.listByProductionPlanID,
-	)
+	externalGroup.Handle(http.MethodPost, "/production-plan-allocations", h.create)
+	externalGroup.Handle(http.MethodGet, "/production-plan-allocations/:id", h.getByID)
+	externalGroup.Handle(http.MethodGet, "/sales-order-items/:id/production-plan-allocations", h.listBySalesOrderItemID)
+	externalGroup.Handle(http.MethodGet, "/production-plans/:id/allocations", h.listByProductionPlanID)
 }
 
 func (h *Handler) create(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(ctx)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -90,8 +69,8 @@ func (h *Handler) create(
 func (h *Handler) getByID(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(ctx)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -115,8 +94,8 @@ func (h *Handler) getByID(
 func (h *Handler) listBySalesOrderItemID(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(ctx)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -140,8 +119,8 @@ func (h *Handler) listBySalesOrderItemID(
 func (h *Handler) listByProductionPlanID(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDFromGinContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(ctx)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("no perm"))
 	}
 

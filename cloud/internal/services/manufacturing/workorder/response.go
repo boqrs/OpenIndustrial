@@ -10,7 +10,7 @@ import (
 // Response defines the standard structure for a work order API response.
 type Response struct {
 	ID               uint                  `json:"id"`
-	TenantID         string                `json:"tenant_id"`
+	TenantID         uint                  `json:"tenant_id"`
 	FactoryID        uint                  `json:"factory_id"`
 	ProductionLineID uint                  `json:"production_line_id"`
 	ProductionPlanID uint                  `json:"production_plan_id"`
@@ -40,7 +40,7 @@ func ToResponse(wo *model.WorkOrder) *Response {
 	}
 	return &Response{
 		ID:               wo.ID,
-		TenantID:         wo.TenantID.String(),
+		TenantID:         wo.TenantID,
 		FactoryID:        wo.FactoryID,
 		ProductionLineID: wo.ProductionLineID,
 		ProductionPlanID: wo.ProductionPlanID,

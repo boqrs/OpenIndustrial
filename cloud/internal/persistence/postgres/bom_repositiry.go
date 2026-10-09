@@ -5,7 +5,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 )
 
 type BomRepository struct {
@@ -25,7 +24,7 @@ func (r *BomRepository) Create(ctx context.Context, bom *model.BOM) error {
 		Error
 }
 
-func (r *BomRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.BOM, error) {
+func (r *BomRepository) GetByID(ctx context.Context, tenantID uint, id uint) (*model.BOM, error) {
 	var bom model.BOM
 
 	err := r.db.Get().
@@ -45,7 +44,7 @@ func (r *BomRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint
 	return &bom, nil
 }
 
-func (r *BomRepository) GetByNoVersion(ctx context.Context, tenantID uuid.UUID, bomNo string, version int) (*model.BOM, error) {
+func (r *BomRepository) GetByNoVersion(ctx context.Context, tenantID uint, bomNo string, version int) (*model.BOM, error) {
 	var bom model.BOM
 
 	err := r.db.Get().
@@ -66,7 +65,7 @@ func (r *BomRepository) GetByNoVersion(ctx context.Context, tenantID uuid.UUID, 
 	return &bom, nil
 }
 
-func (r *BomRepository) List(ctx context.Context, tenantID uuid.UUID, productID uuid.UUID, offset int, limit int) ([]*model.BOM, int64, error) {
+func (r *BomRepository) List(ctx context.Context, tenantID, productID uint, offset, limit int) ([]*model.BOM, int64, error) {
 	var boms []*model.BOM
 	var total int64
 
@@ -115,7 +114,7 @@ func (r *BomRepository) CreateItems(ctx context.Context, items []*model.BOMItem)
 		Error
 }
 
-func (r *BomRepository) GetItems(ctx context.Context, tenantID uuid.UUID, bomID uint) ([]*model.BOMItem, error) {
+func (r *BomRepository) GetItems(ctx context.Context, tenantID uint, bomID uint) ([]*model.BOMItem, error) {
 	var items []*model.BOMItem
 
 	err := r.db.Get().
@@ -132,7 +131,7 @@ func (r *BomRepository) GetItems(ctx context.Context, tenantID uuid.UUID, bomID 
 	return items, err
 }
 
-func (r *BomRepository) DeleteItems(ctx context.Context, tenantID uuid.UUID, bomID uint) error {
+func (r *BomRepository) DeleteItems(ctx context.Context, tenantID uint, bomID uint) error {
 	return r.db.Get().
 		WithContext(ctx).
 		Where(

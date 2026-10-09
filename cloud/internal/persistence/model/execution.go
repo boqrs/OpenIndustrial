@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -22,12 +21,12 @@ const (
 // ResourceUUID is the public identity of the execution.
 // ID is only used for internal database relations.
 type ProductionExecution struct {
-	ID          uint      `gorm:"primaryKey"`
-	ResourceID  uint      `gorm:"not null;index"`
-	TenantID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	WorkOrderID uint      `gorm:"not null;index"`
-	ProductID   uint      `gorm:"not null;index"`
-	RoutingID   uint      `gorm:"not null;index"`
+	ID          uint `gorm:"primaryKey"`
+	ResourceID  uint `gorm:"not null;index"`
+	TenantID    uint `gorm:"not null;index"`
+	WorkOrderID uint `gorm:"not null;index"`
+	ProductID   uint `gorm:"not null;index"`
+	RoutingID   uint `gorm:"not null;index"`
 	// RoutingVersion is the routing version actually used
 	// by this execution.
 	RoutingVersion int                       `gorm:"not null"`

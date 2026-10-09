@@ -23,7 +23,7 @@ func (r *routingRepository) CreateRouting(ctx context.Context, entity *model.Rou
 	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
-func (r *routingRepository) GetRoutingByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Routing, error) {
+func (r *routingRepository) GetRoutingByID(ctx context.Context, tenantID, id uint) (*model.Routing, error) {
 	var entity model.Routing
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).First(&entity).Error
 	if err != nil {
@@ -32,7 +32,7 @@ func (r *routingRepository) GetRoutingByID(ctx context.Context, tenantID uuid.UU
 	return &entity, nil
 }
 
-func (r *routingRepository) GetRoutingByNameAndVersion(ctx context.Context, tenantID uuid.UUID, productID uint, name string, version int) (*model.Routing, error) {
+func (r *routingRepository) GetRoutingByNameAndVersion(ctx context.Context, tenantID, productID uint, name string, version int) (*model.Routing, error) {
 	var entity model.Routing
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND product_id = ? AND name = ? AND version = ?", tenantID, productID, name, version).First(&entity).Error
 	if err != nil {
@@ -44,7 +44,7 @@ func (r *routingRepository) GetRoutingByNameAndVersion(ctx context.Context, tena
 	return &entity, nil
 }
 
-func (r *routingRepository) ListRoutings(ctx context.Context, tenantID uuid.UUID, productID *uint, status *model.RoutingStatus) ([]*model.Routing, error) {
+func (r *routingRepository) ListRoutings(ctx context.Context, tenantID uint, productID *uint, status *model.RoutingStatus) ([]*model.Routing, error) {
 	var entities []*model.Routing
 	query := r.db.Get().WithContext(ctx).Where("tenant_id = ?", tenantID)
 	if productID != nil {
@@ -61,7 +61,7 @@ func (r *routingRepository) UpdateRouting(ctx context.Context, entity *model.Rou
 	return r.db.Get().WithContext(ctx).Save(entity).Error
 }
 
-func (r *routingRepository) DeactivateOtherRoutings(ctx context.Context, tenantID uuid.UUID, productID, exceptRoutingID uint) error {
+func (r *routingRepository) DeactivateOtherRoutings(ctx context.Context, tenantID, productID, exceptRoutingID uint) error {
 	return r.db.Get().WithContext(ctx).
 		Model(&model.Routing{}).
 		Where("tenant_id = ? AND product_id = ? AND id != ? AND status = ?", tenantID, productID, exceptRoutingID, model.RoutingStatusActive).
@@ -69,7 +69,7 @@ func (r *routingRepository) DeactivateOtherRoutings(ctx context.Context, tenantI
 		Error
 }
 
-func (r *routingRepository) CountOperations(ctx context.Context, tenantID uuid.UUID, routingID uint) (int64, error) {
+func (r *routingRepository) CountOperations(ctx context.Context, tenantID, routingID uint) (int64, error) {
 	var count int64
 	err := r.db.Get().WithContext(ctx).Model(&model.RoutingOperation{}).Where("tenant_id = ? AND routing_id = ?", tenantID, routingID).Count(&count).Error
 	return count, err
@@ -79,7 +79,7 @@ func (r *routingRepository) CreateOperation(ctx context.Context, entity *model.R
 	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
-func (r *routingRepository) GetOperation(ctx context.Context, tenantID uuid.UUID, routingID, operationID uint) (*model.RoutingOperation, error) {
+func (r *routingRepository) GetOperation(ctx context.Context, tenantID, routingID, operationID uint) (*model.RoutingOperation, error) {
 	var entity model.RoutingOperation
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND routing_id = ? AND id = ?", tenantID, routingID, operationID).First(&entity).Error
 	if err != nil {
@@ -88,7 +88,7 @@ func (r *routingRepository) GetOperation(ctx context.Context, tenantID uuid.UUID
 	return &entity, nil
 }
 
-func (r *routingRepository) GetOperationByCode(ctx context.Context, tenantID uuid.UUID, routingID uint, code string) (*model.RoutingOperation, error) {
+func (r *routingRepository) GetOperationByCode(ctx context.Context, tenantID, routingID uint, code string) (*model.RoutingOperation, error) {
 	var entity model.RoutingOperation
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND routing_id = ? AND code = ?", tenantID, routingID, code).First(&entity).Error
 	if err != nil {
@@ -100,7 +100,7 @@ func (r *routingRepository) GetOperationByCode(ctx context.Context, tenantID uui
 	return &entity, nil
 }
 
-func (r *routingRepository) GetOperationBySequence(ctx context.Context, tenantID uuid.UUID, routingID uint, sequence int) (*model.RoutingOperation, error) {
+func (r *routingRepository) GetOperationBySequence(ctx context.Context, tenantID, routingID uint, sequence int) (*model.RoutingOperation, error) {
 	var entity model.RoutingOperation
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND routing_id = ? AND sequence = ?", tenantID, routingID, sequence).First(&entity).Error
 	if err != nil {
@@ -112,7 +112,7 @@ func (r *routingRepository) GetOperationBySequence(ctx context.Context, tenantID
 	return &entity, nil
 }
 
-func (r *routingRepository) ListOperations(ctx context.Context, tenantID uuid.UUID, routingID uint) ([]*model.RoutingOperation, error) {
+func (r *routingRepository) ListOperations(ctx context.Context, tenantID, routingID uint) ([]*model.RoutingOperation, error) {
 	var entities []*model.RoutingOperation
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND routing_id = ?", tenantID, routingID).Order("sequence asc").Find(&entities).Error
 	return entities, err
@@ -122,7 +122,7 @@ func (r *routingRepository) UpdateOperation(ctx context.Context, entity *model.R
 	return r.db.Get().WithContext(ctx).Save(entity).Error
 }
 
-func (r *routingRepository) DeleteOperation(ctx context.Context, tenantID uuid.UUID, routingID, operationID uint) error {
+func (r *routingRepository) DeleteOperation(ctx context.Context, tenantID, routingID, operationID uint) error {
 	result := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND routing_id = ? AND id = ?", tenantID, routingID, operationID).Delete(&model.RoutingOperation{})
 	if result.Error != nil {
 		return result.Error
@@ -134,7 +134,7 @@ func (r *routingRepository) DeleteOperation(ctx context.Context, tenantID uuid.U
 }
 
 // GetByID implements routing.Repository.
-func (r *routingRepository) GetByID(ctx context.Context, tx *gorm.DB, tenantID, id uuid.UUID) (*model.Routing, error) {
+func (r *routingRepository) GetByID(ctx context.Context, tx *gorm.DB, tenantID uint, id uuid.UUID) (*model.Routing, error) {
 	var entity model.Routing
 
 	// Use the provided transaction 'tx' to ensure atomicity.

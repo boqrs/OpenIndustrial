@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
@@ -52,8 +51,8 @@ func (s *service) CreateResult(
 		return nil, err
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, errors.New("tenant id not found in context")
 	}
 
@@ -118,8 +117,8 @@ func (s *service) GetResult(
 	ctx context.Context,
 	id uint,
 ) (*Response, error) {
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, errors.New("tenant id not found in context")
 	}
 
@@ -139,8 +138,8 @@ func (s *service) GetResultByExecutionID(
 	ctx context.Context,
 	executionID uint,
 ) (*Response, error) {
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, errors.New("tenant id not found in context")
 	}
 
@@ -160,63 +159,12 @@ func (s *service) GetResultByExecutionID(
 	return toResponse(entity), nil
 }
 
-// func (s *service) ConfirmResult(
-// 	ctx context.Context,
-// 	id uint,
-// ) error {
-// 	tenantID := pkg.TenantIDFromContext(ctx)
-// 	if tenantID == uuid.Nil {
-// 		return errors.New("tenant id not found in context")
-// 	}
-
-// 	entity, err := s.repository.GetByID(ctx, tenantID, id)
-// 	if err != nil {
-// 		return fmt.Errorf("get execution result: %w", err)
-// 	}
-
-// 	if entity == nil {
-// 		return ErrResultNotFound
-// 	}
-
-// 	// Confirmation is idempotent.
-// 	if entity.Status == model.ExecutionResultStatusConfirmed {
-// 		return nil
-// 	}
-
-// 	if entity.Status != model.ExecutionResultStatusDraft {
-// 		return fmt.Errorf(
-// 			"%w: status=%s",
-// 			ErrInvalidResultState,
-// 			entity.Status,
-// 		)
-// 	}
-
-// 	if err := validateQuantities(
-// 		entity.ProducedQuantity,
-// 		entity.QualifiedQuantity,
-// 		entity.RejectedQuantity,
-// 	); err != nil {
-// 		return err
-// 	}
-
-// 	now := time.Now()
-
-// 	entity.Status = model.ExecutionResultStatusConfirmed
-// 	entity.ConfirmedAt = &now
-
-// 	if err := s.repository.Update(ctx, entity); err != nil {
-// 		return fmt.Errorf("confirm execution result: %w", err)
-// 	}
-
-// 	return nil
-// }
-
 func (s *service) CancelResult(
 	ctx context.Context,
 	id uint,
 ) error {
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return errors.New("tenant id not found in context")
 	}
 

@@ -3,15 +3,13 @@ package bom
 import (
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 )
 
 type Response struct {
 	ID uint `json:"id"`
 
-	TenantID uuid.UUID `json:"tenant_id"`
+	TenantID uint `json:"tenant_id"`
 
 	ProductID uint `json:"product_id"`
 

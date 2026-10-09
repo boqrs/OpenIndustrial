@@ -225,6 +225,3 @@ func (h *Handler) handleDeleteResource(ctx *gin.Context) ginx.Render {
 
 	return ginx.Success(nil)
 }
-
-// REMOVED: handleListGroups function is removed.
-// This logic belongs in an IdentityHandler that uses the Identity service.

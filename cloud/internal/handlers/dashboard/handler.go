@@ -46,7 +46,7 @@ func (h *Handler) handleOverview(
 	ctx *gin.Context,
 ) ginx.Render {
 	tenantID, err :=
-		middleware.GetTenantIDFromContextV2(ctx)
+		middleware.GetTenantIDFromContext(ctx)
 
 	if err != nil {
 		return ginx.Error(err)

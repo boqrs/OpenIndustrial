@@ -15,7 +15,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
-	"github.com/google/uuid"
 )
 
 var (
@@ -59,11 +58,7 @@ func (s *service) CreateProductionExecution(
 	workOrderID uint,
 ) (*execution.ExecutionResponse, error) {
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return nil, errors.New("tenant ID not found in context")
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	if workOrderID == 0 {
 		return nil, execution.ErrWorkOrderNotFound
 	}
@@ -243,9 +238,9 @@ func (s *service) ConfirmExecutionResult(
 	ctx context.Context,
 	executionResultID uint,
 ) error {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 
-	if tenantID == uuid.Nil {
+	if tenantID == 0 {
 		return errors.New("tenant ID not found in context")
 	}
 
@@ -501,8 +496,8 @@ func (s *service) StartProductionExecution(
 	ctx context.Context,
 	executionID uint,
 ) error {
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return errors.New("tenant ID not found in context")
 	}
 
@@ -656,8 +651,8 @@ func (s *service) CancelProductionExecution(
 	executionID uint,
 ) error {
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return errors.New("tenant ID not found in context")
 	}
 

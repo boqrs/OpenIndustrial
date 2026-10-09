@@ -8,7 +8,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/security"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -196,8 +195,6 @@ func NewIdentityRepository(db *database.DBProvider) *identityRepository {
 	}
 }
 
-var _ security.IdentityRepository = (*identityRepository)(nil)
-
 // GetByResourceID returns the canonical identity of a resource.
 func (r *identityRepository) GetByResourceID(
 	ctx context.Context,
@@ -308,7 +305,7 @@ func (r *identityRepository) HardwareIDExists(
 // intentionally not used in the SQL condition.
 func (r *identityRepository) SerialNumberExists(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	serialNumber string,
 	excludeResourceID *uint,
 ) (bool, error) {

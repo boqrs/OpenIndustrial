@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
@@ -57,14 +56,14 @@ func NewService(
 
 func (s *serviceImpl) Create(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	req *CreateRequest,
 ) (*Response, error) {
 	if req == nil {
 		return nil, ErrInvalidWorkOrder
 	}
 
-	if tenantID == uuid.Nil ||
+	if tenantID == 0 ||
 		req.ProductionPlanID == 0 ||
 		req.ProductionLineID == 0 ||
 		req.ProductID == 0 ||
@@ -235,7 +234,7 @@ func (s *serviceImpl) Create(
 
 	return ToResponse(result), nil
 }
-func (s *serviceImpl) Release(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (s *serviceImpl) Release(ctx context.Context, tenantID uint, id uint) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return fmt.Errorf("failed to get work order for release: %w", err)
@@ -300,7 +299,7 @@ func (s *serviceImpl) Release(ctx context.Context, tenantID uuid.UUID, id uint) 
 }
 
 // ... (GetByID, List, Update, and other methods remain the same)
-func (s *serviceImpl) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*Response, error) {
+func (s *serviceImpl) GetByID(ctx context.Context, tenantID uint, id uint) (*Response, error) {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get work order by id: %w", err)
@@ -335,7 +334,7 @@ func (s *serviceImpl) List(ctx context.Context, req *ListRequest) (*ListResp, er
 	return &resp, nil
 }
 
-func (s *serviceImpl) Update(ctx context.Context, tenantID uuid.UUID, id uint, req *UpdateRequest) (*Response, error) {
+func (s *serviceImpl) Update(ctx context.Context, tenantID uint, id uint, req *UpdateRequest) (*Response, error) {
 	if req == nil {
 		return nil, ErrInvalidWorkOrder
 	}
@@ -384,7 +383,7 @@ func (s *serviceImpl) Update(ctx context.Context, tenantID uuid.UUID, id uint, r
 	return ToResponse(entity), nil
 }
 
-func (s *serviceImpl) Start(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (s *serviceImpl) Start(ctx context.Context, tenantID uint, id uint) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return fmt.Errorf("failed to get work order for start: %w", err)
@@ -403,7 +402,7 @@ func (s *serviceImpl) Start(ctx context.Context, tenantID uuid.UUID, id uint) er
 
 func (s *serviceImpl) Complete(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
@@ -435,7 +434,7 @@ func (s *serviceImpl) Complete(
 	return s.repository.Update(ctx, entity)
 }
 
-func (s *serviceImpl) Cancel(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (s *serviceImpl) Cancel(ctx context.Context, tenantID uint, id uint) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return fmt.Errorf("failed to get work order for cancellation: %w", err)

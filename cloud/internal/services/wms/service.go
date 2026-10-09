@@ -179,8 +179,8 @@ func (s *service) GetWarehouse(
 	ctx context.Context,
 	id uint,
 ) (*WarehouseResponse, error) {
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -208,8 +208,8 @@ func (s *service) CreateLocation(
 		return nil, ErrLocationNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -260,8 +260,8 @@ func (s *service) GetDeviceInventory(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -285,8 +285,8 @@ func (s *service) StockIn(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -424,8 +424,8 @@ func (s *service) CreateShipment(
 		return nil, ErrEmptyShipment
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -633,8 +633,8 @@ func (s *service) StockOut(
 		return ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return ErrTenantNotFound
 	}
 
@@ -745,8 +745,8 @@ func (s *service) GetShipment(
 		return nil, ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -800,8 +800,8 @@ func (s *service) AddTrackingEvent(
 		return ErrInvalidTrackingEvent
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return ErrTenantNotFound
 	}
 
@@ -914,8 +914,8 @@ func (s *service) ListTrackingEvents(
 		return nil, ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrTenantNotFound
 	}
 
@@ -964,8 +964,8 @@ func (s *service) CancelShipment(
 		return ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return ErrTenantNotFound
 	}
 

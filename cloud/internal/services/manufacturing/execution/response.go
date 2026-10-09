@@ -4,13 +4,12 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 type ExecutionResponse struct {
 	ID             uint                            `json:"id"`
 	ResourceID     uint                            `json:"resourceId"`
-	TenantID       uuid.UUID                       `json:"tenantId"`
+	TenantID       uint                            `json:"tenantId"`
 	WorkOrderID    uint                            `json:"workOrderId"`
 	Status         model.ProductionExecutionStatus `json:"status"`
 	StartedAt      *time.Time                      `json:"startedAt,omitempty"`

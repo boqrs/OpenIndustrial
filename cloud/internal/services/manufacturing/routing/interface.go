@@ -4,28 +4,27 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 // Repository defines the persistence interface for routings and operations
 type Repository interface {
 	// Routing methods
 	CreateRouting(ctx context.Context, entity *model.Routing) error
-	GetRoutingByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Routing, error)
-	GetRoutingByNameAndVersion(ctx context.Context, tenantID uuid.UUID, productID uint, name string, version int) (*model.Routing, error)
-	ListRoutings(ctx context.Context, tenantID uuid.UUID, productID *uint, status *model.RoutingStatus) ([]*model.Routing, error)
+	GetRoutingByID(ctx context.Context, tenantID uint, id uint) (*model.Routing, error)
+	GetRoutingByNameAndVersion(ctx context.Context, tenantID uint, productID uint, name string, version int) (*model.Routing, error)
+	ListRoutings(ctx context.Context, tenantID uint, productID *uint, status *model.RoutingStatus) ([]*model.Routing, error)
 	UpdateRouting(ctx context.Context, entity *model.Routing) error
-	DeactivateOtherRoutings(ctx context.Context, tenantID uuid.UUID, productID uint, exceptRoutingID uint) error
-	CountOperations(ctx context.Context, tenantID uuid.UUID, routingID uint) (int64, error)
+	DeactivateOtherRoutings(ctx context.Context, tenantID uint, productID uint, exceptRoutingID uint) error
+	CountOperations(ctx context.Context, tenantID uint, routingID uint) (int64, error)
 
 	// Operation methods
 	CreateOperation(ctx context.Context, entity *model.RoutingOperation) error
-	GetOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uint) (*model.RoutingOperation, error)
-	GetOperationByCode(ctx context.Context, tenantID uuid.UUID, routingID uint, code string) (*model.RoutingOperation, error)
-	GetOperationBySequence(ctx context.Context, tenantID uuid.UUID, routingID uint, sequence int) (*model.RoutingOperation, error)
-	ListOperations(ctx context.Context, tenantID uuid.UUID, routingID uint) ([]*model.RoutingOperation, error)
+	GetOperation(ctx context.Context, tenantID uint, routingID uint, operationID uint) (*model.RoutingOperation, error)
+	GetOperationByCode(ctx context.Context, tenantID uint, routingID uint, code string) (*model.RoutingOperation, error)
+	GetOperationBySequence(ctx context.Context, tenantID uint, routingID uint, sequence int) (*model.RoutingOperation, error)
+	ListOperations(ctx context.Context, tenantID uint, routingID uint) ([]*model.RoutingOperation, error)
 	UpdateOperation(ctx context.Context, entity *model.RoutingOperation) error
-	DeleteOperation(ctx context.Context, tenantID uuid.UUID, routingID uint, operationID uint) error
+	DeleteOperation(ctx context.Context, tenantID uint, routingID uint, operationID uint) error
 }
 
 // --- Service Interface ---

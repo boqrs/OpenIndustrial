@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
@@ -74,7 +72,7 @@ func (s *serviceImpl) CreateFactory(ctx context.Context, req *CreateFactoryReque
 		return nil, fmt.Errorf("check factory code: %w", err)
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	resourceEntity, err := s.resourceSvc.CreateResource(ctx, &resource.CreateResource{
 		TenantID: tenantID,
 		Type:     string(resource.ResourceTypeFactory),
@@ -108,8 +106,7 @@ func (s *serviceImpl) GetFactory(ctx context.Context, factoryID uint) (*FactoryR
 		return nil, ErrFactoryNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx) // Placeholder
-
+	tenantID := pkg.TenantIDUintFromContext(ctx) // Placeholder
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
 		return nil, ErrResourceNotFound
@@ -132,8 +129,7 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uint, req *Up
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDFromContext(ctx) // Placeholder
-
+	tenantID := pkg.TenantIDUintFromContext(ctx) // Placeholder
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
 		return nil, ErrResourceNotFound
@@ -225,7 +221,7 @@ func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uint) error {
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	if err := s.resourceSvc.DeleteResource(ctx, tenantID, factory.ResourceID); err != nil {
 		// Note: The factory entry is already deleted, this could lead to orphaned resources.
 		// A transaction would be ideal here.
@@ -256,7 +252,7 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	parentResourceID := factory.ResourceID // Default parent is the factory itself
 	if req.ParentResourceID != nil {
 		parentResourceID = *req.ParentResourceID
@@ -297,7 +293,7 @@ func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uint, r
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
 		return nil, ErrNodeNotFound
@@ -354,7 +350,7 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 		return errors.New("request is nil")
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	node, err := s.resourceSvc.GetResourceByID(ctx, tenantID, req.ResourceID)
 	if err != nil {
 		return ErrNodeNotFound
@@ -385,7 +381,7 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 }
 
 func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uint) error {
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
@@ -416,7 +412,7 @@ func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uint) (*Factory
 		return nil, ErrFactoryNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 
 	factoryResource, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
@@ -436,7 +432,7 @@ func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uint) (*Factory
 
 // --- Helper Functions ---
 
-func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uuid.UUID, factoryResourceID, parentResourceID uint, childType resource.ResourceType) error {
+func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uint, factoryResourceID, parentResourceID uint, childType resource.ResourceType) error {
 	parent, err := s.resourceSvc.GetResourceByID(ctx, tenantID, parentResourceID)
 	if err != nil {
 		return ErrInvalidParent
@@ -465,7 +461,7 @@ func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uuid.
 	return nil
 }
 
-func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID uuid.UUID, resourceID, factoryResourceID uint) (bool, error) {
+func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID uint, resourceID, factoryResourceID uint) (bool, error) {
 	currentID := resourceID
 	for {
 		if currentID == factoryResourceID {
@@ -482,7 +478,7 @@ func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID uuid.
 	}
 }
 
-func (s *serviceImpl) findFactoryResourceID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (uint, error) {
+func (s *serviceImpl) findFactoryResourceID(ctx context.Context, tenantID uint, resourceID uint) (uint, error) {
 	currentID := resourceID
 	for {
 		current, err := s.resourceSvc.GetResourceByID(ctx, tenantID, currentID)
@@ -499,7 +495,7 @@ func (s *serviceImpl) findFactoryResourceID(ctx context.Context, tenantID uuid.U
 	}
 }
 
-func (s *serviceImpl) createsCycle(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) bool {
+func (s *serviceImpl) createsCycle(ctx context.Context, tenantID uint, resourceID, newParentID uint) bool {
 	currentID := newParentID
 	for {
 		if currentID == resourceID {
@@ -516,7 +512,7 @@ func (s *serviceImpl) createsCycle(ctx context.Context, tenantID uuid.UUID, reso
 	}
 }
 
-func (s *serviceImpl) collectTopology(ctx context.Context, tenantID uuid.UUID, parentID uint) ([]TopologyNodeResponse, error) {
+func (s *serviceImpl) collectTopology(ctx context.Context, tenantID uint, parentID uint) ([]TopologyNodeResponse, error) {
 	children, err := s.resourceSvc.GetChildren(ctx, parentID)
 	if err != nil {
 		return nil, fmt.Errorf("get resource children: %w", err)

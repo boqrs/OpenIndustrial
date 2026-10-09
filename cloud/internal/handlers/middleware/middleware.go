@@ -247,7 +247,7 @@ func (s *service) RequirePermission(
 			return
 		}
 
-		tenantID, err := GetTenantIDFromContextV2(c)
+		tenantID, err := GetTenantIDFromContext(c)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": err.Error(),
@@ -296,7 +296,7 @@ func (s *service) RequirePermission(
 
 func (s *service) RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tenantID, err := GetTenantIDFromContextV2(c)
+		tenantID, err := GetTenantIDFromContext(c)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": err.Error(),
@@ -363,7 +363,7 @@ func GetRoleIDFromContext(c *gin.Context) (uint, error) {
 }
 
 // GetTenantIDFromContext returns the authenticated tenant ID.
-func GetTenantIDFromContextV2(c *gin.Context) (uint, error) {
+func GetTenantIDFromContext(c *gin.Context) (uint, error) {
 	value, exists := c.Get("tenant_id")
 	if !exists {
 		return 0, errors.New("tenant_id not found in context")
@@ -413,16 +413,4 @@ func GetClaimsFromContext(c *gin.Context) (jwt.MapClaims, error) {
 	}
 
 	return claims, nil
-}
-
-func GetTenantIDFromContext(c *gin.Context) (uuid.UUID, error) {
-	tenantIDStr, exists := c.Get("tenant_id")
-	if !exists {
-		return uuid.Nil, errors.New("tenant_id not found in context")
-	}
-	tenantID, err := uuid.Parse(tenantIDStr.(string))
-	if err != nil {
-		return uuid.Nil, errors.New("invalid tenant_id format in context")
-	}
-	return tenantID, nil
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 	"gorm.io/gorm/clause"
 )
 
@@ -35,7 +34,7 @@ func (r *Repository) Create(
 
 func (r *Repository) GetByIDForUpdateTx(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.ExecutionResult, error) {
 	var entity model.ExecutionResult
@@ -62,7 +61,7 @@ func (r *Repository) GetByIDForUpdateTx(
 
 func (r *Repository) GetByID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.ExecutionResult, error) {
 	var entity model.ExecutionResult
@@ -80,7 +79,7 @@ func (r *Repository) GetByID(
 
 func (r *Repository) GetByExecutionID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	executionID uint,
 ) (*model.ExecutionResult, error) {
 	var entity model.ExecutionResult

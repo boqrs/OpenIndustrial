@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 // --- Repository Interface ---
@@ -12,12 +11,12 @@ type Repository interface {
 	// Execution methods
 	CreateExecution(ctx context.Context, execution *model.ProductionExecution, operations []*model.ExecutionOperation) error
 	CreateExecutionTx(ctx context.Context, execution *model.ProductionExecution, operations []*model.ExecutionOperation) error
-	GetExecutionByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error)
-	GetExecutionByIDForUpdateTx(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error)
-	ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error)
+	GetExecutionByID(ctx context.Context, tenantID uint, id uint) (*model.ProductionExecution, error)
+	GetExecutionByIDForUpdateTx(ctx context.Context, tenantID uint, id uint) (*model.ProductionExecution, error)
+	ListExecutions(ctx context.Context, tenantID uint, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error)
 	UpdateExecution(ctx context.Context, execution *model.ProductionExecution) error
 	UpdateExecutionTx(ctx context.Context, execution *model.ProductionExecution) error
-	CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error)
+	CountExecutions(ctx context.Context, tenantID uint, workOrderID uint) (int64, error)
 
 	// Operation methods
 	GetOperation(ctx context.Context, executionID, operationID uint) (*model.ExecutionOperation, error)

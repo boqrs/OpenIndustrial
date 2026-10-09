@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 type Repository interface {
@@ -42,31 +41,31 @@ type Repository interface {
 type Service interface {
 	Create(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		req *CreateRequest,
 	) (*Response, error)
 
 	GetByID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		id uint,
 	) (*Response, error)
 
 	ListBySalesOrderItemID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		salesOrderItemID uint,
 	) ([]*Response, error)
 
 	ListByProductionPlanID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		productionPlanID uint,
 	) ([]*Response, error)
 
 	GetAllocatedQuantityByProductionPlanID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		productionPlanID uint,
 	) (int64, error)
 }

@@ -30,6 +30,16 @@ func TenantIDFromGinContext(ctx *gin.Context) uuid.UUID {
 	}
 }
 
+func TenantIDUintFromGinContext(ctx *gin.Context) uint {
+	value := ctx.Value("tenant_id")
+	tenantID, ok := value.(uint)
+	if !ok {
+		return 0
+	}
+
+	return tenantID
+}
+
 func GetUserIDFromGinContext(ctx *gin.Context) uuid.UUID {
 	value, exists := ctx.Get("user_id")
 	if !exists {
@@ -101,4 +111,16 @@ type BasePageReq struct {
 type PageBaseResp struct {
 	Total int64 `json:"total"`
 	Next  bool  `json:"next"`
+}
+
+// TenantIDUintFromContext returns the authenticated tenant's internal ID.
+func TenantIDUintFromContext(ctx context.Context) uint {
+	value := ctx.Value("tenant_id")
+
+	tenantID, ok := value.(uint)
+	if !ok {
+		return 0
+	}
+
+	return tenantID
 }

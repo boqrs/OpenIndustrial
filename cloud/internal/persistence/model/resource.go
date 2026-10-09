@@ -36,7 +36,7 @@ type Resource struct {
 	// ID is the internal, auto-incrementing primary key.
 	ID uint `gorm:"primaryKey"`
 
-	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
+	TenantID uint `gorm:"not null;index"`
 
 	// Renamed fields to avoid SQL keyword conflicts, with explicit column mapping.
 	ResourceType   string `gorm:"column:resource_type;type:varchar(100);not null;index"`

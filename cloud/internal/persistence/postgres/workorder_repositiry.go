@@ -5,7 +5,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 	"gorm.io/gorm/clause"
 )
 
@@ -27,16 +26,13 @@ func (r *WorkOrderRepository) CreateTx(ctx context.Context, entity *model.WorkOr
 	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).Create(entity).Error
 }
 
-func (r *WorkOrderRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.WorkOrder, error) {
+func (r *WorkOrderRepository) GetByID(ctx context.Context, tenantID, id uint) (*model.WorkOrder, error) {
 	var entity model.WorkOrder
 	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND id = ?", tenantID, id).
 		First(&entity).Error
 
 	if err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, workorder.ErrWorkOrderNotFound
-		// }
 		return nil, err
 	}
 	return &entity, nil
@@ -44,7 +40,7 @@ func (r *WorkOrderRepository) GetByID(ctx context.Context, tenantID uuid.UUID, i
 
 func (r *WorkOrderRepository) GetByIDForUpdateTx(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.WorkOrder, error) {
 	var entity model.WorkOrder
@@ -69,7 +65,7 @@ func (r *WorkOrderRepository) GetByIDForUpdateTx(
 	return &entity, nil
 }
 
-func (r *WorkOrderRepository) GetByCode(ctx context.Context, tenantID uuid.UUID, code string) (*model.WorkOrder, error) {
+func (r *WorkOrderRepository) GetByCode(ctx context.Context, tenantID uint, code string) (*model.WorkOrder, error) {
 	var entity model.WorkOrder
 	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND code = ?", tenantID, code).
@@ -84,7 +80,7 @@ func (r *WorkOrderRepository) GetByCode(ctx context.Context, tenantID uuid.UUID,
 	return &entity, nil
 }
 
-func (r *WorkOrderRepository) List(ctx context.Context, tenantID uuid.UUID, planID *uint, offset, limit int) ([]*model.WorkOrder, error) {
+func (r *WorkOrderRepository) List(ctx context.Context, tenantID uint, planID *uint, offset, limit int) ([]*model.WorkOrder, error) {
 	var entities []*model.WorkOrder
 	query := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
@@ -110,7 +106,7 @@ func (r *WorkOrderRepository) UpdateTx(ctx context.Context, entity *model.WorkOr
 
 // SumQuantityByPlanID calculates the total planned quantity of all work orders for a given production plan.
 // This is a P0 fix to ensure work order quantity does not exceed the production plan's total quantity.
-func (r *WorkOrderRepository) SumQuantityByPlanID(ctx context.Context, tenantID uuid.UUID, productionPlanID uint) (int64, error) {
+func (r *WorkOrderRepository) SumQuantityByPlanID(ctx context.Context, tenantID uint, productionPlanID uint) (int64, error) {
 	var totalQuantity int64
 	err := r.db.Get().WithContext(ctx).
 		Model(&model.WorkOrder{}).
@@ -123,14 +119,14 @@ func (r *WorkOrderRepository) SumQuantityByPlanID(ctx context.Context, tenantID 
 	}
 	return totalQuantity, nil
 }
-func (r *WorkOrderRepository) Delete(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (r *WorkOrderRepository) Delete(ctx context.Context, tenantID, id uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
 		Delete(&model.WorkOrder{}, "id = ?", id).
 		Error
 }
 
-func (r *WorkOrderRepository) Count(ctx context.Context, tenantID uuid.UUID, productID uint) (int64, error) {
+func (r *WorkOrderRepository) Count(ctx context.Context, tenantID, productID uint) (int64, error) {
 	var count int64
 	if err := r.db.Get().WithContext(ctx).
 		Model(&model.WorkOrder{}).

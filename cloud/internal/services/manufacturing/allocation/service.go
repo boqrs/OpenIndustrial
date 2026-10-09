@@ -9,7 +9,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/planning"
 	salesorder "github.com/boqrs/OpenIndustrial/cloud/internal/services/salesorder"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -70,14 +69,14 @@ func NewService(
 
 func (s *service) Create(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	req *CreateRequest,
 ) (*Response, error) {
 	if req == nil {
 		return nil, ErrInvalidAllocation
 	}
 
-	if tenantID == uuid.Nil ||
+	if tenantID == 0 ||
 		req.ProductionPlanID == 0 ||
 		req.SalesOrderItemID == 0 ||
 		req.AllocatedQuantity <= 0 {
@@ -237,10 +236,10 @@ func (s *service) Create(
 
 func (s *service) GetByID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*Response, error) {
-	if tenantID == uuid.Nil || id == 0 {
+	if tenantID == 0 || id == 0 {
 		return nil, ErrInvalidAllocation
 	}
 
@@ -280,10 +279,10 @@ func (s *service) GetByID(
 
 func (s *service) ListBySalesOrderItemID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	salesOrderItemID uint,
 ) ([]*Response, error) {
-	if tenantID == uuid.Nil ||
+	if tenantID == 0 ||
 		salesOrderItemID == 0 {
 		return nil, ErrInvalidAllocation
 	}
@@ -330,10 +329,10 @@ func (s *service) ListBySalesOrderItemID(
 
 func (s *service) ListByProductionPlanID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	productionPlanID uint,
 ) ([]*Response, error) {
-	if tenantID == uuid.Nil ||
+	if tenantID == 0 ||
 		productionPlanID == 0 {
 		return nil, ErrInvalidAllocation
 	}
@@ -376,10 +375,10 @@ func (s *service) ListByProductionPlanID(
 
 func (s *service) GetAllocatedQuantityByProductionPlanID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	productionPlanID uint,
 ) (int64, error) {
-	if tenantID == uuid.Nil ||
+	if tenantID == 0 ||
 		productionPlanID == 0 {
 		return 0, ErrInvalidAllocation
 	}

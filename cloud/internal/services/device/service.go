@@ -126,14 +126,7 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		return nil, err
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-
-	if tenantID == uuid.Nil {
-		return nil, errors.New(
-			"tenant ID not found in context",
-		)
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	// 3. Create Resource for the physical device.
 	resourceReq := &resource.CreateResource{
 		TenantID: tenantID,
@@ -253,14 +246,7 @@ func (s *serviceImpl) GetDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-
-	if tenantID == uuid.Nil {
-		return nil, errors.New(
-			"tenant ID not found in context",
-		)
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	res, err := s.resourceSvc.GetResourceByID(
 		ctx,
 		tenantID,
@@ -297,14 +283,7 @@ func (s *serviceImpl) UpdateDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-
-	if tenantID == uuid.Nil {
-		return nil, errors.New(
-			"tenant ID not found in context",
-		)
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	if req.Name != nil ||
 		req.ParentResourceID != nil {
 
@@ -524,13 +503,7 @@ func (s *serviceImpl) ListDevices(
 		len(items),
 	)
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-
-	if tenantID == uuid.Nil {
-		return nil, errors.New(
-			"tenant ID not found in context",
-		)
-	}
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 
 	for _, item := range items {
 		res, err := s.resourceSvc.GetResourceByID(

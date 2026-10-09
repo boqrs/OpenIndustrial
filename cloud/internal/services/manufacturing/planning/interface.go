@@ -4,17 +4,16 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 // Repository defines the persistence interface for production plans.
 type Repository interface {
 	Create(ctx context.Context, entity *model.ProductionPlan) error
-	GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionPlan, error)
-	GetByPlanNo(ctx context.Context, tenantID uuid.UUID, planNo string) (*model.ProductionPlan, error)
-	List(ctx context.Context, tenantID uuid.UUID, status *model.ProductionPlanStatus) ([]*model.ProductionPlan, error)
+	GetByID(ctx context.Context, tenantID uint, id uint) (*model.ProductionPlan, error)
+	GetByPlanNo(ctx context.Context, tenantID uint, planNo string) (*model.ProductionPlan, error)
+	List(ctx context.Context, tenantID uint, status *model.ProductionPlanStatus) ([]*model.ProductionPlan, error)
 	Update(ctx context.Context, entity *model.ProductionPlan) error
-	GetByIDForUpdateTx(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionPlan, error)
+	GetByIDForUpdateTx(ctx context.Context, tenantID uint, id uint) (*model.ProductionPlan, error)
 	UpdateTx(ctx context.Context, entity *model.ProductionPlan) error
 }
 

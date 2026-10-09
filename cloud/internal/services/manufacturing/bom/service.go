@@ -9,7 +9,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	mSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/material"
 	pSrv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -47,7 +46,7 @@ func NewService(
 	}
 }
 
-func (s *service) Create(ctx context.Context, tenantID uuid.UUID, req *CreateRequest) (*Response, error) {
+func (s *service) Create(ctx context.Context, tenantID uint, req *CreateRequest) (*Response, error) {
 	if err := s.validateCreateRequest(ctx, tenantID, req); err != nil {
 		return nil, err
 	}
@@ -97,7 +96,7 @@ func (s *service) Create(ctx context.Context, tenantID uuid.UUID, req *CreateReq
 	return s.buildResponse(bom, items), nil
 }
 
-func (s *service) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*Response, error) {
+func (s *service) GetByID(ctx context.Context, tenantID uint, id uint) (*Response, error) {
 	bom, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -114,7 +113,7 @@ func (s *service) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*Re
 	return s.buildResponse(bom, items), nil
 }
 
-func (s *service) List(ctx context.Context, tenantID, productID uuid.UUID, offset, limit int) ([]*Response, int64, error) {
+func (s *service) List(ctx context.Context, tenantID uint, productID uint, offset, limit int) ([]*Response, int64, error) {
 	boms, total, err := s.repo.List(ctx, tenantID, productID, offset, limit)
 	if err != nil {
 		return nil, 0, err
@@ -133,7 +132,7 @@ func (s *service) List(ctx context.Context, tenantID, productID uuid.UUID, offse
 	return responses, total, nil
 }
 
-func (s *service) Update(ctx context.Context, tenantID uuid.UUID, id uint, req *UpdateRequest) (*Response, error) {
+func (s *service) Update(ctx context.Context, tenantID uint, id uint, req *UpdateRequest) (*Response, error) {
 	bom, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -189,7 +188,7 @@ func (s *service) Update(ctx context.Context, tenantID uuid.UUID, id uint, req *
 	return s.buildResponse(bom, items), nil
 }
 
-func (s *service) Release(ctx context.Context, tenantID uuid.UUID, id uint) (*Response, error) {
+func (s *service) Release(ctx context.Context, tenantID uint, id uint) (*Response, error) {
 	bom, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -229,7 +228,7 @@ func (s *service) Release(ctx context.Context, tenantID uuid.UUID, id uint) (*Re
 	return s.buildResponse(bom, items), nil
 }
 
-func (s *service) Obsolete(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (s *service) Obsolete(ctx context.Context, tenantID uint, id uint) error {
 	bom, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -248,7 +247,7 @@ func (s *service) Obsolete(ctx context.Context, tenantID uuid.UUID, id uint) err
 
 // --- Validation Helpers ---
 
-func (s *service) validateCreateRequest(ctx context.Context, tenantID uuid.UUID, req *CreateRequest) error {
+func (s *service) validateCreateRequest(ctx context.Context, tenantID uint, req *CreateRequest) error {
 	// Validate Product
 	if _, err := s.productSvc.GetProductModel(ctx, req.ProductID); err != nil {
 		// Assuming gorm.ErrRecordNotFound or a similar error is returned for not found
@@ -272,7 +271,7 @@ func (s *service) validateCreateRequest(ctx context.Context, tenantID uuid.UUID,
 	return s.validateItems(ctx, tenantID, req.Items)
 }
 
-func (s *service) validateItems(ctx context.Context, tenantID uuid.UUID, items []ItemRequest) error {
+func (s *service) validateItems(ctx context.Context, tenantID uint, items []ItemRequest) error {
 	if len(items) == 0 {
 		return nil // It's valid to create a BOM with no items initially
 	}

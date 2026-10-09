@@ -173,7 +173,7 @@ func (h *Handler) handleInviteUser(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 
 	}
-	tenantId, err := middleware.GetTenantIDFromContextV2(ctx)
+	tenantId, err := middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -227,7 +227,7 @@ func (h *Handler) handleAcceptInvitation(ctx *gin.Context) ginx.Render {
 
 func (h *Handler) handleListUsers(ctx *gin.Context) ginx.Render {
 
-	TenantID, err := middleware.GetTenantIDFromContextV2(ctx)
+	TenantID, err := middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -268,7 +268,7 @@ func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render {
 
 	}
 
-	TenantID, err := middleware.GetTenantIDFromContextV2(ctx)
+	TenantID, err := middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -302,7 +302,7 @@ func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	req.TenantID, err = middleware.GetTenantIDFromContextV2(ctx)
+	req.TenantID, err = middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -351,7 +351,7 @@ func (h *Handler) changeUserStatus(ctx *gin.Context, disable bool) ginx.Render {
 
 	}
 
-	tenantID, err := middleware.GetTenantIDFromContextV2(ctx)
+	tenantID, err := middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -409,7 +409,7 @@ func (h *Handler) handleUpdatePassword(ctx *gin.Context) ginx.Render {
 
 	}
 
-	req.TenantID, err = middleware.GetTenantIDFromContextV2(ctx)
+	req.TenantID, err = middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -447,7 +447,7 @@ func (h *Handler) handleResetPassword(ctx *gin.Context) ginx.Render {
 	}
 
 	req.UserID = id
-	tenantId, err := middleware.GetTenantIDFromContextV2(ctx)
+	tenantId, err := middleware.GetTenantIDFromContext(ctx)
 	if err != nil {
 		return ginx.Error(err)
 	}
@@ -496,7 +496,7 @@ func (h *Handler) handleRequestAccess(
 }
 
 func (h *Handler) ListRoles(c *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContextV2(c)
+	tenantID, err := middleware.GetTenantIDFromContext(c)
 	if err != nil {
 		return ginx.Error(err)
 	}

@@ -1,7 +1,6 @@
 package executionresult
 
 import (
-	"github.com/google/uuid"
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
@@ -10,7 +9,7 @@ import (
 // ExecutionResultResponse represents the response structure for ExecutionResult.
 type Response struct {
 	ID                uint                        `json:"id"`
-	TenantID          uuid.UUID                   `json:"tenant_id"`
+	TenantID          uint                        `json:"tenant_id"`
 	ExecutionID       uint                        `json:"execution_id"`
 	WorkOrderID       uint                        `json:"work_order_id"`
 	ProducedQuantity  int64                       `json:"produced_quantity"`

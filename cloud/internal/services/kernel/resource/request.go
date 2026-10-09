@@ -36,7 +36,7 @@ type CreateResource struct {
 	ParentID     *uint      `json:"parent_id,omitempty"`
 	OwnerGroupID *uuid.UUID `json:"owner_group_id,omitempty"` //TODO: 这个字段是什么
 	//Attributes   map[string]interface{} `json:"attributes,omitempty"`
-	TenantID uuid.UUID `json:"-"`
+	TenantID uint `json:"-"`
 }
 
 // UpdateResource is the authoritative parameter structure for updating a resource.
@@ -50,7 +50,7 @@ type UpdateResource struct {
 	ParentID uint    `json:"parent_id,omitempty"`
 
 	// Populated by the handler from the URL and context.
-	TenantID   uuid.UUID `json:"-"`
+	TenantID   uint      `json:"-"`
 	ResourceID uuid.UUID `json:"-"`
 }
 
@@ -64,7 +64,7 @@ type CreateProduct struct {
 	OwnerGroupID uuid.UUID `json:"owner_group_id" binding:"required"`
 
 	// Populated by the handler from the context.
-	TenantID uuid.UUID `json:"-"`
+	TenantID uint `json:"-"`
 }
 
 type CreateRelation struct {

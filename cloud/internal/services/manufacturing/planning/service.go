@@ -11,7 +11,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
-	"github.com/google/uuid"
 )
 
 var (
@@ -72,11 +71,7 @@ func (s *serviceImpl) CreateProductionPlan(
 		return nil, ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return nil, ErrInvalidProductionPlan
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	planNo := strings.TrimSpace(req.PlanNo)
 	if planNo == "" ||
 		req.ProductID == 0 ||
@@ -168,8 +163,8 @@ func (s *serviceImpl) GetProductionPlanByID(
 		return nil, ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return nil, ErrInvalidProductionPlan
 	}
 
@@ -189,11 +184,7 @@ func (s *serviceImpl) ListProductionPlans(
 	ctx context.Context,
 	status *model.ProductionPlanStatus,
 ) ([]*ProductionPlanResponse, error) {
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return nil, ErrInvalidProductionPlan
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entities, err := s.repository.List(
 		ctx,
 		tenantID,
@@ -224,11 +215,7 @@ func (s *serviceImpl) UpdateProductionPlan(
 		return nil, ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
-		return nil, ErrInvalidProductionPlan
-	}
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	var result *model.ProductionPlan
 
 	err := s.uow.Execute(
@@ -305,8 +292,8 @@ func (s *serviceImpl) ReleaseProductionPlan(
 		return ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return ErrInvalidProductionPlan
 	}
 
@@ -351,8 +338,8 @@ func (s *serviceImpl) CancelProductionPlan(
 		return ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDFromContext(ctx)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromContext(ctx)
+	if tenantID == 0 {
 		return ErrInvalidProductionPlan
 	}
 

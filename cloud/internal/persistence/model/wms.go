@@ -134,7 +134,7 @@ type DeviceInventory struct {
 type Shipment struct {
 	ID uint `gorm:"primaryKey"`
 
-	TenantID uuid.UUID `gorm:"type:uuid;not null;index"`
+	TenantID uint `gorm:"not null;index"`
 
 	SalesOrderID *uint `gorm:"index"`
 

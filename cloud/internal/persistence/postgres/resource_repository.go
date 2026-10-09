@@ -41,14 +41,14 @@ func (r *ResourceRepository) CreateResourceBatchTx(ctx context.Context, res []*m
 	return dbFromContext(ctx, r.db.Get()).WithContext(ctx).CreateInBatches(res, len(res)).Error
 }
 
-func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID uuid.UUID, parentID uint) ([]*model.Resource, error) {
+func (r *ResourceRepository) FindByParentID(ctx context.Context, tenantID uint, parentID uint) ([]*model.Resource, error) {
 	var resources []*model.Resource
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND parent_id = ?", tenantID, parentID).Find(&resources).Error
 	return resources, err
 }
 
 // GetResourceByID retrieves a resource by its ID using GORM.
-func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error) {
+func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID uint, resourceID uint) (*model.Resource, error) {
 	var res model.Resource
 	err := r.db.Get().WithContext(ctx).
 		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
@@ -85,14 +85,14 @@ func (r *ResourceRepository) UpdateResource(ctx context.Context, res *model.Reso
 }
 
 // DeleteResource performs a soft delete on a resource using GORM.
-func (r *ResourceRepository) DeleteResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) error {
+func (r *ResourceRepository) DeleteResource(ctx context.Context, tenantID uint, resourceID uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
 		Delete(&model.Resource{}).Error
 }
 
 // ListResources retrieves a list of resources with pagination using GORM.
-func (r *ResourceRepository) ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error) {
+func (r *ResourceRepository) ListResources(ctx context.Context, tenantID uint, resourceType string, limit, offset int) ([]*model.Resource, error) {
 	var resources []*model.Resource
 	query := r.db.Get().WithContext(ctx).Where("tenant_id = ?", tenantID)
 	if resourceType != "" {
@@ -116,14 +116,14 @@ func (r *ResourceRepository) BatchCreateResources(ctx context.Context, resources
 	return r.db.Get().WithContext(ctx).Create(&resources).Error
 }
 
-func (r *ResourceRepository) FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) {
+func (r *ResourceRepository) FindResourceByNameAndType(ctx context.Context, tenantID uint, name, resourceType string) (*model.Resource, error) {
 	var resource model.Resource
 	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND resource_name = ? AND resource_type = ?", tenantID, name, resourceType).
 		First(&resource).Error
 	return &resource, err
 }
-func (r *ResourceRepository) UpdateParent(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) error {
+func (r *ResourceRepository) UpdateParent(ctx context.Context, tenantID uint, resourceID, newParentID uint) error {
 	var parentResource model.Resource
 	if err := r.db.Get().WithContext(ctx).
 		Where("id = ? AND tenant_id = ?", newParentID, tenantID).
@@ -175,7 +175,7 @@ func (r *AttributeDefinitionRepository) CreateAttributeDefinition(ctx context.Co
 	return r.db.Get().WithContext(ctx).Create(def).Error
 }
 
-func (r *AttributeDefinitionRepository) GetAttributeDefinitionByID(ctx context.Context, tenantID uuid.UUID, defID uint) (*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) GetAttributeDefinitionByID(ctx context.Context, tenantID uint, defID uint) (*model.AttributeDefinition, error) {
 	var def model.AttributeDefinition
 	err := r.db.Get().WithContext(ctx).
 		Where("id = ? AND tenant_id = ?", defID, tenantID).
@@ -183,7 +183,7 @@ func (r *AttributeDefinitionRepository) GetAttributeDefinitionByID(ctx context.C
 	return &def, err
 }
 
-func (r *AttributeDefinitionRepository) GetAttributeDefinitionByKey(ctx context.Context, tenantID uuid.UUID, key string) (*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) GetAttributeDefinitionByKey(ctx context.Context, tenantID uint, key string) (*model.AttributeDefinition, error) {
 	var def model.AttributeDefinition
 	err := r.db.Get().WithContext(ctx).
 		Where("key = ? AND tenant_id = ?", key, tenantID).
@@ -191,7 +191,7 @@ func (r *AttributeDefinitionRepository) GetAttributeDefinitionByKey(ctx context.
 	return &def, err
 }
 
-func (r *AttributeDefinitionRepository) ListAttributeDefinitions(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) ListAttributeDefinitions(ctx context.Context, tenantID uint, limit, offset int) ([]*model.AttributeDefinition, error) {
 	var defs []*model.AttributeDefinition
 	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ?", tenantID).
@@ -206,14 +206,14 @@ func (r *AttributeDefinitionRepository) UpdateAttributeDefinition(ctx context.Co
 	return r.db.Get().WithContext(ctx).Model(def).Updates(def).Error
 }
 
-func (r *AttributeDefinitionRepository) DeleteAttributeDefinition(ctx context.Context, tenantID uuid.UUID, defID uint) error {
+func (r *AttributeDefinitionRepository) DeleteAttributeDefinition(ctx context.Context, tenantID uint, defID uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("id = ? AND tenant_id = ?", defID, tenantID).
 		Delete(&model.AttributeDefinition{}).Error
 }
 
 // FindByName is a placeholder method to satisfy the interface.
-func (r *AttributeDefinitionRepository) FindByName(ctx context.Context, tenantID uuid.UUID, name string) (*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) FindByName(ctx context.Context, tenantID uint, name string) (*model.AttributeDefinition, error) {
 	var def model.AttributeDefinition
 	err := r.db.Get().WithContext(ctx).
 		Where("name = ? AND tenant_id = ?", name, tenantID).
@@ -222,7 +222,7 @@ func (r *AttributeDefinitionRepository) FindByName(ctx context.Context, tenantID
 }
 
 // FindByIDs retrieves multiple definitions by their primary UUIDs.
-func (r *AttributeDefinitionRepository) FindByIDs(ctx context.Context, tenantID uuid.UUID, ids []uint) ([]*model.AttributeDefinition, error) {
+func (r *AttributeDefinitionRepository) FindByIDs(ctx context.Context, tenantID uint, ids []uint) ([]*model.AttributeDefinition, error) {
 	if len(ids) == 0 {
 		return []*model.AttributeDefinition{}, nil
 	}
@@ -385,7 +385,7 @@ func (r *ResourceAttributeRepository) GetForResource(ctx context.Context, resour
 }
 
 // UpsertForResource creates or updates a batch of attributes for a specific resource.
-func (r *ResourceAttributeRepository) UpsertForResource(ctx context.Context, tenantID uuid.UUID, resourceID uint, attrs map[string]interface{}) error {
+func (r *ResourceAttributeRepository) UpsertForResource(ctx context.Context, tenantID uint, resourceID uint, attrs map[string]interface{}) error {
 	return r.db.Get().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for key, value := range attrs {
 			// 1. Find the attribute definition to get its UUID.
@@ -448,7 +448,7 @@ func (r *ResourceAttributeRepository) ListConnectionsByResourceID(ctx context.Co
 	return conns, err
 }
 
-func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) (map[string]interface{}, error) {
+func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Context, tenantID uint, resourceID uint) (map[string]interface{}, error) {
 	var results []struct {
 		Name  string
 		Value json.RawMessage
@@ -476,7 +476,7 @@ func (r *ResourceAttributeRepository) GetAttributesForResource(ctx context.Conte
 	return attrs, nil
 }
 
-func (r *ResourceAttributeRepository) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error) {
+func (r *ResourceAttributeRepository) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uint, resourceIDs []uint) ([]model.ResourceAttribute, error) {
 	var attributes []model.ResourceAttribute
 	if len(resourceIDs) == 0 {
 		return attributes, nil

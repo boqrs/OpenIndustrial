@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
@@ -92,7 +91,7 @@ func (r *executionRepository) CreateExecutionTx(
 	)
 }
 
-func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionExecution, error) {
+func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uint, id uint) (*model.ProductionExecution, error) {
 	var entity model.ProductionExecution
 
 	err := r.db.Get().WithContext(ctx).
@@ -113,7 +112,7 @@ func (r *executionRepository) GetExecutionByID(ctx context.Context, tenantID uui
 
 func (r *executionRepository) GetExecutionByIDForUpdateTx(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.ProductionExecution, error) {
 	var entity model.ProductionExecution
@@ -138,7 +137,7 @@ func (r *executionRepository) GetExecutionByIDForUpdateTx(
 	return &entity, nil
 }
 
-func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error) {
+func (r *executionRepository) ListExecutions(ctx context.Context, tenantID uint, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*model.ProductionExecution, error) {
 	var entities []*model.ProductionExecution
 
 	query := r.db.Get().WithContext(ctx).
@@ -195,13 +194,6 @@ func (r *executionRepository) GetOperation(ctx context.Context, executionID, ope
 		First(&entity).
 		Error
 
-	// if errors.Is(
-	// 	err,
-	// 	gorm.ErrRecordNotFound,
-	// ) {
-	// 	return nil, execution.ErrOperationNotFound
-	// }
-
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +232,7 @@ func (r *executionRepository) UpdateOperationTx(ctx context.Context, entity *mod
 		Error
 }
 
-func (r *executionRepository) CountExecutions(ctx context.Context, tenantID uuid.UUID, workOrderID uint) (int64, error) {
+func (r *executionRepository) CountExecutions(ctx context.Context, tenantID uint, workOrderID uint) (int64, error) {
 	var count int64
 
 	err := dbFromContext(ctx, r.db.Get()).WithContext(ctx).

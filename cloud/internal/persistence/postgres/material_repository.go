@@ -5,7 +5,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 )
 
 type materialRepository struct {
@@ -21,7 +20,7 @@ func (r *materialRepository) Create(ctx context.Context, material *model.Materia
 	return r.db.Get().WithContext(ctx).Create(material).Error
 }
 
-func (r *materialRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.Material, error) {
+func (r *materialRepository) GetByID(ctx context.Context, tenantID uint, id uint) (*model.Material, error) {
 	var material model.Material
 	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND id = ?", tenantID, id).
@@ -30,7 +29,7 @@ func (r *materialRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id
 	return &material, err
 }
 
-func (r *materialRepository) GetByCode(ctx context.Context, tenantID uuid.UUID, code string) (*model.Material, error) {
+func (r *materialRepository) GetByCode(ctx context.Context, tenantID uint, code string) (*model.Material, error) {
 	var material model.Material
 	err := r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND code = ?", tenantID, code).
@@ -39,7 +38,7 @@ func (r *materialRepository) GetByCode(ctx context.Context, tenantID uuid.UUID, 
 	return &material, err
 }
 
-func (r *materialRepository) List(ctx context.Context, tenantID uuid.UUID, offset int, limit int) ([]*model.Material, int64, error) {
+func (r *materialRepository) List(ctx context.Context, tenantID uint, offset int, limit int) ([]*model.Material, int64, error) {
 	var materials []*model.Material
 	var total int64
 
@@ -63,7 +62,7 @@ func (r *materialRepository) Update(ctx context.Context, material *model.Materia
 	return r.db.Get().WithContext(ctx).Save(material).Error
 }
 
-func (r *materialRepository) Delete(ctx context.Context, tenantID uuid.UUID, id uint) error {
+func (r *materialRepository) Delete(ctx context.Context, tenantID, id uint) error {
 	return r.db.Get().WithContext(ctx).
 		Where("tenant_id = ? AND id = ?", tenantID, id).
 		Delete(&model.Material{}).

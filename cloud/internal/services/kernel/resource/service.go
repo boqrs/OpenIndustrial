@@ -7,8 +7,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-
-	"github.com/google/uuid"
 )
 
 type service struct {
@@ -30,7 +28,7 @@ func NewService(resourceRepo ResourceRepository, attrDefRepo AttributeDefinition
 
 // CreateProduct creates a new product resource, sets its owner, and saves its specific attributes.
 // This function is PRESERVED and UPGRADED to the new architecture.
-func (s *service) CreateProduct(ctx context.Context, tenantID uuid.UUID, params *CreateProduct) (*model.Resource, error) {
+func (s *service) CreateProduct(ctx context.Context, tenantID uint, params *CreateProduct) (*model.Resource, error) {
 	// 1. Create the core resource object.
 	// Note: Description and SerialNumber are NOT part of the core resource anymore.
 	// We now correctly set the OwnerGroupID directly on the resource.
@@ -203,7 +201,7 @@ func (s *service) UpdateResource(ctx context.Context, resourceID uint, req *Upda
 }
 
 // DeleteResource performs a soft delete on a resource.
-func (s *service) DeleteResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) error {
+func (s *service) DeleteResource(ctx context.Context, tenantID uint, resourceID uint) error {
 	// We could add a check here to ensure the resource exists before deleting.
 	// For now, we delegate this to the repository.
 	return s.resourceRepo.DeleteResource(ctx, tenantID, resourceID)
@@ -211,14 +209,14 @@ func (s *service) DeleteResource(ctx context.Context, tenantID uuid.UUID, resour
 
 // GetResource retrieves a single resource by its ID.
 // This can be enhanced later to also fetch and compose its attributes.
-func (s *service) GetResource(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error) {
+func (s *service) GetResource(ctx context.Context, tenantID uint, resourceID uint) (*model.Resource, error) {
 	// TODO: Add authorization check here.
 	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
 }
 
 // ListResources retrieves a list of resources for a tenant, with filtering and pagination.
 // This is the corrected implementation.
-func (s *service) ListResources(ctx context.Context, tenantID uuid.UUID, resourceType string, limit, offset int) ([]*model.Resource, error) {
+func (s *service) ListResources(ctx context.Context, tenantID uint, resourceType string, limit, offset int) ([]*model.Resource, error) {
 	// TODO: Add authorization filtering here.
 	if limit <= 0 {
 		limit = 100 // Default limit
@@ -230,7 +228,7 @@ func (s *service) ListResources(ctx context.Context, tenantID uuid.UUID, resourc
 }
 
 // SetAttribute is a new function that properly uses the new interfaces.
-func (s *service) SetAttribute(ctx context.Context, tenantID uuid.UUID, resourceID uint, attrKey string, attrValue interface{}) error {
+func (s *service) SetAttribute(ctx context.Context, tenantID uint, resourceID uint, attrKey string, attrValue interface{}) error {
 	// 1. 编排步骤一：验证业务规则
 	// 在更新属性之前，先确认这个属性的“定义”是否存在。
 	// 这是一个核心的业务规则：不允许设置未定义的属性。
@@ -261,11 +259,11 @@ func (s *service) BatchCreateResources(ctx context.Context, resources []*model.R
 	return s.resourceRepo.BatchCreateResources(ctx, resources)
 }
 
-func (s *service) GetResourceByID(ctx context.Context, tenantID uuid.UUID, resourceID uint) (*model.Resource, error) {
+func (s *service) GetResourceByID(ctx context.Context, tenantID uint, resourceID uint) (*model.Resource, error) {
 	return s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID)
 }
 
-func (s *service) FindResourceByNameAndType(ctx context.Context, tenantID uuid.UUID, name, resourceType string) (*model.Resource, error) {
+func (s *service) FindResourceByNameAndType(ctx context.Context, tenantID uint, name, resourceType string) (*model.Resource, error) {
 	return s.resourceRepo.FindResourceByNameAndType(ctx, tenantID, name, resourceType)
 }
 
@@ -273,11 +271,11 @@ func (s *service) BatchCreateAttributeDefinition(ctx context.Context, attrs []*m
 	return s.attrDefRepo.BatchCreateAttributeDefinition(ctx, attrs)
 }
 
-func (s *service) GetAttributesForResource(ctx context.Context, resourceID uint) (map[string]interface{}, error) {
-	return s.resAttrRepo.GetAttributesForResource(ctx, pkg.TenantIDFromContext(ctx), resourceID)
+func (s *service) GetAttributesForResource(ctx context.Context, tenantID uint, resourceID uint) (map[string]interface{}, error) {
+	return s.resAttrRepo.GetAttributesForResource(ctx, tenantID, resourceID)
 }
 
-func (s *service) FindAttributeDefinitionByResourceID(ctx context.Context, resourceID uint) ([]*model.AttributeDefinition, error) {
+func (s *service) FindAttributeDefinitionByResourceID(ctx context.Context, tenantID, resourceID uint) ([]*model.AttributeDefinition, error) {
 	return s.attrDefRepo.FindAttributeDefinitionByResourceID(ctx, resourceID)
 } //TODO: 需要实现底层{}
 
@@ -290,11 +288,11 @@ func (s *service) GetAttributesByResourceID(ctx context.Context, resourceID uint
 }
 
 // UpdateParent changes the hierarchical parent of a given resource.
-func (s *service) UpdateParent(ctx context.Context, tenantID uuid.UUID, resourceID, newParentID uint) error {
+func (s *service) UpdateParent(ctx context.Context, tenantID uint, resourceID, newParentID uint) error {
 	return s.resourceRepo.UpdateParent(ctx, tenantID, resourceID, newParentID)
 }
 
-func (s *service) CreateConnection(ctx context.Context, sourceID, tragetID uint) error {
+func (s *service) CreateConnection(ctx context.Context, tenantID, sourceID, tragetID uint) error {
 	res := &model.ResourceConnection{
 		SourceResourceID: sourceID,
 		TargetResourceID: tragetID,
@@ -309,12 +307,12 @@ func (s *service) CreateConnection(ctx context.Context, sourceID, tragetID uint)
 func (s *service) UpsertAttributesForResource(ctx context.Context, resourceID uint, attributes map[string]interface{}) error {
 	// In a real implementation, you would first validate the attributes against their definitions.
 	// For now, we delegate directly to the repository.
-	return s.resAttrRepo.UpsertForResource(ctx, pkg.TenantIDFromContext(ctx), resourceID, attributes)
+	return s.resAttrRepo.UpsertForResource(ctx, pkg.TenantIDUintFromContext(ctx), resourceID, attributes)
 }
 
 // ClearParent removes the parent from a resource, making it a root-level resource.
 func (s *service) ClearParent(ctx context.Context, resourceID uint) error {
-	return s.resourceRepo.UpdateParent(ctx, pkg.TenantIDFromContext(ctx), resourceID, 0)
+	return s.resourceRepo.UpdateParent(ctx, pkg.TenantIDUintFromContext(ctx), resourceID, 0)
 }
 
 func (s *service) GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
@@ -326,7 +324,7 @@ func (s *service) DeleteConnection(ctx context.Context, connectionID uint) error
 }
 
 func (s *service) GetChildren(ctx context.Context, resourceID uint) ([]*model.Resource, error) {
-	return s.resourceRepo.FindByParentID(ctx, pkg.TenantIDFromContext(ctx), resourceID)
+	return s.resourceRepo.FindByParentID(ctx, pkg.TenantIDUintFromContext(ctx), resourceID)
 }
 func (s *service) ListConnections(ctx context.Context, resourceID uint) ([]*model.ResourceConnection, error) {
 	return s.resourceConRepo.ListConnectionsByResourceID(ctx, resourceID)
@@ -342,7 +340,7 @@ func (s *service) ReplaceAttributeDefinitions(ctx context.Context, resourceID ui
 
 // CreateConnection establishes a new technical connection between two resources.
 
-func (s *service) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uuid.UUID, resourceIDs []uint) ([]model.ResourceAttribute, error) {
+func (s *service) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uint, resourceIDs []uint) ([]model.ResourceAttribute, error) {
 	return s.resAttrRepo.GetResourcesAndAttributesByIDs(ctx, tenantID, resourceIDs)
 }
 

@@ -1,7 +1,6 @@
 CREATE TABLE resources (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL,
-    resource_type VARCHAR(100) NOT NULL,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),    resource_type VARCHAR(100) NOT NULL,
     resource_name VARCHAR(255) NOT NULL,
     resource_status VARCHAR(50) NOT NULL DEFAULT 'active',
     code VARCHAR(100),

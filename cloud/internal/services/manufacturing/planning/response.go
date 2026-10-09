@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 // ProductionPlanResponse defines the response body for a production plan.
@@ -12,7 +11,7 @@ import (
 type ProductionPlanResponse struct {
 	ID              uint                       `json:"id"`
 	ResourceID      uint                       `json:"resourceUuid"`
-	TenantID        uuid.UUID                  `json:"tenantId"`
+	TenantID        uint                       `json:"tenantId"`
 	PlanNo          string                     `json:"planNo"`
 	ProductID       uint                       `json:"productId"`
 	FactoryID       uint                       `json:"factoryId"`

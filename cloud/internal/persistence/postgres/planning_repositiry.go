@@ -5,7 +5,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 	"gorm.io/gorm/clause"
 )
 
@@ -23,7 +22,7 @@ func (r *productionPlanRepository) Create(ctx context.Context, entity *model.Pro
 	return r.db.Get().WithContext(ctx).Create(entity).Error
 }
 
-func (r *productionPlanRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uint) (*model.ProductionPlan, error) {
+func (r *productionPlanRepository) GetByID(ctx context.Context, tenantID, id uint) (*model.ProductionPlan, error) {
 	var entity model.ProductionPlan
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).First(&entity).Error
 	if err != nil {
@@ -35,7 +34,7 @@ func (r *productionPlanRepository) GetByID(ctx context.Context, tenantID uuid.UU
 	return &entity, nil
 }
 
-func (r *productionPlanRepository) GetByPlanNo(ctx context.Context, tenantID uuid.UUID, planNo string) (*model.ProductionPlan, error) {
+func (r *productionPlanRepository) GetByPlanNo(ctx context.Context, tenantID uint, planNo string) (*model.ProductionPlan, error) {
 	var entity model.ProductionPlan
 	err := r.db.Get().WithContext(ctx).Where("tenant_id = ? AND plan_no = ?", tenantID, planNo).First(&entity).Error
 	if err != nil {
@@ -47,7 +46,7 @@ func (r *productionPlanRepository) GetByPlanNo(ctx context.Context, tenantID uui
 	return &entity, nil
 }
 
-func (r *productionPlanRepository) List(ctx context.Context, tenantID uuid.UUID, status *model.ProductionPlanStatus) ([]*model.ProductionPlan, error) {
+func (r *productionPlanRepository) List(ctx context.Context, tenantID uint, status *model.ProductionPlanStatus) ([]*model.ProductionPlan, error) {
 	var entities []*model.ProductionPlan
 	query := r.db.Get().WithContext(ctx).Where("tenant_id = ?", tenantID).Order("planned_start_at ASC")
 
@@ -67,7 +66,7 @@ func (r *productionPlanRepository) Update(ctx context.Context, entity *model.Pro
 
 func (r *productionPlanRepository) GetByIDForUpdateTx(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID,
 	id uint,
 ) (*model.ProductionPlan, error) {
 	var entity model.ProductionPlan

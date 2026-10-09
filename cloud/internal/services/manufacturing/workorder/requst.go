@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
-	"github.com/google/uuid"
 )
 
 // CreateRequest defines the structure for creating a new work order.
@@ -30,7 +29,7 @@ type UpdateRequest struct {
 	DueDate         *time.Time `json:"due_date"`
 }
 type ListRequest struct {
-	TenantID  uuid.UUID `json:"-"`
-	ProductID uint      `json:"product_id"`
+	TenantID  uint `json:"-"`
+	ProductID uint `json:"product_id"`
 	pkg.BasePageReq
 }

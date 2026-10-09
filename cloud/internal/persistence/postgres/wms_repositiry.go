@@ -5,7 +5,6 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
-	"github.com/google/uuid"
 	"gorm.io/gorm/clause"
 )
 
@@ -37,7 +36,7 @@ func (r *wmsRepository) CreateWarehouse(
 
 func (r *wmsRepository) GetWarehouseByID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.Warehouse, error) {
 	var warehouse model.Warehouse
@@ -75,7 +74,7 @@ func (r *wmsRepository) CreateLocation(
 
 func (r *wmsRepository) GetLocationByID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.WarehouseLocation, error) {
 	var location model.WarehouseLocation
@@ -114,7 +113,7 @@ func (r *wmsRepository) GetLocationByID(
 //	device_inventories -> devices -> resources
 func (r *wmsRepository) GetInventoryByDeviceID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	deviceID uint,
 ) (*model.DeviceInventory, error) {
 	var inventory model.DeviceInventory
@@ -180,7 +179,7 @@ func (r *wmsRepository) UpdateInventoryTx(
 // is a persistence concern and must be enforced by the query itself.
 func (r *wmsRepository) DeviceBelongsToTenant(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	deviceID uint,
 ) (bool, error) {
 	var count int64
@@ -236,7 +235,7 @@ func (r *wmsRepository) CreateShipmentItemsTx(
 
 func (r *wmsRepository) GetShipmentByID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.Shipment, error) {
 	var shipment model.Shipment
@@ -260,7 +259,7 @@ func (r *wmsRepository) GetShipmentByID(
 
 func (r *wmsRepository) GetShipmentByIDForUpdateTx(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	id uint,
 ) (*model.Shipment, error) {
 	var shipment model.Shipment
@@ -287,7 +286,7 @@ func (r *wmsRepository) GetShipmentByIDForUpdateTx(
 
 func (r *wmsRepository) ListShipmentItems(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	shipmentID uint,
 ) ([]*model.ShipmentItem, error) {
 	var items []*model.ShipmentItem
@@ -330,7 +329,7 @@ func (r *wmsRepository) UpdateShipmentTx(
 
 func (r *wmsRepository) GetTrackingEventByExternalID(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	shipmentID uint,
 	externalEventID string,
 ) (*model.ShipmentTrackingEvent, error) {
@@ -376,7 +375,7 @@ func (r *wmsRepository) CreateTrackingEventTx(
 
 func (r *wmsRepository) ListTrackingEvents(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	shipmentID uint,
 ) ([]*model.ShipmentTrackingEvent, error) {
 	var events []*model.ShipmentTrackingEvent
@@ -409,7 +408,7 @@ func (r *wmsRepository) ListTrackingEvents(
 
 func (r *wmsRepository) GetInventoryByDeviceIDForUpdateTx(
 	ctx context.Context,
-	tenantID uuid.UUID,
+	tenantID uint,
 	deviceID uint,
 ) (*model.DeviceInventory, error) {
 	var inventory model.DeviceInventory

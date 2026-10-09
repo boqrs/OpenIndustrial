@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	"github.com/google/uuid"
 )
 
 type CertificateRepository interface {
@@ -76,7 +75,7 @@ type IdentityRepository interface {
 
 	SerialNumberExists(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		serialNumber string,
 		excludeResourceID *uint,
 	) (bool, error)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
@@ -258,7 +259,7 @@ func (s *service) bindResourceIdentity(
 		}
 	}
 
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 
 	// SerialNumber must not belong to another resource.
 	if req.SerialNumber != "" {
@@ -836,20 +837,4 @@ func (s *service) RevokeCertificate(
 	}
 
 	return nil
-}
-
-// tenantIDFromContext returns the current tenant ID.
-//
-// ResourceIdentity currently has no tenant_id column, so the value is only
-// used to satisfy the existing repository interface. The repository itself
-// intentionally does not include tenant_id in its uniqueness query.
-func tenantIDFromContext(ctx context.Context) (id [16]byte) {
-	// Keep this helper local to avoid changing the existing security
-	// repository contract in this patch.
-	//
-	// The repository currently ignores tenantID because ResourceIdentity
-	// has no tenant_id field.
-	//
-	// We only need a zero UUID here.
-	return id
 }

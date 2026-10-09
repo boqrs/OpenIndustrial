@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
-	//"github.com/boqrs/OpenIndustrial/cloud/internal/services/salesorder"
-	"github.com/google/uuid"
 )
 
 type UnitOfWork interface {
@@ -24,7 +22,7 @@ type Repository interface {
 
 	GetWarehouseByID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		id uint,
 	) (*model.Warehouse, error)
 
@@ -36,20 +34,20 @@ type Repository interface {
 
 	GetLocationByID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		id uint,
 	) (*model.WarehouseLocation, error)
 
 	// Inventory
 	GetInventoryByDeviceID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		deviceID uint,
 	) (*model.DeviceInventory, error)
 
 	GetInventoryByDeviceIDForUpdateTx(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		deviceID uint,
 	) (*model.DeviceInventory, error)
 
@@ -66,7 +64,7 @@ type Repository interface {
 	// Device ownership
 	DeviceBelongsToTenant(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		deviceID uint,
 	) (bool, error)
 
@@ -83,19 +81,19 @@ type Repository interface {
 
 	GetShipmentByID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		id uint,
 	) (*model.Shipment, error)
 
 	GetShipmentByIDForUpdateTx(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		id uint,
 	) (*model.Shipment, error)
 
 	ListShipmentItems(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		shipmentID uint,
 	) ([]*model.ShipmentItem, error)
 
@@ -107,7 +105,7 @@ type Repository interface {
 	// Tracking
 	GetTrackingEventByExternalID(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		shipmentID uint,
 		externalEventID string,
 	) (*model.ShipmentTrackingEvent, error)
@@ -119,7 +117,7 @@ type Repository interface {
 
 	ListTrackingEvents(
 		ctx context.Context,
-		tenantID uuid.UUID,
+		tenantID uint,
 		shipmentID uint,
 	) ([]*model.ShipmentTrackingEvent, error)
 }

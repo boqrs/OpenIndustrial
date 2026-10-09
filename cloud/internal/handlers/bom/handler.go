@@ -11,7 +11,6 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/bom"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Handler wraps the BOM service to expose it via HTTP handlers.
@@ -48,8 +47,8 @@ func (h *Handler) create(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDFromGinContext(c)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(c)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -67,8 +66,8 @@ func (h *Handler) getByID(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDFromGinContext(c)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(c)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -81,13 +80,13 @@ func (h *Handler) getByID(c *gin.Context) ginx.Render {
 }
 
 func (h *Handler) list(c *gin.Context) ginx.Render {
-	productID, err := uuid.Parse(c.Param("productID"))
+	productID, err := parseUintParam(c, "productID")
 	if err != nil {
-		return ginx.Error(errors.New("invalid product id"))
+		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDFromGinContext(c)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(c)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -121,8 +120,8 @@ func (h *Handler) update(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDFromGinContext(c)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(c)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -140,8 +139,8 @@ func (h *Handler) release(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDFromGinContext(c)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(c)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -159,8 +158,8 @@ func (h *Handler) obsolete(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDFromGinContext(c)
-	if tenantID == uuid.Nil {
+	tenantID := pkg.TenantIDUintFromGinContext(c)
+	if tenantID == 0 {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 

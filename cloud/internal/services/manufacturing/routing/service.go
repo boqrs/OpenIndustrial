@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
-	//"gorm.io/gorm"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 )
 
 // --- Errors ---
@@ -40,20 +38,12 @@ func NewService(repository Repository) Service {
 // --- Routing Methods ---
 
 func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingRequest) (*RoutingResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	name := strings.TrimSpace(req.Name)
 	if name == "" || req.ProductID == 0 {
 		return nil, fmt.Errorf("product ID and routing name are required")
 	}
 
-	// TODO: Validate product existence
-	// _, err := s.productSvc.GetProduct(ctx, req.ProductID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// For simplicity, versioning is handled manually for now.
-	// A more robust system might auto-increment versions.
 	const version = 1
 	existing, err := s.repository.GetRoutingByNameAndVersion(ctx, tenantID, req.ProductID, name, version)
 	if err == nil && existing != nil {
@@ -82,7 +72,7 @@ func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingReque
 }
 
 func (s *serviceImpl) GetRouting(ctx context.Context, id uint) (*RoutingResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -91,7 +81,7 @@ func (s *serviceImpl) GetRouting(ctx context.Context, id uint) (*RoutingResponse
 }
 
 func (s *serviceImpl) ListRoutings(ctx context.Context, productID *uint, status *model.RoutingStatus) ([]*RoutingResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entities, err := s.repository.ListRoutings(ctx, tenantID, productID, status)
 	if err != nil {
 		return nil, err
@@ -104,7 +94,7 @@ func (s *serviceImpl) ListRoutings(ctx context.Context, productID *uint, status 
 }
 
 func (s *serviceImpl) UpdateRouting(ctx context.Context, id uint, req *UpdateRoutingRequest) (*RoutingResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -137,7 +127,7 @@ func (s *serviceImpl) UpdateRouting(ctx context.Context, id uint, req *UpdateRou
 }
 
 func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -161,7 +151,7 @@ func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
 }
 
 func (s *serviceImpl) DeactivateRouting(ctx context.Context, id uint) error {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -181,7 +171,7 @@ func (s *serviceImpl) DeactivateRouting(ctx context.Context, id uint) error {
 // --- Operation Methods ---
 
 func (s *serviceImpl) AddOperation(ctx context.Context, routingID uint, req *CreateOperationRequest) (*OperationResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	code := strings.TrimSpace(req.Code)
 	if code == "" || req.Name == "" || req.Sequence <= 0 {
 		return nil, fmt.Errorf("operation code, name, and a positive sequence are required")
@@ -225,7 +215,7 @@ func (s *serviceImpl) AddOperation(ctx context.Context, routingID uint, req *Cre
 }
 
 func (s *serviceImpl) ListOperations(ctx context.Context, routingID uint) ([]*OperationResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	entities, err := s.repository.ListOperations(ctx, tenantID, routingID)
 	if err != nil {
 		return nil, err
@@ -238,8 +228,7 @@ func (s *serviceImpl) ListOperations(ctx context.Context, routingID uint) ([]*Op
 }
 
 func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, operationID uint, req *UpdateOperationRequest) (*OperationResponse, error) {
-	tenantID := tenantIDFromContext(ctx)
-
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 	routing, err := s.repository.GetRoutingByID(ctx, tenantID, routingID)
 	if err != nil {
 		return nil, err
@@ -286,7 +275,7 @@ func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, opera
 }
 
 func (s *serviceImpl) DeleteOperation(ctx context.Context, routingID uint, operationID uint) error {
-	tenantID := tenantIDFromContext(ctx)
+	tenantID := pkg.TenantIDUintFromContext(ctx)
 
 	routing, err := s.repository.GetRoutingByID(ctx, tenantID, routingID)
 	if err != nil {
@@ -333,18 +322,7 @@ func toOperationResponse(entity *model.RoutingOperation) *OperationResponse {
 		WorkStationID: *entity.WorkstationID,
 		Sequence:      entity.Sequence,
 		Parameters:    entity.Parameters,
-		//SetupTime:      entity.SetupTime,
-		//ProcessingTime: entity.ProcessingTime,
-		CreatedAt: entity.CreatedAt,
-		UpdatedAt: entity.UpdatedAt,
+		CreatedAt:     entity.CreatedAt,
+		UpdatedAt:     entity.UpdatedAt,
 	}
-}
-
-// --- Helpers ---
-
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-	if id, ok := ctx.Value("tenant_id").(uuid.UUID); ok {
-		return id
-	}
-	return uuid.Nil
 }
