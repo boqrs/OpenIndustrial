@@ -1,3 +1,86 @@
+CREATE TABLE product_models (
+    id BIGSERIAL PRIMARY KEY,
+    resource_id BIGINT NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_product_models_resource
+        FOREIGN KEY (resource_id)
+        REFERENCES resources(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_product_models_resource_id
+    ON product_models(resource_id);
+
+CREATE INDEX idx_product_models_category
+    ON product_models(category);
+
+
+CREATE TABLE factories (
+    id BIGSERIAL PRIMARY KEY,
+    resource_id BIGINT NOT NULL,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    address TEXT,
+    timezone VARCHAR(100) NOT NULL DEFAULT 'UTC',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_factories_resource
+        FOREIGN KEY (resource_id)
+        REFERENCES resources(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_factories_resource_id
+    ON factories(resource_id);
+
+
+CREATE TABLE production_plans (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    plan_no VARCHAR(100) NOT NULL,
+    product_id BIGINT NOT NULL,
+    factory_id BIGINT NOT NULL,
+    planned_quantity BIGINT NOT NULL,
+    planned_start_at TIMESTAMPTZ NOT NULL,
+    planned_end_at TIMESTAMPTZ NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'draft',
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+
+    CONSTRAINT fk_production_plans_product
+        FOREIGN KEY (product_id)
+        REFERENCES product_models(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_production_plans_factory
+        FOREIGN KEY (factory_id)
+        REFERENCES factories(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_production_plans_tenant_id
+    ON production_plans(tenant_id);
+
+CREATE INDEX idx_production_plans_product_id
+    ON production_plans(product_id);
+
+CREATE INDEX idx_production_plans_factory_id
+    ON production_plans(factory_id);
+
+CREATE INDEX idx_production_plans_planned_start_at
+    ON production_plans(planned_start_at);
+
+CREATE INDEX idx_production_plans_status
+    ON production_plans(status);
+
 CREATE TABLE routings (
     id BIGSERIAL PRIMARY KEY,
     resource_id BIGINT NOT NULL,
@@ -262,3 +345,81 @@ CREATE INDEX idx_execution_results_work_order_id
 
 CREATE INDEX idx_execution_results_status
     ON execution_results(status);
+
+CREATE TABLE materials (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    code VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    material_type VARCHAR(32) NOT NULL,
+    unit VARCHAR(32) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_materials_tenant_id
+    ON materials(tenant_id);
+
+CREATE INDEX idx_materials_code
+    ON materials(code);
+
+CREATE INDEX idx_materials_material_type
+    ON materials(material_type);
+
+CREATE INDEX idx_materials_deleted_at
+    ON materials(deleted_at);
+CREATE TABLE boms (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    product_id BIGINT NOT NULL,
+    bom_no VARCHAR(100) NOT NULL,
+    version INTEGER NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'draft',
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_boms_tenant_id
+    ON boms(tenant_id);
+
+CREATE INDEX idx_boms_product_id
+    ON boms(product_id);
+
+CREATE INDEX idx_boms_status
+    ON boms(status);
+
+CREATE INDEX idx_boms_deleted_at
+    ON boms(deleted_at);
+
+
+CREATE TABLE bom_items (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    bom_id BIGINT NOT NULL,
+    material_id BIGINT NOT NULL,
+    quantity NUMERIC(20,6) NOT NULL,
+    unit VARCHAR(32) NOT NULL,
+    sequence INTEGER NOT NULL DEFAULT 0,
+    operation_code VARCHAR(100),
+    is_optional BOOLEAN NOT NULL DEFAULT FALSE,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_bom_items_tenant_id
+    ON bom_items(tenant_id);
+
+CREATE INDEX idx_bom_items_bom_id
+    ON bom_items(bom_id);
+
+CREATE INDEX idx_bom_items_material_id
+    ON bom_items(material_id);
+
+CREATE INDEX idx_bom_items_deleted_at
+    ON bom_items(deleted_at);
