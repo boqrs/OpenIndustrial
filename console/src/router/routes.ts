@@ -1,5 +1,7 @@
 import type { RouteRecordRaw } from "vue-router";
 
+import { Permissions } from "../authz/permissions";
+
 export const routes: RouteRecordRaw[] = [
   {
     path: "/login",
@@ -40,6 +42,7 @@ export const routes: RouteRecordRaw[] = [
     component: () => import("../views/users/Users.vue"),
     meta: {
       requiresAuth: true,
+      permission: Permissions.USER_LIST,
     },
   },
 
@@ -49,7 +52,7 @@ export const routes: RouteRecordRaw[] = [
   },
 
   {
-    path: "/:pathMatch(.*)*",
+    path: "/(.)",
     redirect: "/dashboard",
   },
 ];

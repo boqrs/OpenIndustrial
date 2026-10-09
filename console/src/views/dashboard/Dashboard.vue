@@ -12,6 +12,9 @@ import {
 import { getDashboardOverview } from "../../api/dashboard";
 import type { UserStats } from "../../api/dashboard";
 import { useAuthStore } from "../../store/auth";
+import { hasPermission, isKnownRole } from "../../authz/access";
+import { Permissions } from "../../authz/permissions";
+import { getRoleLabel } from "../../authz/roles";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -20,8 +23,18 @@ const stats = ref<UserStats | null>(null);
 const loading = ref(false);
 const loadError = ref("");
 
+/**
+ * 工作台展示基于权限，而不是在页面里硬编码角色判断。
+ * 后续新增角色时，可以在 authz 模块配置对应权限。
+ */
+const isAdmin = computed(() =>
+  hasPermission(authStore.user, Permissions.USER_LIST),
+);
+
+const roleLabel = computed(() => getRoleLabel(authStore.user?.user_type));
+
 const displayName = computed(
-  () => authStore.user?.name || authStore.user?.email || "管理员",
+  () => authStore.user?.name || authStore.user?.email || "用户",
 );
 
 const statCards = computed(() => [
@@ -37,7 +50,7 @@ const statCards = computed(() => [
     key: "init",
     label: "待审核申请",
     value: stats.value?.init,
-    description: "等待管理员邀请",
+    description: "等待管理员处理",
     icon: "A",
     tone: "gold",
   },
@@ -109,10 +122,14 @@ const statusRows = computed(() => {
 });
 
 /**
- * 统计卡片统一进入用户列表。
- * total 不附带状态参数，其他卡片通过 status 查询参数筛选。
+ * 统计卡片进入用户列表。
+ * 总数不附加状态参数，其他卡片按状态筛选。
  */
 function openStatCard(key: string) {
+  if (!isAdmin.value) {
+    return;
+  }
+
   if (key === "total") {
     void router.push("/users");
     return;
@@ -120,13 +137,19 @@ function openStatCard(key: string) {
 
   void router.push({
     path: "/users",
-    query: {
-      status: key,
-    },
+    query: { status: key },
   });
 }
 
+/**
+ * 只有具有用户列表权限的用户才请求管理统计接口。
+ * 普通员工不会调用 /dashboard/overview。
+ */
 async function loadOverview() {
+  if (!isAdmin.value) {
+    return;
+  }
+
   loading.value = true;
   loadError.value = "";
 
@@ -134,7 +157,7 @@ async function loadOverview() {
     const overview = await getDashboardOverview();
     stats.value = overview.users;
   } catch (error: unknown) {
-    loadError.value = "暂时无法获取平台统计数据，请检查网络或稍后重试。";
+    loadError.value = "暂时无法获取工厂账户统计数据，请检查网络或稍后重试。";
     console.error("Failed to load dashboard overview:", error);
   } finally {
     loading.value = false;
@@ -150,7 +173,9 @@ async function handleLogout() {
 }
 
 onMounted(() => {
-  void loadOverview();
+  if (isAdmin.value) {
+    void loadOverview();
+  }
 });
 </script>
 
@@ -183,7 +208,7 @@ onMounted(() => {
 
           <div class="account-copy">
             <span class="account-name">{{ displayName }}</span>
-            <span class="account-role">平台用户</span>
+            <span class="account-role">{{ roleLabel }}</span>
           </div>
         </div>
 
@@ -195,6 +220,7 @@ onMounted(() => {
     </header>
 
     <main class="main-content">
+      <!-- 所有已登录用户共用欢迎区域 -->
       <section class="welcome-section">
         <div>
           <div class="eyebrow">
@@ -205,7 +231,12 @@ onMounted(() => {
           <h1>工作台</h1>
 
           <p class="welcome-description">
-            欢迎回来，{{ displayName }}。这里是您的工业云管理入口。
+            欢迎回来，{{ displayName }}。
+            {{
+              isAdmin
+                ? "这里是您管理工厂账户与工业业务的工作台。"
+                : "这里是您的个人工作台，可访问当前账户已获授权的业务功能。"
+            }}
           </p>
         </div>
 
@@ -219,7 +250,8 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="stats-section">
+      <!-- 管理员专属：账户统计 -->
+      <section v-if="isAdmin" class="stats-section">
         <div class="section-heading">
           <div>
             <h2>账号概览</h2>
@@ -288,7 +320,8 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="details-grid">
+      <!-- 管理员专属：统计详情和平台业务流程 -->
+      <section v-if="isAdmin" class="details-grid">
         <article class="panel status-panel">
           <div class="panel-heading">
             <div>
@@ -392,6 +425,53 @@ onMounted(() => {
             </div>
           </div>
         </article>
+      </section>
+
+      <!-- 普通员工、操作员、只读用户：个人工作台 -->
+      <section
+        v-if="!isAdmin && isKnownRole(authStore.user)"
+        class="employee-workspace"
+      >
+        <div class="employee-workspace-heading">
+          <div>
+            <div class="eyebrow">
+              <span class="eyebrow-line"></span>
+              MY WORKSPACE
+            </div>
+
+            <h2>个人工作台</h2>
+            <p>从这里进入当前账户已开放的业务功能。</p>
+          </div>
+        </div>
+
+        <div class="employee-workspace-grid">
+          <article class="workspace-card">
+            <div class="workspace-card-icon">01</div>
+            <h3>个人账户</h3>
+            <p>当前登录身份：{{ displayName }}</p>
+            <div class="workspace-card-meta">
+              {{ roleLabel }}
+            </div>
+          </article>
+
+          <article class="workspace-card">
+            <div class="workspace-card-icon">02</div>
+            <h3>业务工作区</h3>
+            <p>后续将根据岗位授权开放 MES、WMS、设备及 IoT 功能。</p>
+            <div class="workspace-card-meta">按权限开放</div>
+          </article>
+        </div>
+
+        <div class="workspace-notice">
+          当前工作台仅展示已接入的基础入口。业务模块将根据后续接口和岗位授权逐步开放。
+        </div>
+      </section>
+
+      <!-- 未知角色：不展示管理数据 -->
+      <section v-else-if="!isAdmin" class="employee-workspace unknown-role">
+        <div class="unknown-role-icon">!</div>
+        <h2>当前账户尚未配置工作台</h2>
+        <p>系统暂时无法识别此账户的角色，请联系工厂管理员确认账户配置。</p>
       </section>
 
       <footer class="page-footer">
@@ -578,10 +658,11 @@ onMounted(() => {
 }
 
 .welcome-description {
+  max-width: 620px;
   margin: 0;
   color: #667085;
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.8;
 }
 
 .welcome-decoration {
@@ -1018,6 +1099,129 @@ onMounted(() => {
   background: #dce4ec;
 }
 
+/* 员工个人工作台 */
+.employee-workspace {
+  margin-top: 32px;
+  padding: 28px;
+  border: 1px solid #e5eaf0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.employee-workspace-heading h2 {
+  margin: 13px 0 8px;
+  color: #0e1f33;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.employee-workspace-heading p {
+  margin: 0;
+  color: #7c8999;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.employee-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.workspace-card {
+  padding: 24px;
+  border: 1px solid #e5eaf0;
+  border-radius: 10px;
+  background: #fbfcfe;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.workspace-card:hover {
+  border-color: #d3dce7;
+  box-shadow: 0 5px 18px rgb(14 31 51 / 5%);
+}
+
+.workspace-card-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 9px;
+  background: #0e1f33;
+  color: #f0a030;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-card h3 {
+  margin: 18px 0 8px;
+  color: #182b40;
+  font-size: 16px;
+}
+
+.workspace-card p {
+  min-height: 42px;
+  margin: 0;
+  color: #7c8999;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.workspace-card-meta {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e8edf2;
+  color: #9b641a;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.workspace-notice {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f5f7fa;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+/* 未知角色提示 */
+.unknown-role {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.unknown-role-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff4df;
+  color: #ad721b;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.unknown-role h2 {
+  margin: 18px 0 8px;
+  color: #182b40;
+  font-size: 18px;
+}
+
+.unknown-role p {
+  margin: 0;
+  color: #7c8999;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
 .page-footer {
   display: flex;
   align-items: center;
@@ -1157,6 +1361,14 @@ onMounted(() => {
 
   .panel {
     padding: 20px;
+  }
+
+  .employee-workspace {
+    padding: 20px;
+  }
+
+  .employee-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .page-footer {
