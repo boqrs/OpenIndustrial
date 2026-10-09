@@ -79,14 +79,14 @@ type GetUserRequest struct {
 }
 
 type ListUsersRequest struct {
-	TenantID uint `json:"tenant_id" validate:"required"`
+	TenantID uint `json:"tenant_id" form:"tenant_id" validate:"required"`
 
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
+	Limit  int `json:"limit" form:"limit"`
+	Offset int `json:"offset" form:"offset"`
 
-	Status   string `json:"status"`
-	UserType string `json:"user_type"`
-	Keyword  string `json:"keyword"`
+	Status   string `json:"status" form:"status"`
+	UserType string `json:"user_type" form:"user_type"`
+	Keyword  string `json:"keyword" form:"keyword"`
 }
 
 type UpdateUserRequest struct {

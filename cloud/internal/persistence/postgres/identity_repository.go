@@ -159,7 +159,6 @@ func (r *userRepository) ListUsers(
 
 	if keyword != "" {
 		keyword = "%" + keyword + "%"
-
 		query = query.Where(
 			"(name ILIKE ? OR email ILIKE ?)",
 			keyword,

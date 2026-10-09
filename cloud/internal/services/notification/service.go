@@ -148,14 +148,17 @@ func (s *service) SendInvitation(
 
 	msg.Subject("[OpenIndustrial] 激活您的设备数字身份平台账户")
 
+	activationURL := BuildActivationURL(s.consoleBaseURL, req.Token)
+	if activationURL == "" {
+		return fmt.Errorf("console base URL is not configured")
+	}
+
 	body := fmt.Sprintf(
 		"您好，%s：\n\n"+
 			"您已被邀请加入 %s 的设备数字身份平台。\n\n"+
 			"请打开下面的链接完成账户激活并设置密码：\n%s\n\n"+
 			"该链接具有有效期，请勿转发给他人。\n",
-		req.Name,
-		req.TenantName,
-		req.Token,
+		req.Name, req.TenantName, activationURL,
 	)
 
 	html := fmt.Sprintf(
@@ -169,12 +172,8 @@ func (s *service) SendInvitation(
 			"<p>%s</p>"+
 			"<p>该链接具有有效期，请勿转发给他人。</p>"+
 			"</body></html>",
-		req.Name,
-		req.TenantName,
-		req.Token,
-		req.Token,
+		req.Name, req.TenantName, activationURL, activationURL,
 	)
-
 	msg.SetBodyString(mail.TypeTextPlain, body)
 	msg.AddAlternativeString(mail.TypeTextHTML, html)
 
@@ -185,11 +184,13 @@ func (s *service) SendInvitation(
 	return nil
 }
 
-func BuildActivationURL(
-	baseURL string,
-	token string,
-) string {
-	return strings.TrimRight(baseURL, "/") +
-		"/register?token=" +
-		url.QueryEscape(token)
+func BuildActivationURL(baseURL string, token string) string {
+    baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+    token = strings.TrimSpace(token)
+
+    if baseURL == "" || token == "" {
+        return ""
+    }
+
+    return baseURL + "/invitation/accept?token=" + url.QueryEscape(token)
 }

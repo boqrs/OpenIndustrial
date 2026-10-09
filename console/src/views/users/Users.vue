@@ -46,7 +46,7 @@
           <p>查看用户信息，并为待审核账户发送邀请。</p>
         </div>
 
-        <el-button type="primary" :icon="Plus" @click="openInviteDialog">
+        <el-button type="primary" :icon="Plus" @click="openInviteDialog()">
           邀请用户
         </el-button>
       </div>

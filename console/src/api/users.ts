@@ -25,6 +25,20 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * 同时兼容 Go 默认字段名（ID、Email、UserType）
+ * 和带 JSON tag 的字段名（id、email、user_type）。
+ */
+function getField(record: UnknownRecord, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) {
+      return record[key];
+    }
+  }
+
+  return undefined;
+}
+
 function readString(value: unknown): string {
   if (typeof value === "string" || typeof value === "number") {
     return String(value);
@@ -33,12 +47,23 @@ function readString(value: unknown): string {
   return "";
 }
 
+// function readOptionalId(value: unknown): number | string | undefined {
+//   if (typeof value === "number" || typeof value === "string") {
+//     return value;
+//   }
+
+//   return undefined;
+// }
+
 function extractUsers(payload: unknown): {
   users: unknown[];
   total?: number;
 } {
   if (Array.isArray(payload)) {
-    return { users: payload };
+    return {
+      users: payload,
+      total: undefined,
+    };
   }
 
   if (!isRecord(payload)) {
@@ -46,9 +71,11 @@ function extractUsers(payload: unknown): {
   }
 
   for (const key of ["users", "items", "list", "records"]) {
-    if (Array.isArray(payload[key])) {
+    const value = payload[key];
+
+    if (Array.isArray(value)) {
       return {
-        users: payload[key] as unknown[],
+        users: value,
         total: typeof payload.total === "number" ? payload.total : undefined,
       };
     }
@@ -62,30 +89,28 @@ function normalizeUser(value: unknown): ManagedUser | null {
     return null;
   }
 
-  const email = readString(value.email);
+  // 兼容 Go 默认 JSON 字段名与 snake_case 字段名。
+  const get = (lower: string, upper: string): unknown =>
+    value[lower] ?? value[upper];
+
+  const email = readString(get("email", "Email"));
 
   if (!email) {
     return null;
   }
 
-  const uuid = readString(value.uuid);
+  const uuid = readString(get("uuid", "UUID"));
 
   return {
-    id: readString(value.id) || uuid || email,
+    id: readString(get("id", "ID")) || uuid || email,
     uuid: uuid || undefined,
-    tenant_id:
-      typeof value.tenant_id === "number" || typeof value.tenant_id === "string"
-        ? value.tenant_id
-        : undefined,
-    role_id:
-      typeof value.role_id === "number" || typeof value.role_id === "string"
-        ? value.role_id
-        : undefined,
-    name: readString(value.name) || "未设置姓名",
+    tenant_id: get("tenant_id", "TenantID") as number | string | undefined,
+    role_id: get("role_id", "RoleID") as number | string | undefined,
+    name: readString(get("name", "Name")) || "未设置姓名",
     email,
-    user_type: readString(value.user_type) || "employee",
-    status: readString(value.status) || "unknown",
-    created_at: readString(value.created_at) || undefined,
+    user_type: readString(get("user_type", "UserType")) || "employee",
+    status: readString(get("status", "Status")) || "unknown",
+    created_at: readString(get("created_at", "CreatedAt")) || undefined,
   };
 }
 
@@ -115,6 +140,7 @@ export async function listUsers(
   });
 
   const result = extractUsers(payload);
+
   const users = result.users
     .map(normalizeUser)
     .filter((user): user is ManagedUser => user !== null);
@@ -152,10 +178,14 @@ export async function listRoles(): Promise<IdentityRole[]> {
   return values
     .filter(isRecord)
     .map((role) => ({
-      id: Number(role.id),
-      uuid: readString(role.uuid) || undefined,
-      name: readString(role.name) || readString(role.code) || "未命名角色",
-      description: readString(role.description) || undefined,
+      id: Number(getField(role, "id", "ID")),
+      uuid: readString(getField(role, "uuid", "UUID")) || undefined,
+      name:
+        readString(getField(role, "name", "Name")) ||
+        readString(getField(role, "code", "Code")) ||
+        "未命名角色",
+      description:
+        readString(getField(role, "description", "Description")) || undefined,
     }))
     .filter((role) => Number.isFinite(role.id) && role.id > 0);
 }
