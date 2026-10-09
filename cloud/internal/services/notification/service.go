@@ -185,12 +185,12 @@ func (s *service) SendInvitation(
 }
 
 func BuildActivationURL(baseURL string, token string) string {
-    baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-    token = strings.TrimSpace(token)
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	token = strings.TrimSpace(token)
 
-    if baseURL == "" || token == "" {
-        return ""
-    }
+	if baseURL == "" || token == "" {
+		return ""
+	}
 
-    return baseURL + "/invitation/accept?token=" + url.QueryEscape(token)
+	return baseURL + "/invitation/accept?token=" + url.QueryEscape(token)
 }

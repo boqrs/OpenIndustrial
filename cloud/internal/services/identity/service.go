@@ -305,6 +305,11 @@ func (s *service) InviteUser(
 		return ErrRoleInvalid
 	}
 
+	// 管理员只能通过初始化流程建立，不能通过普通邀请流程分配。
+	if strings.EqualFold(strings.TrimSpace(role.Name), "Admin") {
+		return ErrRoleInvalid
+	}
+
 	user, err := s.repo.GetUserByEmail(
 		ctx,
 		tenantID,

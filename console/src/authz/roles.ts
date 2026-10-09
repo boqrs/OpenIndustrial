@@ -56,3 +56,36 @@ export function getDefaultDashboard(value?: string | null): string {
 
   return "unavailable";
 }
+
+/**
+ * 数据库存储的业务岗位名称。
+ *
+ * 注意：这些名称来自 Cloud 的 roles 表，
+ * 不等于 users.user_type。
+ */
+export const BusinessRoleNames = {
+  EMPLOYEE: "Employee",
+  PROCESS_ENGINEER: "Process Engineer",
+  PRODUCTION_PLANNER: "Production Planner",
+  OPERATOR: "Operator",
+  QUALITY_INSPECTOR: "Quality Inspector",
+} as const;
+
+const businessRoleLabels: Record<string, string> = {
+  Admin: "工厂管理员",
+  Employee: "普通员工",
+  "Process Engineer": "工艺工程师",
+  "Production Planner": "生产计划员",
+  Operator: "生产操作员",
+  "Quality Inspector": "质量检验员",
+};
+
+export function getBusinessRoleLabel(roleName?: string | null): string {
+  const name = roleName?.trim();
+
+  if (!name) {
+    return "未分配岗位";
+  }
+
+  return businessRoleLabels[name] ?? name;
+}

@@ -7,6 +7,7 @@ export interface ManagedUser {
   uuid?: string;
   tenant_id?: number | string;
   role_id?: number | string;
+  role_name?: string;
   name: string;
   email: string;
   user_type: string;
@@ -111,6 +112,8 @@ function normalizeUser(value: unknown): ManagedUser | null {
     user_type: readString(get("user_type", "UserType")) || "employee",
     status: readString(get("status", "Status")) || "unknown",
     created_at: readString(get("created_at", "CreatedAt")) || undefined,
+    role_name:
+      readString(getField(value, "role_name", "RoleName")) || undefined,
   };
 }
 

@@ -1,12 +1,11 @@
 <template>
   <div class="users-page">
-    <!-- 页面标题 -->
     <header class="page-header">
       <div>
         <div class="page-eyebrow">IDENTITY MANAGEMENT</div>
         <h1>用户管理</h1>
         <p class="page-description">
-          管理当前工厂的用户账户、激活状态及账户邀请。
+          管理当前工厂的用户账户、岗位角色、激活状态及账户邀请。
         </p>
       </div>
 
@@ -14,7 +13,7 @@
         type="primary"
         :icon="Refresh"
         :loading="loading"
-        @click="loadUsers"
+        @click="refreshPage"
       >
         刷新列表
       </el-button>
@@ -31,9 +30,7 @@
         @click="selectStatus(item.key)"
       >
         <span class="summary-label">{{ item.label }}</span>
-        <strong class="summary-value">
-          {{ item.value }}
-        </strong>
+        <strong class="summary-value">{{ item.value }}</strong>
         <span class="summary-description">{{ item.description }}</span>
       </button>
     </section>
@@ -43,7 +40,7 @@
       <div class="panel-header">
         <div>
           <h2>账户列表</h2>
-          <p>查看用户信息，并为待审核账户发送邀请。</p>
+          <p>查看账户类型与岗位分工，并为待审核账户发送邀请。</p>
         </div>
 
         <el-button type="primary" :icon="Plus" @click="openInviteDialog()">
@@ -81,7 +78,6 @@
         <el-button @click="resetFilters"> 重置 </el-button>
       </div>
 
-      <!-- 加载错误 -->
       <el-alert
         v-if="loadError"
         :title="loadError"
@@ -91,7 +87,7 @@
         class="error-alert"
       />
 
-      <!-- 表格 -->
+      <!-- 用户表格 -->
       <el-table
         v-loading="loading"
         :data="users"
@@ -114,11 +110,32 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="用户类型" width="130">
+        <el-table-column label="账户类型" width="130">
           <template #default="{ row }">
-            <span class="user-type">
+            <el-tag
+              :type="
+                row.user_type?.toLowerCase() === 'admin' ? 'warning' : 'info'
+              "
+              effect="plain"
+            >
               {{ formatUserType(row.user_type) }}
-            </span>
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="岗位角色" min-width="160">
+          <template #default="{ row }">
+            <div class="business-role">
+              <span class="business-role-name">
+                {{ getUserRoleLabel(row) }}
+              </span>
+              <span
+                v-if="getUserRoleDescription(row)"
+                class="business-role-description"
+              >
+                {{ getUserRoleDescription(row) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
 
@@ -189,7 +206,10 @@
 
         <div>
           <h3>发送账户激活邀请</h3>
-          <p>提交后，系统将通过邮件发送邀请，用户完成激活后即可登录。</p>
+          <p>
+            选择合适的岗位角色。提交后，系统将通过邮件发送邀请，
+            用户完成激活后即可登录。
+          </p>
         </div>
       </div>
 
@@ -227,23 +247,23 @@
           />
         </el-form-item>
 
-        <el-form-item label="账户角色" prop="role_id">
+        <el-form-item label="岗位角色" prop="role_id">
           <el-select
             v-model="inviteForm.role_id"
-            placeholder="请选择角色"
+            placeholder="请选择岗位角色"
             style="width: 100%"
             :loading="rolesLoading"
-            :disabled="rolesLoading || roles.length === 0"
-            no-data-text="暂无可用角色"
+            :disabled="rolesLoading || assignableRoles.length === 0"
+            no-data-text="暂无可分配的岗位角色"
           >
             <el-option
-              v-for="role in roles"
+              v-for="role in assignableRoles"
               :key="role.id"
-              :label="role.name"
+              :label="getBusinessRoleLabel(role.name)"
               :value="role.id"
             >
               <div class="role-option">
-                <span>{{ role.name }}</span>
+                <span>{{ getBusinessRoleLabel(role.name) }}</span>
                 <span v-if="role.description" class="role-description">
                   {{ role.description }}
                 </span>
@@ -251,8 +271,15 @@
             </el-option>
           </el-select>
 
-          <div v-if="!rolesLoading && roles.length === 0" class="field-tip">
-            暂未获取到可用角色，请检查角色接口及当前账户权限。
+          <div
+            v-if="!rolesLoading && assignableRoles.length === 0"
+            class="field-tip"
+          >
+            暂无可分配的岗位角色，请检查角色初始化及当前账户权限。
+          </div>
+
+          <div class="field-tip field-tip-neutral">
+            工厂管理员属于系统管理账户，不通过普通用户邀请分配。
           </div>
         </el-form-item>
       </el-form>
@@ -269,7 +296,7 @@
           <el-button
             type="primary"
             :loading="submittingInvite"
-            :disabled="roles.length === 0 || rolesLoading"
+            :disabled="assignableRoles.length === 0 || rolesLoading"
             @click="submitInvitation"
           >
             发送邀请
@@ -327,6 +354,14 @@ const inviteForm = reactive({
   role_id: undefined as number | undefined,
 });
 
+/**
+ * 这些是可分配给普通用户的业务岗位。
+ * 管理员账户通过 bootstrap 初始化，不通过普通邀请创建。
+ */
+const assignableRoles = computed(() =>
+  roles.value.filter((role) => role.name.trim().toLowerCase() !== "admin"),
+);
+
 const inviteRules: FormRules = {
   name: [
     {
@@ -356,7 +391,7 @@ const inviteRules: FormRules = {
   role_id: [
     {
       required: true,
-      message: "请选择账户角色",
+      message: "请选择岗位角色",
       trigger: "change",
     },
   ],
@@ -368,6 +403,8 @@ const summaryCards = computed(() => {
       return total.value;
     }
 
+    // 当前接口返回的是分页结果，因此状态卡片的非总数统计
+    // 仅基于当前加载的这一页数据。
     return users.value.filter((user) => user.status === status).length;
   };
 
@@ -424,8 +461,78 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 function getInitial(name: string): string {
   const value = name.trim();
-
   return value ? value.slice(0, 1).toUpperCase() : "U";
+}
+
+/**
+ * user_type 是账户类型，不是业务岗位。
+ */
+function formatUserType(userType?: string | null): string {
+  const value = userType?.trim().toLowerCase();
+
+  const labels: Record<string, string> = {
+    admin: "工厂管理员",
+    employee: "普通员工",
+    operator: "操作员",
+    viewer: "只读账户",
+  };
+
+  return value ? (labels[value] ?? userType ?? "普通员工") : "普通员工";
+}
+
+/**
+ * 数据库角色名称使用英文标识，前端统一显示中文。
+ * 未知角色回退显示后端返回的原始名称，避免丢失信息。
+ */
+function getBusinessRoleLabel(roleName?: string | null): string {
+  const name = roleName?.trim();
+
+  if (!name) {
+    return "未分配岗位";
+  }
+
+  const normalized = name.toLowerCase();
+
+  const labels: Record<string, string> = {
+    admin: "工厂管理员",
+    employee: "普通员工",
+    "process engineer": "工艺工程师",
+    "production planner": "生产计划员",
+    operator: "生产操作员",
+    "quality inspector": "质量检验员",
+  };
+
+  return labels[normalized] ?? name;
+}
+
+/**
+ * 根据用户 role_id 关联当前工厂的角色列表。
+ * 优先使用数据库业务角色；没有匹配到角色时才回退到 user_type。
+ */
+function getUserRole(user: ManagedUser): IdentityRole | undefined {
+  if (user.role_id === undefined || user.role_id === null) {
+    return undefined;
+  }
+
+  return roles.value.find((role) => String(role.id) === String(user.role_id));
+}
+
+function getUserRoleLabel(user: ManagedUser): string {
+  const role = getUserRole(user);
+
+  if (role) {
+    return getBusinessRoleLabel(role.name);
+  }
+
+  if (user.user_type?.trim().toLowerCase() === "admin") {
+    return "工厂管理员";
+  }
+
+  return "未分配岗位";
+}
+
+function getUserRoleDescription(user: ManagedUser): string {
+  return getUserRole(user)?.description ?? "";
 }
 
 function statusLabel(status: string): string {
@@ -450,17 +557,6 @@ function statusTagType(
   };
 
   return types[status] ?? "info";
-}
-
-function formatUserType(userType: string): string {
-  const labels: Record<string, string> = {
-    admin: "管理员",
-    employee: "员工",
-    operator: "操作员",
-    viewer: "只读用户",
-  };
-
-  return labels[userType] ?? userType ?? "普通用户";
 }
 
 function formatDate(value?: string): string {
@@ -509,6 +605,25 @@ async function loadUsers(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+async function loadRoles(): Promise<void> {
+  rolesLoading.value = true;
+
+  try {
+    roles.value = await listRoles();
+  } catch (error: unknown) {
+    roles.value = [];
+    ElMessage.error(
+      getErrorMessage(error, "获取岗位角色列表失败，请稍后重试。"),
+    );
+  } finally {
+    rolesLoading.value = false;
+  }
+}
+
+async function refreshPage(): Promise<void> {
+  await Promise.all([loadUsers(), loadRoles()]);
 }
 
 function searchUsers(): void {
@@ -578,6 +693,7 @@ watch(
   () => route.query.status,
   (value) => {
     const status = Array.isArray(value) ? value[0] : value;
+
     const nextStatus: StatusFilter =
       status === "init" ||
       status === "invited" ||
@@ -593,20 +709,6 @@ watch(
     }
   },
 );
-
-async function loadRoles(): Promise<void> {
-  rolesLoading.value = true;
-
-  try {
-    roles.value = await listRoles();
-  } catch (error: unknown) {
-    roles.value = [];
-
-    ElMessage.error(getErrorMessage(error, "获取角色列表失败，请稍后重试。"));
-  } finally {
-    rolesLoading.value = false;
-  }
-}
 
 async function openInviteDialog(user?: ManagedUser): Promise<void> {
   inviteError.value = "";
@@ -643,7 +745,17 @@ async function submitInvitation(): Promise<void> {
   }
 
   if (inviteForm.role_id === undefined) {
-    inviteError.value = "请选择账户角色。";
+    inviteError.value = "请选择岗位角色。";
+    return;
+  }
+
+  // 防止通过前端状态异常将管理员角色提交给普通邀请接口。
+  const selectedRole = assignableRoles.value.find(
+    (role) => role.id === inviteForm.role_id,
+  );
+
+  if (!selectedRole) {
+    inviteError.value = "所选岗位不可分配，请重新选择。";
     return;
   }
 
@@ -657,7 +769,6 @@ async function submitInvitation(): Promise<void> {
     });
 
     ElMessage.success("邀请已提交。");
-
     inviteDialogVisible.value = false;
 
     await loadUsers();
@@ -674,7 +785,9 @@ async function submitInvitation(): Promise<void> {
 
 onMounted(() => {
   selectedStatus.value = readStatusFromRoute();
+
   void loadUsers();
+  void loadRoles();
 });
 </script>
 
@@ -871,9 +984,22 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.user-type {
-  color: #526176;
+.business-role {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.business-role-name {
+  color: #34465c;
   font-size: 13px;
+  font-weight: 500;
+}
+
+.business-role-description {
+  color: #98a2b1;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .date-text {
@@ -951,6 +1077,10 @@ onMounted(() => {
   color: #a66c26;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.field-tip-neutral {
+  color: #8994a3;
 }
 
 .dialog-footer {
