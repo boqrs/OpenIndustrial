@@ -47,12 +47,33 @@ export const routes: RouteRecordRaw[] = [
   },
 
   {
+    path: "/mes/products",
+    name: "ProductList",
+    component: () => import("../mes/product/views/ProductList.vue"),
+    meta: {
+      requiresAuth: true,
+      permission: Permissions.PRODUCT_LIST,
+    },
+  },
+
+  {
+    path: "/mes/products/:id",
+    name: "ProductDetail",
+    component: () => import("../mes/product/views/ProductDetail.vue"),
+    props: true,
+    meta: {
+      requiresAuth: true,
+      permission: Permissions.PRODUCT_LIST,
+    },
+  },
+
+  {
     path: "/",
     redirect: "/dashboard",
   },
 
   {
-    path: "/(.)",
+    path: "/:pathMatch(.*)*",
     redirect: "/dashboard",
   },
 ];

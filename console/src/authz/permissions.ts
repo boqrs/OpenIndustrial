@@ -6,6 +6,11 @@ export const Permissions = {
   USER_UPDATE: "users:update",
   USER_DISABLE: "users:disable",
 
+  PRODUCT_LIST: "products:list",
+  PRODUCT_CREATE: "products:create",
+  PRODUCT_UPDATE: "products:update",
+  PRODUCT_STATUS_UPDATE: "products:status:update",
+
   DEVICE_LIST: "devices:list",
   DEVICE_VIEW: "devices:view",
 
