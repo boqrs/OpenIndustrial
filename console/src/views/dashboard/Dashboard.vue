@@ -31,6 +31,14 @@ const isAdmin = computed(() =>
   hasPermission(authStore.user, Permissions.USER_LIST),
 );
 
+const canAccessProducts = computed(() =>
+  hasPermission(authStore.user, Permissions.PRODUCT_LIST),
+);
+
+function openProducts() {
+  void router.push("/mes/products");
+}
+
 const roleLabel = computed(() => getRoleLabel(authStore.user?.user_type));
 
 const displayName = computed(
@@ -43,7 +51,6 @@ const statCards = computed(() => [
     label: "用户总数",
     value: stats.value?.total,
     description: "当前工厂的全部用户",
-    icon: "U",
     tone: "navy",
   },
   {
@@ -51,7 +58,6 @@ const statCards = computed(() => [
     label: "待审核申请",
     value: stats.value?.init,
     description: "等待管理员处理",
-    icon: "A",
     tone: "gold",
   },
   {
@@ -59,7 +65,6 @@ const statCards = computed(() => [
     label: "待激活用户",
     value: stats.value?.invited,
     description: "已邀请，等待完成激活",
-    icon: "I",
     tone: "blue",
   },
   {
@@ -67,7 +72,6 @@ const statCards = computed(() => [
     label: "正常用户",
     value: stats.value?.active,
     description: "已激活的用户账号",
-    icon: "✓",
     tone: "green",
   },
   {
@@ -75,7 +79,6 @@ const statCards = computed(() => [
     label: "已停用用户",
     value: stats.value?.disabled,
     description: "当前不可正常登录",
-    icon: "—",
     tone: "gray",
   },
 ]);
@@ -291,18 +294,6 @@ onMounted(() => {
             :aria-label="`${card.label}，${card.value ?? 0}，点击查看列表`"
             @click="openStatCard(card.key)"
           >
-            <div class="stat-card-top">
-              <span class="stat-label">{{ card.label }}</span>
-
-              <span
-                class="stat-icon"
-                :class="`tone-${card.tone}`"
-                aria-hidden="true"
-              >
-                {{ card.icon }}
-              </span>
-            </div>
-
             <div class="stat-value">
               <span v-if="loading && !stats" class="skeleton-value"></span>
               <span v-else>{{ card.value ?? "—" }}</span>
@@ -315,6 +306,42 @@ onMounted(() => {
             <div class="stat-card-action">
               <span>查看列表</span>
               <span aria-hidden="true">↗</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- 业务模块入口 -->
+      <section class="business-section">
+        <div class="section-heading">
+          <div>
+            <h2>业务模块</h2>
+            <p>进入当前账户已获授权的工业业务功能</p>
+          </div>
+        </div>
+
+        <div class="business-grid">
+          <button
+            v-if="canAccessProducts"
+            type="button"
+            class="business-card"
+            @click="openProducts"
+          >
+            <div class="business-card-top">
+              <div class="business-icon">
+                <span>MES</span>
+              </div>
+              <span class="business-arrow" aria-hidden="true">↗</span>
+            </div>
+
+            <h3>制造执行管理</h3>
+            <p>
+              管理产品型号与产品属性，为后续 BOM、工艺路线和生产计划提供基础。
+            </p>
+
+            <div class="business-card-footer">
+              <span>产品管理</span>
+              <span class="business-enter">进入模块 →</span>
             </div>
           </button>
         </div>
@@ -739,6 +766,114 @@ onMounted(() => {
 
 .stats-section {
   margin-top: 32px;
+}
+
+.business-section {
+  margin-top: 28px;
+}
+
+.business-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.business-card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 190px;
+  padding: 22px;
+  border: 1px solid #e5eaf0;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.business-card:hover {
+  border-color: #f0a030;
+  box-shadow: 0 7px 22px rgb(14 31 51 / 8%);
+  transform: translateY(-2px);
+}
+
+.business-card:focus-visible {
+  outline: 2px solid #f0a030;
+  outline-offset: 3px;
+}
+
+.business-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.business-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgb(240 160 48 / 45%);
+  border-radius: 10px;
+  background: #0e1f33;
+  color: #f0a030;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.business-arrow {
+  color: #98a2b3;
+  font-size: 20px;
+}
+
+.business-card h3 {
+  margin: 20px 0 9px;
+  color: #182b40;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.business-card p {
+  flex: 1;
+  min-height: 44px;
+  margin: 0;
+  color: #7c8999;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.business-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 13px;
+  border-top: 1px solid #edf0f4;
+  color: #667085;
+  font-size: 11px;
+}
+
+.business-enter {
+  color: #9b641a;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .business-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .section-heading,
