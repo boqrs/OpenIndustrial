@@ -78,6 +78,12 @@ function openProducts() {
   if (!canAccessProducts.value) return;
   void router.push("/mes/products");
 }
+
+function handleStageClick(title: string) {
+  if (title === "产品") {
+    openProducts();
+  }
+}
 </script>
 
 <template>
@@ -213,7 +219,29 @@ function openProducts() {
             v-for="(stage, index) in productionStages"
             :key="stage.title"
           >
-            <article class="flow-stage">
+            <article
+              class="flow-stage"
+              :class="{
+                'flow-stage--clickable':
+                  stage.title === '产品' && canAccessProducts,
+              }"
+              :role="
+                stage.title === '产品' && canAccessProducts
+                  ? 'button'
+                  : undefined
+              "
+              :tabindex="
+                stage.title === '产品' && canAccessProducts ? 0 : undefined
+              "
+              :aria-label="
+                stage.title === '产品' && canAccessProducts
+                  ? '进入产品列表'
+                  : undefined
+              "
+              @click="handleStageClick(stage.title)"
+              @keydown.enter.prevent="handleStageClick(stage.title)"
+              @keydown.space.prevent="handleStageClick(stage.title)"
+            >
               <div class="flow-icon">
                 <el-icon :size="20">
                   <component :is="stage.icon" />
@@ -590,6 +618,24 @@ button.module-card:not(:disabled):hover {
   align-items: center;
   min-width: 0;
   text-align: center;
+}
+
+.flow-stage--clickable {
+  cursor: pointer;
+  border-radius: 10px;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.flow-stage--clickable:hover {
+  background-color: #f5f7fa;
+  transform: translateY(-2px);
+}
+
+.flow-stage--clickable:focus-visible {
+  outline: 2px solid #f0a030;
+  outline-offset: 3px;
 }
 
 .flow-icon {
