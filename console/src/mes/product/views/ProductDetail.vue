@@ -1,3 +1,4 @@
+
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -90,6 +91,22 @@ const statusTagType = computed(() => {
       return "danger";
     default:
       return "info";
+  }
+});
+
+/** 与产品列表页使用相同的状态样式映射。 */
+const statusClass = computed(() => {
+  switch (product.value?.status) {
+    case "active":
+      return "status-tag--active";
+    case "pending":
+      return "status-tag--pending";
+    case "inactive":
+      return "status-tag--inactive";
+    case "archived":
+      return "status-tag--archived";
+    default:
+      return "status-tag--unknown";
   }
 });
 
@@ -263,7 +280,11 @@ async function saveProduct() {
 
 function cancelEdit() {
   editMode.value = false;
-  copyProductToForm(product.value!);
+
+  if (product.value) {
+    copyProductToForm(product.value);
+  }
+
   copyDefinitionsToRows(definitions.value);
   void router.replace(`/mes/products/${productId.value}`);
 }
@@ -370,7 +391,12 @@ onMounted(() => {
         <div class="hero-main">
           <div class="hero-title-row">
             <h2>{{ product.name }}</h2>
-            <el-tag :type="statusTagType" effect="light" round>
+            <el-tag
+              :type="statusTagType"
+              :class="['product-status-tag', statusClass]"
+              effect="light"
+              round
+            >
               {{ statusLabel }}
             </el-tag>
           </div>
@@ -730,6 +756,44 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 750;
+}
+
+/* 与产品列表页保持一致的状态颜色。 */
+.product-status-tag {
+  min-height: 26px;
+  padding: 0 12px;
+  font-weight: 700;
+}
+
+.product-status-tag.status-tag--active {
+  --el-tag-bg-color: #ecfdf3;
+  --el-tag-border-color: #abefc6;
+  --el-tag-text-color: #067647;
+}
+
+.product-status-tag.status-tag--pending {
+  --el-tag-bg-color: #fffaeb;
+  --el-tag-border-color: #fedf89;
+  --el-tag-text-color: #b54708;
+}
+
+.product-status-tag.status-tag--inactive {
+  --el-tag-bg-color: #f2f4f7;
+  --el-tag-border-color: #d0d5dd;
+  --el-tag-text-color: #475467;
+}
+
+.product-status-tag.status-tag--archived {
+  --el-tag-bg-color: #fff1f0;
+  --el-tag-border-color: #fecdca;
+  --el-tag-text-color: #b42318;
+  box-shadow: inset 3px 0 0 #d92d20;
+}
+
+.product-status-tag.status-tag--unknown {
+  --el-tag-bg-color: #f2f4f7;
+  --el-tag-border-color: #d0d5dd;
+  --el-tag-text-color: #475467;
 }
 
 .hero-identifiers {

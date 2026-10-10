@@ -149,6 +149,22 @@ function statusTagType(
   }
 }
 
+/** 为各个状态提供独立的视觉样式。 */
+function statusClass(status?: string): string {
+  switch (status) {
+    case "active":
+      return "status-tag--active";
+    case "pending":
+      return "status-tag--pending";
+    case "inactive":
+      return "status-tag--inactive";
+    case "archived":
+      return "status-tag--archived";
+    default:
+      return "status-tag--unknown";
+  }
+}
+
 function formatDate(value?: string): string {
   if (!value) return "—";
 
@@ -500,7 +516,12 @@ onMounted(() => {
 
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" effect="light" round>
+            <el-tag
+              :type="statusTagType(row.status)"
+              :class="['product-status-tag', statusClass(row.status)]"
+              effect="light"
+              round
+            >
               {{ statusLabel(row.status) }}
             </el-tag>
           </template>
@@ -893,6 +914,45 @@ onMounted(() => {
 .product-table {
   width: 100%;
   border-top: 1px solid #f0f1f3;
+}
+
+/* 产品状态：列表和详情页采用一致的配色规则。 */
+.product-status-tag {
+  min-width: 74px;
+  justify-content: center;
+  font-weight: 650;
+}
+
+.product-status-tag.status-tag--active {
+  --el-tag-bg-color: #ecfdf3;
+  --el-tag-border-color: #abefc6;
+  --el-tag-text-color: #067647;
+}
+
+.product-status-tag.status-tag--pending {
+  --el-tag-bg-color: #fffaeb;
+  --el-tag-border-color: #fedf89;
+  --el-tag-text-color: #b54708;
+}
+
+.product-status-tag.status-tag--inactive {
+  --el-tag-bg-color: #f2f4f7;
+  --el-tag-border-color: #d0d5dd;
+  --el-tag-text-color: #475467;
+}
+
+.product-status-tag.status-tag--archived {
+  --el-tag-bg-color: #fff1f0;
+  --el-tag-border-color: #fecdca;
+  --el-tag-text-color: #b42318;
+  font-weight: 750;
+  box-shadow: inset 3px 0 0 #d92d20;
+}
+
+.product-status-tag.status-tag--unknown {
+  --el-tag-bg-color: #f2f4f7;
+  --el-tag-border-color: #d0d5dd;
+  --el-tag-text-color: #475467;
 }
 
 .product-name-cell {

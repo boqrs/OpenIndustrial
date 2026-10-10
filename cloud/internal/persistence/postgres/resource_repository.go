@@ -60,16 +60,22 @@ func (r *ResourceRepository) GetResourceByID(ctx context.Context, tenantID uint,
 }
 
 // UpdateResource updates an existing resource using GORM, with optimistic locking.
+
 func (r *ResourceRepository) UpdateResource(ctx context.Context, res *model.Resource) error {
 	result := r.db.Get().WithContext(ctx).
 		Model(res).
-		Where("id = ? AND tenant_id = ? AND version = ?", res.ID, res.TenantID, res.Version).
+		Where(
+			"id = ? AND tenant_id = ? AND record_version = ?",
+			res.ID,
+			res.TenantID,
+			res.Version,
+		).
 		Updates(map[string]interface{}{
 			"resource_name":   res.ResourceName,
 			"code":            res.Code,
 			"resource_status": res.ResourceStatus,
 			"metadata":        res.Metadata,
-			"version":         gorm.Expr("version + 1"),
+			"record_version":  gorm.Expr("record_version + 1"),
 			"parent_id":       res.ParentID,
 			"owner_group_id":  res.OwnerGroupID,
 		})
@@ -80,7 +86,8 @@ func (r *ResourceRepository) UpdateResource(ctx context.Context, res *model.Reso
 	if result.RowsAffected == 0 {
 		return errors.New("update failed: resource not found or version mismatch")
 	}
-	res.Version++ // Manually increment version in the struct after successful update
+
+	res.Version++
 	return nil
 }
 

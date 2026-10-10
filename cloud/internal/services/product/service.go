@@ -276,8 +276,34 @@ func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductMod
 		},
 	}
 
+	//TODO：需要优化
 	for _, product := range products {
-		response := s.buildProductModelResponse(resourceMap, product)
+		resourceEntity, err := s.resourceSvc.GetResourceByID(
+			ctx,
+			tenantID,
+			product.ResourceID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"get resource for product model %d: %w",
+				product.ID,
+				err,
+			)
+		}
+
+		if resource.ResourceType(resourceEntity.ResourceType) !=
+			resource.ResourceTypeProductModel {
+			return nil, fmt.Errorf(
+				"resource %d is not a product model",
+				product.ResourceID,
+			)
+		}
+
+		response := s.buildProductModelResponse(
+			resourceMap,
+			product,
+			resourceEntity,
+		)
 		result.Items = append(result.Items, response)
 	}
 
@@ -405,8 +431,8 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, sta
 		return errors.New("archived product model cannot be activated")
 	}
 
-	resourceEntity.ResourceStatus = targetStatus
 	req := &resource.UpdateResource{
+		TenantID: tenantID,
 		Name:     resourceEntity.ResourceName,
 		Code:     resourceEntity.Code,
 		Status:   resourceEntity.ResourceStatus,
@@ -418,7 +444,6 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, sta
 	if _, err := s.resourceSvc.UpdateResource(ctx, resourceEntity.ID, req); err != nil {
 		return fmt.Errorf("update product model status: %w", err)
 	}
-
 	return nil
 }
 
@@ -498,22 +523,28 @@ func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productMod
 }
 
 // --- Helper Functions ---
-
-func (s *serviceImpl) buildProductModelResponse(dataM map[uint][]model.ResourceAttribute, entity *model.ProductModel) *ProductModelResponse {
+func (s *serviceImpl) buildProductModelResponse(
+	dataM map[uint][]model.ResourceAttribute,
+	entity *model.ProductModel,
+	resourceEntity *model.Resource,
+) *ProductModelResponse {
 	prs := &ProductModelResponse{
 		ID:          entity.ID,
 		ResourceID:  entity.ResourceID,
+		Name:        resourceEntity.ResourceName,
 		Code:        entity.Code,
 		Version:     entity.Version,
 		Category:    entity.Category,
 		Description: entity.Description,
+		Status:      resourceEntity.ResourceStatus,
 		CreatedAt:   entity.CreatedAt,
 		UpdatedAt:   entity.UpdatedAt,
 	}
 
-	if v, has := dataM[prs.ID]; has {
-		prs.Attributes = make([]AttributeResponse, 0, len(v))
-		for _, attr := range v {
+	if attributes, has := dataM[entity.ID]; has {
+		prs.Attributes = make([]AttributeResponse, 0, len(attributes))
+
+		for _, attr := range attributes {
 			prs.Attributes = append(prs.Attributes, AttributeResponse{
 				ID:          attr.ID,
 				Name:        attr.AttributeDefinition.Name,
@@ -522,8 +553,6 @@ func (s *serviceImpl) buildProductModelResponse(dataM map[uint][]model.ResourceA
 				DataType:    string(attr.AttributeDefinition.DataType),
 				Unit:        attr.AttributeDefinition.Unit,
 			})
-			prs.Name = attr.Resource.ResourceName
-			prs.Status = string(attr.Resource.ResourceStatus)
 		}
 	}
 
