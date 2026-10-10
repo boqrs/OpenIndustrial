@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 	zlog "github.com/boqrs/nexus/log"
@@ -16,13 +16,15 @@ import (
 // API handles HTTP requests for the product module.
 type Handler struct {
 	service srv.Service
+	auth middleware.Service
 	l *zlog.Provider
 }
 
 // NewAPI creates a new API handler for the product service.
-func NewHandler(service srv.Service, logger *zlog.Provider) *Handler {
+func NewHandler(service srv.Service, auth middleware.Service,logger *zlog.Provider) *Handler {
 	return &Handler{
 		service: service,
+		auth:auth,
 		l:logger,
 	}
 }
@@ -30,6 +32,7 @@ func NewHandler(service srv.Service, logger *zlog.Provider) *Handler {
 // Register registers all product model routes to the given router group.
 func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup := router.Group("/api/v1/external")
+	externalGroup.Use(h.auth.Authenticate())
 	externalGroup.Handle(http.MethodPost, "/product-models", h.createProductModel)
 	externalGroup.Handle(http.MethodGet, "/product-models", h.listProductModels)
 	externalGroup.Handle(http.MethodGet, "/product-models/:id", h.getProductModel)

@@ -555,6 +555,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	product.NewHandler(
 		productService,
+		authService,
 		logProv,
 	).RouterRegister(router)
 

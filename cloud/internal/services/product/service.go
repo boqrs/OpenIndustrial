@@ -78,7 +78,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 		Status:   model.StatusPending, // Always start as pending
 	})
 	if err != nil {
-		s.l.Get().Errorf("failed CreateResource, error: %s", err.Error())
+		s.l.Get().Errorf("failed CreateResource, error: %s, tenantID: %d", err.Error(), tenantID)
 		return nil, fmt.Errorf("create product model resource: %w", err)
 	}
 
