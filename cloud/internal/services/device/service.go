@@ -126,7 +126,10 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 		return nil, err
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	// 3. Create Resource for the physical device.
 	resourceReq := &resource.CreateResource{
 		TenantID: tenantID,
@@ -246,7 +249,10 @@ func (s *serviceImpl) GetDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	res, err := s.resourceSvc.GetResourceByID(
 		ctx,
 		tenantID,
@@ -283,7 +289,11 @@ func (s *serviceImpl) UpdateDevice(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
 	if req.Name != nil ||
 		req.ParentResourceID != nil {
 
@@ -361,7 +371,10 @@ func (s *serviceImpl) ActivateDevice(
 	}
 
 	// user identity comes from token
-	customerUUID := pkg.UserIDFromContext(ctx)
+	customerUUID, has := pkg.UserIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("user not found")
+	}
 
 	if customerUUID == uuid.Nil {
 		return nil, errors.New(
@@ -503,7 +516,10 @@ func (s *serviceImpl) ListDevices(
 		len(items),
 	)
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 
 	for _, item := range items {
 		res, err := s.resourceSvc.GetResourceByID(

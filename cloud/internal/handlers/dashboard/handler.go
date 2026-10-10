@@ -1,13 +1,14 @@
 package dashboard
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
-
 	"github.com/boqrs/zeus/ginx"
 )
 
@@ -45,11 +46,9 @@ func (h *Handler) RouterRegister(
 func (h *Handler) handleOverview(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID, err :=
-		middleware.GetTenantIDFromContext(ctx)
-
-	if err != nil {
-		return ginx.Error(err)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	stats, err := h.service.GetUserStats(

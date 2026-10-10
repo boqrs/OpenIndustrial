@@ -3,6 +3,7 @@ package iot
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -31,7 +32,10 @@ func (s *service) CreateCommand(
 		)
 	}
 
-	operatorID := pkg.UserIDFromContext(ctx)
+	operatorID, has := pkg.UserIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("user id not set")
+	}
 
 	if operatorID == uuid.Nil {
 		return nil, errors.New(

@@ -38,7 +38,10 @@ func NewService(repository Repository) Service {
 // --- Routing Methods ---
 
 func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingRequest) (*RoutingResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" || req.ProductID == 0 {
 		return nil, fmt.Errorf("product ID and routing name are required")
@@ -72,7 +75,10 @@ func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingReque
 }
 
 func (s *serviceImpl) GetRouting(ctx context.Context, id uint) (*RoutingResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -81,7 +87,10 @@ func (s *serviceImpl) GetRouting(ctx context.Context, id uint) (*RoutingResponse
 }
 
 func (s *serviceImpl) ListRoutings(ctx context.Context, productID *uint, status *model.RoutingStatus) ([]*RoutingResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	entities, err := s.repository.ListRoutings(ctx, tenantID, productID, status)
 	if err != nil {
 		return nil, err
@@ -94,7 +103,10 @@ func (s *serviceImpl) ListRoutings(ctx context.Context, productID *uint, status 
 }
 
 func (s *serviceImpl) UpdateRouting(ctx context.Context, id uint, req *UpdateRoutingRequest) (*RoutingResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -127,7 +139,10 @@ func (s *serviceImpl) UpdateRouting(ctx context.Context, id uint, req *UpdateRou
 }
 
 func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -151,7 +166,11 @@ func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
 }
 
 func (s *serviceImpl) DeactivateRouting(ctx context.Context, id uint) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
 	entity, err := s.repository.GetRoutingByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -171,7 +190,10 @@ func (s *serviceImpl) DeactivateRouting(ctx context.Context, id uint) error {
 // --- Operation Methods ---
 
 func (s *serviceImpl) AddOperation(ctx context.Context, routingID uint, req *CreateOperationRequest) (*OperationResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	code := strings.TrimSpace(req.Code)
 	if code == "" || req.Name == "" || req.Sequence <= 0 {
 		return nil, fmt.Errorf("operation code, name, and a positive sequence are required")
@@ -215,7 +237,11 @@ func (s *serviceImpl) AddOperation(ctx context.Context, routingID uint, req *Cre
 }
 
 func (s *serviceImpl) ListOperations(ctx context.Context, routingID uint) ([]*OperationResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	entities, err := s.repository.ListOperations(ctx, tenantID, routingID)
 	if err != nil {
 		return nil, err
@@ -228,7 +254,10 @@ func (s *serviceImpl) ListOperations(ctx context.Context, routingID uint) ([]*Op
 }
 
 func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, operationID uint, req *UpdateOperationRequest) (*OperationResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	routing, err := s.repository.GetRoutingByID(ctx, tenantID, routingID)
 	if err != nil {
 		return nil, err
@@ -275,7 +304,10 @@ func (s *serviceImpl) UpdateOperation(ctx context.Context, routingID uint, opera
 }
 
 func (s *serviceImpl) DeleteOperation(ctx context.Context, routingID uint, operationID uint) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
 
 	routing, err := s.repository.GetRoutingByID(ctx, tenantID, routingID)
 	if err != nil {

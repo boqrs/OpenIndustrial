@@ -47,8 +47,8 @@ func (h *Handler) create(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -66,8 +66,8 @@ func (h *Handler) getByID(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -85,8 +85,8 @@ func (h *Handler) list(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -120,8 +120,8 @@ func (h *Handler) update(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -139,8 +139,8 @@ func (h *Handler) release(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 
@@ -158,8 +158,8 @@ func (h *Handler) obsolete(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("tenant id not found"))
 	}
 

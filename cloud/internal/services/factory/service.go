@@ -72,7 +72,11 @@ func (s *serviceImpl) CreateFactory(ctx context.Context, req *CreateFactoryReque
 		return nil, fmt.Errorf("check factory code: %w", err)
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("tenant id not found")
+	}
+
 	resourceEntity, err := s.resourceSvc.CreateResource(ctx, &resource.CreateResource{
 		TenantID: tenantID,
 		Type:     string(resource.ResourceTypeFactory),
@@ -106,7 +110,11 @@ func (s *serviceImpl) GetFactory(ctx context.Context, factoryID uint) (*FactoryR
 		return nil, ErrFactoryNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx) // Placeholder
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("tenant id not found")
+	}
+	// Placeholder
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
 		return nil, ErrResourceNotFound
@@ -129,7 +137,11 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uint, req *Up
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDUintFromContext(ctx) // Placeholder
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("tenant id not found")
+	}
+	// Placeholder
 	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {
 		return nil, ErrResourceNotFound
@@ -221,7 +233,11 @@ func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uint) error {
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return fmt.Errorf("tenant id not found")
+	}
+
 	if err := s.resourceSvc.DeleteResource(ctx, tenantID, factory.ResourceID); err != nil {
 		// Note: The factory entry is already deleted, this could lead to orphaned resources.
 		// A transaction would be ideal here.
@@ -252,7 +268,11 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("tenant id not found")
+	}
+
 	parentResourceID := factory.ResourceID // Default parent is the factory itself
 	if req.ParentResourceID != nil {
 		parentResourceID = *req.ParentResourceID
@@ -293,7 +313,10 @@ func (s *serviceImpl) UpdateTopologyNode(ctx context.Context, resourceID uint, r
 	}
 
 	// TODO: tenantID should be properly extracted from context
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("tenant id not found")
+	}
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
 		return nil, ErrNodeNotFound
@@ -350,7 +373,10 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 		return errors.New("request is nil")
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return fmt.Errorf("tenant id not found")
+	}
 	node, err := s.resourceSvc.GetResourceByID(ctx, tenantID, req.ResourceID)
 	if err != nil {
 		return ErrNodeNotFound
@@ -381,7 +407,10 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 }
 
 func (s *serviceImpl) DeleteTopologyNode(ctx context.Context, resourceID uint) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return fmt.Errorf("tenant id not found")
+	}
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
 	if err != nil {
@@ -412,7 +441,10 @@ func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uint) (*Factory
 		return nil, ErrFactoryNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, fmt.Errorf("tenant id not found")
+	}
 
 	factoryResource, err := s.resourceSvc.GetResourceByID(ctx, tenantID, factory.ResourceID)
 	if err != nil {

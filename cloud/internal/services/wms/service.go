@@ -144,9 +144,9 @@ func (s *service) CreateWarehouse(
 		return nil, ErrWarehouseNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	code := strings.TrimSpace(req.Code)
@@ -177,9 +177,9 @@ func (s *service) GetWarehouse(
 	ctx context.Context,
 	id uint,
 ) (*WarehouseResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	warehouse, err := s.repository.GetWarehouseByID(
@@ -206,9 +206,9 @@ func (s *service) CreateLocation(
 		return nil, ErrLocationNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	if req.WarehouseID == 0 {
@@ -258,9 +258,9 @@ func (s *service) GetDeviceInventory(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	inventory, err := s.repository.GetInventoryByDeviceID(
@@ -283,9 +283,9 @@ func (s *service) StockIn(
 		return nil, ErrDeviceNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	if req.WarehouseID == 0 {
@@ -422,9 +422,9 @@ func (s *service) CreateShipment(
 		return nil, ErrEmptyShipment
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	carrier := strings.TrimSpace(req.Carrier)
@@ -631,9 +631,9 @@ func (s *service) StockOut(
 		return ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(
@@ -743,9 +743,9 @@ func (s *service) GetShipment(
 		return nil, ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	shipment, err := s.repository.GetShipmentByID(
@@ -798,9 +798,9 @@ func (s *service) AddTrackingEvent(
 		return ErrInvalidTrackingEvent
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	status, ok := req.Status.ToModel()
@@ -912,9 +912,9 @@ func (s *service) ListTrackingEvents(
 		return nil, ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	if _, err := s.repository.GetShipmentByID(
@@ -962,9 +962,9 @@ func (s *service) CancelShipment(
 		return ErrShipmentNotFound
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return ErrTenantNotFound
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(

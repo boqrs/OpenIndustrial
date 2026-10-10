@@ -51,11 +51,10 @@ func (s *service) CreateResult(
 		return nil, err
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, errors.New("tenant id not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
-
 	// Execution is the source of WorkOrderID.
 	exec, err := s.executions.GetExecution(ctx, req.ExecutionID)
 	if err != nil {
@@ -117,9 +116,9 @@ func (s *service) GetResult(
 	ctx context.Context,
 	id uint,
 ) (*Response, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, errors.New("tenant id not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
@@ -138,11 +137,10 @@ func (s *service) GetResultByExecutionID(
 	ctx context.Context,
 	executionID uint,
 ) (*Response, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, errors.New("tenant id not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
-
 	entity, err := s.repository.GetByExecutionID(
 		ctx,
 		tenantID,
@@ -163,9 +161,9 @@ func (s *service) CancelResult(
 	ctx context.Context,
 	id uint,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return errors.New("tenant id not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	entity, err := s.repository.GetByID(ctx, tenantID, id)

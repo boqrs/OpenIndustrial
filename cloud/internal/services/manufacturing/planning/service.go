@@ -71,7 +71,10 @@ func (s *serviceImpl) CreateProductionPlan(
 		return nil, ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	planNo := strings.TrimSpace(req.PlanNo)
 	if planNo == "" ||
 		req.ProductID == 0 ||
@@ -163,9 +166,9 @@ func (s *serviceImpl) GetProductionPlanByID(
 		return nil, ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, ErrInvalidProductionPlan
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	entity, err := s.repository.GetByID(
@@ -184,7 +187,10 @@ func (s *serviceImpl) ListProductionPlans(
 	ctx context.Context,
 	status *model.ProductionPlanStatus,
 ) ([]*ProductionPlanResponse, error) {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	entities, err := s.repository.List(
 		ctx,
 		tenantID,
@@ -215,9 +221,12 @@ func (s *serviceImpl) UpdateProductionPlan(
 		return nil, ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	var result *model.ProductionPlan
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 
+	var result *model.ProductionPlan
 	err := s.uow.Execute(
 		ctx,
 		func(txCtx context.Context) error {
@@ -292,9 +301,9 @@ func (s *serviceImpl) ReleaseProductionPlan(
 		return ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return ErrInvalidProductionPlan
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(
@@ -338,9 +347,9 @@ func (s *serviceImpl) CancelProductionPlan(
 		return ErrInvalidProductionPlan
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return ErrInvalidProductionPlan
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(

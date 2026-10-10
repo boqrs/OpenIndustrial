@@ -106,9 +106,9 @@ func (s *serviceImpl) createExecution(
 	useTx bool,
 ) (*ExecutionResponse, error) {
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	if req == nil {
@@ -279,9 +279,9 @@ func (s *serviceImpl) GetExecution(
 	id uint,
 ) (*ExecutionResponse, error) {
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 
 	entity, err := s.repository.GetExecutionByID(
@@ -307,9 +307,9 @@ func (s *serviceImpl) ListExecutions(
 	status *model.ProductionExecutionStatus,
 ) ([]*ExecutionResponse, error) {
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return nil, fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
 	}
 	entities, err := s.repository.ListExecutions(
 		ctx,
@@ -345,9 +345,9 @@ func (s *serviceImpl) CancelExecution(
 	ctx context.Context,
 	id uint,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(ctx, func(txCtx context.Context) error {
@@ -401,9 +401,9 @@ func (s *serviceImpl) StartOperation(
 	executionID uint,
 	operationID uint,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	// -------------------------------------------------------------------------
@@ -598,11 +598,10 @@ func (s *serviceImpl) CompleteOperation(
 	operationID uint,
 	result map[string]any,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
-
 	// -------------------------------------------------------------------------
 	// 1. Lock and validate Execution
 	// -------------------------------------------------------------------------
@@ -704,11 +703,10 @@ func (s *serviceImpl) FailOperation(
 	operationID uint,
 	result map[string]any,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
-
 	// -------------------------------------------------------------------------
 	// 1. Lock and validate Execution
 	// -------------------------------------------------------------------------
@@ -978,11 +976,10 @@ func (s *serviceImpl) ExecuteOperation(
 	executionID uint,
 	operationID uint,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return fmt.Errorf("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
-
 	// -------------------------------------------------------------------------
 	// 1. Load Execution
 	// -------------------------------------------------------------------------

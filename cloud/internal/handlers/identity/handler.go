@@ -1,14 +1,15 @@
 package identity
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/google/uuid"
-
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+	"github.com/google/uuid"
 
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 
@@ -173,15 +174,14 @@ func (h *Handler) handleInviteUser(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 
 	}
-	tenantId, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	tenantId, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
-	userId, err := middleware.GetUserIDFromContext(ctx)
-	if err != nil {
-
-		return ginx.Error(fmt.Errorf("user id is error"))
+	userId, has := pkg.UserIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("user id is found"))
 	}
 	if err := h.service.InviteUser(
 		ctx.Request.Context(),
@@ -227,9 +227,9 @@ func (h *Handler) handleAcceptInvitation(ctx *gin.Context) ginx.Render {
 
 func (h *Handler) handleListUsers(ctx *gin.Context) ginx.Render {
 
-	TenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	TenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 	req := srv.ListUsersRequest{
 		TenantID: TenantID,
@@ -268,9 +268,9 @@ func (h *Handler) handleGetUser(ctx *gin.Context) ginx.Render {
 
 	}
 
-	TenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	TenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	user, err := h.service.GetUser(ctx.Request.Context(), TenantID, id)
@@ -302,9 +302,10 @@ func (h *Handler) handleUpdateUser(ctx *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	req.TenantID, err = middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	var has bool
+	req.TenantID, has = pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	req.UserID = id
@@ -351,9 +352,9 @@ func (h *Handler) changeUserStatus(ctx *gin.Context, disable bool) ginx.Render {
 
 	}
 
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	if disable {
@@ -409,9 +410,10 @@ func (h *Handler) handleUpdatePassword(ctx *gin.Context) ginx.Render {
 
 	}
 
-	req.TenantID, err = middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	var has bool
+	req.TenantID, has = pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	req.UserID = id
@@ -447,15 +449,15 @@ func (h *Handler) handleResetPassword(ctx *gin.Context) ginx.Render {
 	}
 
 	req.UserID = id
-	tenantId, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	tenantId, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 	req.TenantID = tenantId
 
-	OperateID, err := middleware.GetUserIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(err)
+	OperateID, has := pkg.UserIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("user id not found"))
 	}
 	req.OperatorID = OperateID
 
@@ -496,9 +498,9 @@ func (h *Handler) handleRequestAccess(
 }
 
 func (h *Handler) ListRoles(c *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(c)
-	if err != nil {
-		return ginx.Error(err)
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	roles, err := h.service.ListRoles(

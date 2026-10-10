@@ -307,12 +307,20 @@ func (s *service) CreateConnection(ctx context.Context, tenantID, sourceID, trag
 func (s *service) UpsertAttributesForResource(ctx context.Context, resourceID uint, attributes map[string]interface{}) error {
 	// In a real implementation, you would first validate the attributes against their definitions.
 	// For now, we delegate directly to the repository.
-	return s.resAttrRepo.UpsertForResource(ctx, pkg.TenantIDUintFromContext(ctx), resourceID, attributes)
+	TenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("TenantID not set")
+	}
+	return s.resAttrRepo.UpsertForResource(ctx, TenantID, resourceID, attributes)
 }
 
 // ClearParent removes the parent from a resource, making it a root-level resource.
 func (s *service) ClearParent(ctx context.Context, resourceID uint) error {
-	return s.resourceRepo.UpdateParent(ctx, pkg.TenantIDUintFromContext(ctx), resourceID, 0)
+	TenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("TenantID not set")
+	}
+	return s.resourceRepo.UpdateParent(ctx, TenantID, resourceID, 0)
 }
 
 func (s *service) GetConnection(ctx context.Context, connectionID uint) (*model.ResourceConnection, error) {
@@ -324,7 +332,11 @@ func (s *service) DeleteConnection(ctx context.Context, connectionID uint) error
 }
 
 func (s *service) GetChildren(ctx context.Context, resourceID uint) ([]*model.Resource, error) {
-	return s.resourceRepo.FindByParentID(ctx, pkg.TenantIDUintFromContext(ctx), resourceID)
+	TenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("TenantID not set")
+	}
+	return s.resourceRepo.FindByParentID(ctx, TenantID, resourceID)
 }
 func (s *service) ListConnections(ctx context.Context, resourceID uint) ([]*model.ResourceConnection, error) {
 	return s.resourceConRepo.ListConnectionsByResourceID(ctx, resourceID)
@@ -343,17 +355,3 @@ func (s *service) ReplaceAttributeDefinitions(ctx context.Context, resourceID ui
 func (s *service) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uint, resourceIDs []uint) ([]model.ResourceAttribute, error) {
 	return s.resAttrRepo.GetResourcesAndAttributesByIDs(ctx, tenantID, resourceIDs)
 }
-
-/*
-NOTE ON ListUserGroups:
-
-The function 'ListUserGroups' has been intentionally removed from this service.
-Its responsibility is to answer "Which groups does a user belong to?". This is a core
-question for the **Identity Kernel**.
-
-Keeping it here would violate our architectural principle of separating the Resource Kernel
-(the "what") from the Identity Kernel (the "who").
-
-This function's logic should be moved to an 'identity.Service' which operates on the
-'identity.GroupRepository'.
-*/

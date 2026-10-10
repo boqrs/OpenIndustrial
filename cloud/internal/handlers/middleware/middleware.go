@@ -1,13 +1,13 @@
 package middleware
 
 import (
-	"errors"
-	//"fmt"
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/identity"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -28,13 +28,6 @@ type Permission interface {
 		userID uuid.UUID,
 	) (*model.User, error)
 }
-
-const (
-	contextUserID   = "user_id"
-	contextTenantID = "tenant_id"
-	contextRoleID   = "role_id"
-	contextClaims   = "auth_claims"
-)
 
 type service struct {
 	jwtSecret *string
@@ -223,10 +216,12 @@ func (s *service) Authenticate() gin.HandlerFunc {
 		// Store authenticated identity in context.
 		// --------------------------------------------------------
 
-		c.Set(contextUserID, userID)
-		c.Set(contextTenantID, tenantID)
-		c.Set(contextRoleID, roleID)
-		c.Set(contextClaims, claims)
+		ctx := c.Request.Context()
+		ctx = pkg.WithUserID(ctx, userID)
+		ctx = pkg.WithTenantID(ctx, tenantID)
+		ctx = pkg.WithRoleID(ctx, roleID)
+		ctx = pkg.WithClaims(ctx, claims)
+		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
 	}
@@ -247,18 +242,18 @@ func (s *service) RequirePermission(
 			return
 		}
 
-		tenantID, err := GetTenantIDFromContext(c)
-		if err != nil {
+		tenantID, has := pkg.TenantIDFromContext(c.Request.Context())
+		if !has {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
+				"error": "tenant id is not set",
 			})
 			return
 		}
 
-		roleID, err := GetRoleIDFromContext(c)
-		if err != nil {
+		roleID, has := pkg.RoleIDFromContext(c.Request.Context())
+		if !has {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
+				"error": "role id is not set",
 			})
 			return
 		}
@@ -296,18 +291,18 @@ func (s *service) RequirePermission(
 
 func (s *service) RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tenantID, err := GetTenantIDFromContext(c)
-		if err != nil {
+		tenantID, has := pkg.TenantIDFromContext(c.Request.Context())
+		if !has {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
+				"error": "tenant id is not set",
 			})
 			return
 		}
 
-		userID, err := GetUserIDFromContext(c)
-		if err != nil {
+		userID, has := pkg.UserIDFromContext(c.Request.Context())
+		if !has {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
+				"error": "user id is not set",
 			})
 			return
 		}
@@ -341,76 +336,4 @@ func (s *service) RequireAdmin() gin.HandlerFunc {
 
 		c.Next()
 	}
-}
-
-// GetRoleIDFromContext returns the authenticated role ID.
-func GetRoleIDFromContext(c *gin.Context) (uint, error) {
-	value, exists := c.Get(contextRoleID)
-	if !exists {
-		return 0, errors.New("role_id not found in context")
-	}
-
-	roleID, ok := value.(uint)
-	if !ok {
-		return 0, errors.New("invalid role_id in context")
-	}
-
-	if roleID == 0 {
-		return 0, errors.New("invalid role_id in context")
-	}
-
-	return roleID, nil
-}
-
-// GetTenantIDFromContext returns the authenticated tenant ID.
-func GetTenantIDFromContext(c *gin.Context) (uint, error) {
-	value, exists := c.Get("tenant_id")
-	if !exists {
-		return 0, errors.New("tenant_id not found in context")
-	}
-
-	tenantID, ok := value.(uint)
-	if !ok {
-		return 0, errors.New("invalid tenant_id in context")
-	}
-
-	if tenantID == 0 {
-		return 0, errors.New("invalid tenant_id in context")
-	}
-
-	return tenantID, nil
-}
-
-// GetUserIDFromContext returns the authenticated user UUID.
-func GetUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
-	value, exists := c.Get("user_id")
-	if !exists {
-		return uuid.Nil, errors.New("user_id not found in context")
-	}
-
-	userID, ok := value.(uuid.UUID)
-	if !ok {
-		return uuid.Nil, errors.New("invalid user_id in context")
-	}
-
-	if userID == uuid.Nil {
-		return uuid.Nil, errors.New("invalid user_id in context")
-	}
-
-	return userID, nil
-}
-
-// GetClaimsFromContext returns the raw JWT claims.
-func GetClaimsFromContext(c *gin.Context) (jwt.MapClaims, error) {
-	value, exists := c.Get("auth_claims")
-	if !exists {
-		return nil, errors.New("auth claims not found in context")
-	}
-
-	claims, ok := value.(jwt.MapClaims)
-	if !ok {
-		return nil, errors.New("invalid auth claims in context")
-	}
-
-	return claims, nil
 }

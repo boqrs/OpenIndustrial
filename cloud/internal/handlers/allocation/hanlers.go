@@ -43,8 +43,8 @@ func (h *Handler) RouterRegister(
 func (h *Handler) create(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -69,8 +69,8 @@ func (h *Handler) create(
 func (h *Handler) getByID(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -94,8 +94,8 @@ func (h *Handler) getByID(
 func (h *Handler) listBySalesOrderItemID(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -119,8 +119,8 @@ func (h *Handler) listBySalesOrderItemID(
 func (h *Handler) listByProductionPlanID(
 	ctx *gin.Context,
 ) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 

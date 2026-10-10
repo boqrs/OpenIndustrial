@@ -5,27 +5,27 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
 	zlog "github.com/boqrs/nexus/log"
 	"github.com/boqrs/zeus/ginx"
+	"github.com/gin-gonic/gin"
 )
 
 // API handles HTTP requests for the product module.
 type Handler struct {
 	service srv.Service
-	auth middleware.Service
-	l *zlog.Provider
+	auth    middleware.Service
+	l       *zlog.Provider
 }
 
 // NewAPI creates a new API handler for the product service.
-func NewHandler(service srv.Service, auth middleware.Service,logger *zlog.Provider) *Handler {
+func NewHandler(service srv.Service, auth middleware.Service, logger *zlog.Provider) *Handler {
 	return &Handler{
 		service: service,
-		auth:auth,
-		l:logger,
+		auth:    auth,
+		l:       logger,
 	}
 }
 
@@ -140,7 +140,7 @@ func (h *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("invalid param json"))
 	}
 
-	if err = h.service.UpdateAttributeDefinitions(ctx.Request.Context(), id, &req);err != nil {
+	if err = h.service.UpdateAttributeDefinitions(ctx.Request.Context(), id, &req); err != nil {
 		h.l.Get().Errorf("failed to update product attributes, error: %s", err.Error())
 		return ginx.Error(err)
 	}

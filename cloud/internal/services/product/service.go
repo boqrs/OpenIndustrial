@@ -28,7 +28,7 @@ var (
 type serviceImpl struct {
 	resourceSvc resource.Service
 	repository  Repository
-	l *zlog.Provider
+	l           *zlog.Provider
 }
 
 // NewService creates a new product service.
@@ -36,7 +36,7 @@ func NewService(resourceSvc resource.Service, repository Repository, l *zlog.Pro
 	return &serviceImpl{
 		resourceSvc: resourceSvc,
 		repository:  repository,
-		l:l,
+		l:           l,
 	}
 }
 
@@ -70,7 +70,10 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 	}
 
 	// 3. Create core resource
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	resourceEntity, err := s.resourceSvc.CreateResource(ctx, &resource.CreateResource{
 		TenantID: tenantID,
 		Type:     string(resource.ResourceTypeProductModel),
@@ -161,8 +164,13 @@ func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductDet
 		return nil, ErrProductModelNotFound
 	}
 
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
 	// 2. Get associated Resource
-	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, pkg.TenantIDUintFromContext(ctx), entity.ResourceID)
+	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, entity.ResourceID)
 	if err != nil {
 		return nil, ErrProductModelNotFound
 	}
@@ -171,9 +179,8 @@ func (s *serviceImpl) GetProductModel(ctx context.Context, id uint) (*ProductDet
 		return nil, ErrProductModelNotFound
 	}
 
-	tID := pkg.TenantIDUintFromContext(ctx)
 	// 3. Get all Attribute Definitions for the model
-	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(ctx, tID, entity.ResourceID)
+	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(ctx, tenantID, entity.ResourceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get attribute definitions for resource %d: %w", entity.ResourceID, err)
 	}
@@ -240,8 +247,13 @@ func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductMod
 		resourceIDs[i] = item.ResourceID
 	}
 
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
 	// Batch fetch resources
-	resources, err := s.resourceSvc.GetResourcesAndAttributesByIDs(ctx, pkg.TenantIDUintFromContext(ctx), resourceIDs)
+	resources, err := s.resourceSvc.GetResourcesAndAttributesByIDs(ctx, tenantID, resourceIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resources by ids: %w", err)
 	}
@@ -285,7 +297,12 @@ func (s *serviceImpl) UpdateProductModel(ctx context.Context, id uint, req *Upda
 		return nil, ErrProductModelNotFound
 	}
 
-	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, pkg.TenantIDUintFromContext(ctx), entity.ResourceID)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
+	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, entity.ResourceID)
 	if err != nil {
 		return nil, ErrProductModelNotFound
 	}
@@ -358,7 +375,12 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, sta
 		return ErrProductModelNotFound
 	}
 
-	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, pkg.TenantIDUintFromContext(ctx), entity.ResourceID)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
+
+	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, entity.ResourceID)
 	if err != nil {
 		return ErrProductModelNotFound
 	}
@@ -405,8 +427,13 @@ func (s *serviceImpl) GetAttributeDefinitions(ctx context.Context, productModelI
 	if err != nil {
 		return nil, ErrProductModelNotFound
 	}
-	tID := pkg.TenantIDUintFromContext(ctx)
-	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(ctx, tID, entity.ResourceID)
+
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
+	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(ctx, tenantID, entity.ResourceID)
 	if err != nil {
 		return nil, fmt.Errorf("get attribute definitions: %w", err)
 	}
@@ -437,7 +464,12 @@ func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productMod
 		return ErrProductModelNotFound
 	}
 
-	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, pkg.TenantIDUintFromContext(ctx), entity.ResourceID)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
+
+	resourceEntity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, entity.ResourceID)
 	if err != nil {
 		return ErrProductModelNotFound
 	}

@@ -259,7 +259,10 @@ func (s *service) bindResourceIdentity(
 		}
 	}
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 
 	// SerialNumber must not belong to another resource.
 	if req.SerialNumber != "" {

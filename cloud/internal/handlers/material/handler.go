@@ -41,9 +41,9 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 }
 
 func (h *Handler) create(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
-		return ginx.Error(errors.New("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	var req model.Material
@@ -58,9 +58,9 @@ func (h *Handler) create(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) list(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
-		return ginx.Error(errors.New("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	offsetStr := ctx.DefaultQuery("offset", "0")
@@ -86,9 +86,9 @@ func (h *Handler) list(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) getByID(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
-		return ginx.Error(errors.New("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	id, err := parseUintParam(ctx, "id")
@@ -104,9 +104,9 @@ func (h *Handler) getByID(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) update(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
-		return ginx.Error(errors.New("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	id, err := parseUintParam(ctx, "id")
@@ -127,9 +127,9 @@ func (h *Handler) update(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) delete(ctx *gin.Context) ginx.Render {
-	tenantID := pkg.TenantIDUintFromGinContext(ctx)
-	if tenantID == 0 {
-		return ginx.Error(errors.New("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(errors.New("tenant id not found"))
 	}
 
 	id, err := parseUintParam(ctx, "id")

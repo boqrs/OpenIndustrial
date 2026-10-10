@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	//"context"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
-	//"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
 	"github.com/boqrs/zeus/ginx"
@@ -48,8 +46,8 @@ func (h *Handler) create(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -66,8 +64,8 @@ func (h *Handler) getByID(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -84,8 +82,8 @@ func (h *Handler) list(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 	req.TenantID = tenantID
@@ -118,8 +116,8 @@ func (h *Handler) update(c *gin.Context) ginx.Render {
 		return ginx.Error(err)
 	}
 
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 
@@ -135,8 +133,8 @@ func (h *Handler) release(c *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 	err = h.service.Release(c.Request.Context(), tenantID, id)
@@ -151,8 +149,8 @@ func (h *Handler) start(c *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 	err = h.service.Start(c.Request.Context(), tenantID, id)
@@ -167,8 +165,8 @@ func (h *Handler) complete(c *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 	err = h.service.Complete(c.Request.Context(), tenantID, id)
@@ -183,8 +181,8 @@ func (h *Handler) cancel(c *gin.Context) ginx.Render {
 	if err != nil {
 		return ginx.Error(err)
 	}
-	tenantID := pkg.TenantIDUintFromGinContext(c)
-	if tenantID == 0 {
+	tenantID, has := pkg.TenantIDFromContext(c)
+	if !has {
 		return ginx.Error(errors.New("no perm"))
 	}
 	err = h.service.Cancel(c.Request.Context(), tenantID, id)

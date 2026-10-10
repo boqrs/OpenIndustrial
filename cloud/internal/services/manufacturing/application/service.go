@@ -58,7 +58,10 @@ func (s *service) CreateProductionExecution(
 	workOrderID uint,
 ) (*execution.ExecutionResponse, error) {
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
 	if workOrderID == 0 {
 		return nil, execution.ErrWorkOrderNotFound
 	}
@@ -238,10 +241,9 @@ func (s *service) ConfirmExecutionResult(
 	ctx context.Context,
 	executionResultID uint,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-
-	if tenantID == 0 {
-		return errors.New("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(ctx, func(txCtx context.Context) error {
@@ -496,11 +498,10 @@ func (s *service) StartProductionExecution(
 	ctx context.Context,
 	executionID uint,
 ) error {
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return errors.New("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
-
 	return s.uow.Execute(ctx, func(txCtx context.Context) error {
 		// -----------------------------------------------------------------
 		// 1. Lock Execution
@@ -651,9 +652,9 @@ func (s *service) CancelProductionExecution(
 	executionID uint,
 ) error {
 
-	tenantID := pkg.TenantIDUintFromContext(ctx)
-	if tenantID == 0 {
-		return errors.New("tenant ID not found in context")
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	return s.uow.Execute(

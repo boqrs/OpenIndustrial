@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
+	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
-
-	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
-	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
 )
 
 // --- Permission Constants (ADDED) ---
@@ -58,9 +58,9 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 // --- Existing Product-specific Handlers (PRESERVED) ---
 // handleCreateProduct handles the creation of a new product resource.
 func (h *Handler) handleCreateProduct(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	var req srv.CreateProduct
@@ -79,9 +79,9 @@ func (h *Handler) handleCreateProduct(ctx *gin.Context) ginx.Render {
 // handleListProducts handles listing all products for the tenant.
 // UPDATED: This function now supports pagination and correctly calls the new service method.
 func (h *Handler) handleListProducts(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	// Read pagination parameters from query string, with defaults.
@@ -103,9 +103,9 @@ func (h *Handler) handleListProducts(ctx *gin.Context) ginx.Render {
 
 // handleGetProduct handles retrieving a single product by its ID.
 func (h *Handler) handleGetProduct(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	productID, err := strconv.Atoi(ctx.Param("id"))
@@ -124,9 +124,9 @@ func (h *Handler) handleGetProduct(ctx *gin.Context) ginx.Render {
 
 // handleCreateResource handles creating a generic resource.
 func (h *Handler) handleCreateResource(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	var req srv.CreateResource
@@ -144,9 +144,9 @@ func (h *Handler) handleCreateResource(ctx *gin.Context) ginx.Render {
 
 // handleListResources handles listing generic resources with filtering and pagination.
 func (h *Handler) handleListResources(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "100"))
@@ -163,9 +163,9 @@ func (h *Handler) handleListResources(ctx *gin.Context) ginx.Render {
 
 // handleGetResource handles retrieving a single generic resource by its ID.
 func (h *Handler) handleGetResource(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	resourceID, err := strconv.Atoi(ctx.Param("id"))
@@ -183,9 +183,9 @@ func (h *Handler) handleGetResource(ctx *gin.Context) ginx.Render {
 
 // handleUpdateResource handles updating a generic resource.
 func (h *Handler) handleUpdateResource(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
-		return ginx.Error(fmt.Errorf("no perm"))
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return ginx.Error(fmt.Errorf("no tenant id found"))
 	}
 
 	resourceID, err := strconv.Atoi(ctx.Param("id"))
@@ -209,8 +209,8 @@ func (h *Handler) handleUpdateResource(ctx *gin.Context) ginx.Render {
 
 // handleDeleteResource handles deleting a resource.
 func (h *Handler) handleDeleteResource(ctx *gin.Context) ginx.Render {
-	tenantID, err := middleware.GetTenantIDFromContext(ctx)
-	if err != nil {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
 		return ginx.Error(fmt.Errorf("no perm"))
 	}
 
