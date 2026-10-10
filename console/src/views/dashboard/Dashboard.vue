@@ -862,7 +862,7 @@ function openStatCard(key: StatKey) {
 }
 
 function openProducts() {
-  void router.push("/mes/products");
+  void router.push("/mes");
 }
 
 async function loadOverview() {

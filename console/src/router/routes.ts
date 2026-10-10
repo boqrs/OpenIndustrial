@@ -28,48 +28,57 @@ export const routes: RouteRecordRaw[] = [
   },
 
   {
-    path: "/dashboard",
-    name: "Dashboard",
-    component: () => import("../views/dashboard/Dashboard.vue"),
-    meta: {
-      requiresAuth: true,
-    },
-  },
-
-  {
-    path: "/users",
-    name: "Users",
-    component: () => import("../views/users/Users.vue"),
-    meta: {
-      requiresAuth: true,
-      permission: Permissions.USER_LIST,
-    },
-  },
-
-  {
-    path: "/mes/products",
-    name: "ProductList",
-    component: () => import("../mes/product/views/ProductList.vue"),
-    meta: {
-      requiresAuth: true,
-      permission: Permissions.PRODUCT_LIST,
-    },
-  },
-
-  {
-    path: "/mes/products/:id",
-    name: "ProductDetail",
-    component: () => import("../mes/product/views/ProductDetail.vue"),
-    props: true,
-    meta: {
-      requiresAuth: true,
-      permission: Permissions.PRODUCT_LIST,
-    },
-  },
-
-  {
     path: "/",
-    redirect: "/dashboard",
+    component: () => import("../layouts/AuthenticatedLayout.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+    children: [
+      {
+        path: "",
+        redirect: "/dashboard",
+      },
+
+      {
+        path: "dashboard",
+        name: "Dashboard",
+        component: () => import("../views/dashboard/Dashboard.vue"),
+      },
+
+      {
+        path: "users",
+        name: "Users",
+        component: () => import("../views/users/Users.vue"),
+        meta: {
+          permission: Permissions.USER_LIST,
+        },
+      },
+
+      {
+        path: "mes",
+        name: "MESHome",
+        component: () => import("../views/mes/MESHome.vue"),
+      },
+
+      {
+        path: "mes/products",
+        name: "ProductList",
+        component: () => import("../mes/product/views/ProductList.vue"),
+        meta: {
+          permission: Permissions.PRODUCT_LIST,
+        },
+      },
+
+      {
+        path: "mes/products/:id",
+        name: "ProductDetail",
+        component: () => import("../mes/product/views/ProductDetail.vue"),
+        props: true,
+        meta: {
+          permission: Permissions.PRODUCT_LIST,
+        },
+      },
+    ],
   },
 
   {
