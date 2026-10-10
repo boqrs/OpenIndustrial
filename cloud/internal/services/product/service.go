@@ -435,7 +435,7 @@ func (s *serviceImpl) UpdateProductModelStatus(ctx context.Context, id uint, sta
 		TenantID: tenantID,
 		Name:     resourceEntity.ResourceName,
 		Code:     resourceEntity.Code,
-		Status:   resourceEntity.ResourceStatus,
+		Status:   targetStatus,
 		Metadata: resourceEntity.Metadata,
 		Version:  resourceEntity.Version,
 		ParentID: resourceEntity.ParentID,

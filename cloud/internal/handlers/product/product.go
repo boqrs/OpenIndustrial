@@ -150,34 +150,34 @@ func (h *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) activateProductModel(ctx *gin.Context) ginx.Render {
-	return h.updateStatus(ctx, model.StatusActive)
+    return h.updateStatus(ctx, model.StatusActive)
 }
 
 func (h *Handler) deactivateProductModel(ctx *gin.Context) ginx.Render {
-	return h.updateStatus(ctx, model.StatusInactive)
+    return h.updateStatus(ctx, model.StatusInactive)
 }
 
 func (h *Handler) archiveProductModel(ctx *gin.Context) ginx.Render {
-	return h.updateStatus(ctx, model.StatusArchived)
+    return h.updateStatus(ctx, model.StatusArchived)
 }
 
 func (h *Handler) updateStatus(ctx *gin.Context, status string) ginx.Render {
-	id, err := parseUintParam(ctx, "id")
-	if err != nil {
-		return ginx.Error(err)
-	}
+    id, err := parseUintParam(ctx, "id")
+    if err != nil {
+        return ginx.Error(err)
+    }
 
-	if err := h.service.UpdateProductModelStatus(
-		ctx.Request.Context(), id, status,
-	); err != nil {
-		h.l.Get().Errorf(
-			"failed to update product model status %s: %s",
-			status, err.Error(),
-		)
-		return ginx.Error(err)
-	}
+    if err = h.service.UpdateProductModelStatus(
+        ctx.Request.Context(), id, status,
+    ); err != nil {
+        h.l.Get().Errorf(
+            "failed to update status: %s, error: %s",
+            status, err.Error(),
+        )
+        return ginx.Error(err)
+    }
 
-	return ginx.Success(nil)
+    return ginx.Success(nil)
 }
 
 // Helper function to parse uint from path parameter
