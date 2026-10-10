@@ -34,7 +34,7 @@ const currentSection = computed(() => {
   if (route.path.startsWith("/wms")) return "仓储管理 WMS";
   if (route.path.startsWith("/iot")) return "IoT 设备连接";
   if (route.path.startsWith("/devices")) return "设备数字身份";
-  return "平台工作台";
+  return "工作台";
 });
 
 async function handleLogout() {
@@ -53,7 +53,7 @@ async function handleLogout() {
         <button
           type="button"
           class="brand"
-          aria-label="返回平台工作台"
+          aria-label="返回工作台"
           @click="router.push('/dashboard')"
         >
           <span class="brand-mark" aria-hidden="true">
