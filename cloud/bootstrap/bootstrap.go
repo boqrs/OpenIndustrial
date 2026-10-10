@@ -342,6 +342,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	productService := pSrv.NewService(
 		resourceService,
 		productRepo,
+		logProv,
 	)
 
 	deviceService := dSrv.NewService(
@@ -554,6 +555,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	product.NewHandler(
 		productService,
+		logProv,
 	).RouterRegister(router)
 
 	// -------------------------------------------------------------------------

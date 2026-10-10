@@ -9,17 +9,22 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/product"
+	zlog "github.com/boqrs/nexus/log"
 	"github.com/boqrs/zeus/ginx"
 )
 
 // API handles HTTP requests for the product module.
 type Handler struct {
 	service srv.Service
+	l *zlog.Provider
 }
 
 // NewAPI creates a new API handler for the product service.
-func NewHandler(service srv.Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service srv.Service, logger *zlog.Provider) *Handler {
+	return &Handler{
+		service: service,
+		l:logger,
+	}
 }
 
 // Register registers all product model routes to the given router group.
@@ -36,14 +41,15 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup.Handle(http.MethodPost, "/product-models/:id/archive", h.archiveProductModel)
 }
 
-func (a *Handler) createProductModel(ctx *gin.Context) ginx.Render {
+func (h *Handler) createProductModel(ctx *gin.Context) ginx.Render {
 	var req srv.CreateProductModelRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
-	resp, err := a.service.CreateProductModel(ctx.Request.Context(), &req)
+	resp, err := h.service.CreateProductModel(ctx.Request.Context(), &req)
 	if err != nil {
+		h.l.Get().Errorf("failed to create product model, error: %s", err.Error())
 		return ginx.Error(err)
 	}
 
@@ -51,15 +57,16 @@ func (a *Handler) createProductModel(ctx *gin.Context) ginx.Render {
 
 }
 
-func (a *Handler) listProductModels(ctx *gin.Context) ginx.Render {
+func (h *Handler) listProductModels(ctx *gin.Context) ginx.Render {
 	req := srv.ListProductModelsRequest{}
 
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
-	resp, err := a.service.ListProductModels(ctx.Request.Context(), &req)
+	resp, err := h.service.ListProductModels(ctx.Request.Context(), &req)
 	if err != nil {
+		h.l.Get().Errorf("failed to get product list, error: %s", err.Error())
 		return ginx.Error(err)
 	}
 
@@ -67,21 +74,22 @@ func (a *Handler) listProductModels(ctx *gin.Context) ginx.Render {
 
 }
 
-func (a *Handler) getProductModel(ctx *gin.Context) ginx.Render {
+func (h *Handler) getProductModel(ctx *gin.Context) ginx.Render {
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
-	resp, err := a.service.GetProductModel(ctx.Request.Context(), id)
+	resp, err := h.service.GetProductModel(ctx.Request.Context(), id)
 	if err != nil {
+		h.l.Get().Errorf("failed to get product, error: %s", err.Error())
 		return ginx.Error(err)
 	}
 
 	return ginx.Success(resp)
 }
 
-func (a *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
+func (h *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
@@ -92,8 +100,9 @@ func (a *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("invalid param json"))
 	}
 
-	resp, err := a.service.UpdateProductModel(ctx.Request.Context(), id, &req)
+	resp, err := h.service.UpdateProductModel(ctx.Request.Context(), id, &req)
 	if err != nil {
+		h.l.Get().Errorf("failed to update product, error: %s", err.Error())
 		return ginx.Error(err)
 	}
 
@@ -101,14 +110,15 @@ func (a *Handler) updateProductModel(ctx *gin.Context) ginx.Render {
 
 }
 
-func (a *Handler) getAttributes(ctx *gin.Context) ginx.Render {
+func (h *Handler) getAttributes(ctx *gin.Context) ginx.Render {
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
-	resp, err := a.service.GetAttributeDefinitions(ctx.Request.Context(), id)
+	resp, err := h.service.GetAttributeDefinitions(ctx.Request.Context(), id)
 	if err != nil {
+		h.l.Get().Errorf("failed to get product attributes, error: %s", err.Error())
 		return ginx.Error(err)
 	}
 
@@ -116,7 +126,7 @@ func (a *Handler) getAttributes(ctx *gin.Context) ginx.Render {
 
 }
 
-func (a *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
+func (h *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return ginx.Error(fmt.Errorf("invalid param"))
@@ -127,8 +137,8 @@ func (a *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
 		return ginx.Error(fmt.Errorf("invalid param json"))
 	}
 
-	err = a.service.UpdateAttributeDefinitions(ctx.Request.Context(), id, &req)
-	if err != nil {
+	if err = h.service.UpdateAttributeDefinitions(ctx.Request.Context(), id, &req);err != nil {
+		h.l.Get().Errorf("failed to update product attributes, error: %s", err.Error())
 		return ginx.Error(err)
 	}
 
@@ -136,29 +146,29 @@ func (a *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
 
 }
 
-func (a *Handler) activateProductModel(ctx *gin.Context) ginx.Render {
-	a.updateStatus(ctx, model.StatusActive)
+func (h *Handler) activateProductModel(ctx *gin.Context) ginx.Render {
+	h.updateStatus(ctx, model.StatusActive)
 	return ginx.Success(nil)
 }
 
-func (a *Handler) deactivateProductModel(ctx *gin.Context) ginx.Render {
-	a.updateStatus(ctx, model.StatusInactive)
+func (h *Handler) deactivateProductModel(ctx *gin.Context) ginx.Render {
+	h.updateStatus(ctx, model.StatusInactive)
 	return ginx.Success(nil)
 }
 
-func (a *Handler) archiveProductModel(ctx *gin.Context) ginx.Render {
-	a.updateStatus(ctx, model.StatusArchived)
+func (h *Handler) archiveProductModel(ctx *gin.Context) ginx.Render {
+	h.updateStatus(ctx, model.StatusArchived)
 	return ginx.Success(nil)
 }
 
-func (a *Handler) updateStatus(ctx *gin.Context, status string) {
+func (h *Handler) updateStatus(ctx *gin.Context, status string) {
 	id, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return
 	}
 
-	err = a.service.UpdateProductModelStatus(ctx.Request.Context(), id, status)
-	if err != nil {
+	if err = h.service.UpdateProductModelStatus(ctx.Request.Context(), id, status); err != nil {
+		h.l.Get().Errorf("failed to update status: %s, error: %s", status, err.Error())
 		return
 	}
 

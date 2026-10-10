@@ -9,7 +9,8 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
-	"github.com/google/uuid"
+	zlog "github.com/boqrs/nexus/log"
+	"gorm.io/gorm"
 )
 
 var (
@@ -27,22 +28,16 @@ var (
 type serviceImpl struct {
 	resourceSvc resource.Service
 	repository  Repository
+	l *zlog.Provider
 }
 
 // NewService creates a new product service.
-func NewService(resourceSvc resource.Service, repository Repository) Service {
+func NewService(resourceSvc resource.Service, repository Repository, l *zlog.Provider) Service {
 	return &serviceImpl{
 		resourceSvc: resourceSvc,
 		repository:  repository,
+		l:l,
 	}
-}
-
-// --- tenantIDFromContext is a placeholder ---
-// In a real application, this would extract the tenant ID from the context,
-// likely from a JWT or other authentication middleware.
-func tenantIDFromContext(ctx context.Context) uuid.UUID {
-	// TODO: Implement actual tenant ID extraction from context.
-	return uuid.Nil
 }
 
 func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProductModelRequest) (*CreateProductModelResponse, error) {
@@ -59,15 +54,18 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 		return nil, ErrInvalidProductModel
 	}
 	if err := validateAttributeDefinitions(req.Attributes); err != nil {
+		s.l.Get().Errorf("failed validate attribute, error: %s", err.Error())
 		return nil, err
 	}
 
 	// 2. Check for uniqueness
 	existing, err := s.repository.GetByCodeAndVersion(ctx, code, version)
 	if err == nil && existing != nil {
+		s.l.Get().Errorf("failed GetByCodeAndVersion, alread existed")
 		return nil, ErrProductModelCodeVersionExists
 	}
-	if err != nil && !errors.Is(err, ErrProductModelNotFound) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.l.Get().Errorf("failed GetByCodeAndVersion, error: %s", err.Error())
 		return nil, fmt.Errorf("failed to check for existing product model: %w", err)
 	}
 
@@ -80,6 +78,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 		Status:   model.StatusPending, // Always start as pending
 	})
 	if err != nil {
+		s.l.Get().Errorf("failed CreateResource, error: %s", err.Error())
 		return nil, fmt.Errorf("create product model resource: %w", err)
 	}
 
@@ -94,6 +93,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 	}
 	if err := s.repository.Create(ctx, entity); err != nil {
 		_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.ID) // Rollback
+		s.l.Get().Errorf("failed CreateProduct, error: %s", err.Error())
 		return nil, fmt.Errorf("create product model: %w", err)
 	}
 
@@ -116,6 +116,7 @@ func (s *serviceImpl) CreateProductModel(ctx context.Context, req *CreateProduct
 			// Full rollback
 			_ = s.repository.Delete(ctx, entity.ID)
 			_ = s.resourceSvc.DeleteResource(ctx, tenantID, resourceEntity.ID)
+			s.l.Get().Errorf("failed BatchCreateAttributeDefinition, error: %s", err.Error())
 			return nil, fmt.Errorf("create product model attribute definitions: %w", err)
 		}
 	}
