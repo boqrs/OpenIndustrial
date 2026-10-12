@@ -120,4 +120,5 @@ type Service interface {
 	ReplaceAttributeDefinitions(ctx context.Context, resourceID uint, definitions []*model.AttributeDefinition) error
 	GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uint, resourceIDs []uint) ([]model.ResourceAttribute, error)
 	GetAttributesByResourceID(ctx context.Context, resourceID uint) ([]*model.ResourceAttribute, error)
+	DeleteResourceAttributeValue(ctx context.Context, tenantID uint, resourceID uint, attributeDefinitionID uint) error
 }

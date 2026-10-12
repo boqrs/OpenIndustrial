@@ -292,7 +292,6 @@ func NewResourceAttributeRepository(db *database.DBProvider) *ResourceAttributeR
 	return &ResourceAttributeRepository{db: db}
 }
 
-// SetAttribute uses an UPSERT operation to create or update a resource attribute using GORM.
 func (r *ResourceAttributeRepository) SetAttribute(
 	ctx context.Context,
 	attr *model.ResourceAttribute,
@@ -315,7 +314,6 @@ func (r *ResourceAttributeRepository) SetAttribute(
 		Create(attr).Error
 }
 
-// SetAttributes sets multiple attributes in a single transaction using GORM.
 func (r *ResourceAttributeRepository) SetAttributes(
 	ctx context.Context,
 	attrs []*model.ResourceAttribute,
@@ -341,9 +339,8 @@ func (r *ResourceAttributeRepository) SetAttributes(
 				}),
 			}).Create(attr).Error; err != nil {
 				return fmt.Errorf(
-					"set attribute for resource %d, definition %d: %w",
+					"set attribute for resource %d: %w",
 					attr.ResourceID,
-					attr.AttributeDefinitionID,
 					err,
 				)
 			}
@@ -378,7 +375,7 @@ func (r *ResourceAttributeRepository) GetAttributesByResourceID(
 	ctx context.Context,
 	resourceID uint,
 ) ([]*model.ResourceAttribute, error) {
-	attrs := make([]*model.ResourceAttribute, 0)
+	var attrs []*model.ResourceAttribute
 
 	err := r.db.Get().WithContext(ctx).
 		Preload("AttributeDefinition").
@@ -397,25 +394,15 @@ func (r *ResourceAttributeRepository) DeleteAttribute(
 	resourceID uint,
 	attributeID uint,
 ) error {
-	result := r.db.Get().WithContext(ctx).
+	return r.db.Get().WithContext(ctx).
 		Where(
 			"resource_id = ? AND attribute_definition_id = ?",
 			resourceID,
 			attributeID,
 		).
-		Delete(&model.ResourceAttribute{})
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-
-	return nil
+		Delete(&model.ResourceAttribute{}).Error
 }
 
-// GetForResource retrieves all attributes for a given resource and returns them as a map.
 func (r *ResourceAttributeRepository) GetForResource(
 	ctx context.Context,
 	resourceID uint,
@@ -427,53 +414,43 @@ func (r *ResourceAttributeRepository) GetForResource(
 
 	result := make(map[string]interface{}, len(attrs))
 	for _, attr := range attrs {
-		if attr == nil {
-			continue
-		}
-
-		key := attr.AttributeDefinition.Name
-		if key == "" {
-			continue
-		}
-
 		var value interface{}
 		if err := json.Unmarshal(attr.Value, &value); err != nil {
 			return nil, fmt.Errorf(
-				"decode attribute %q: %w",
-				key,
+				"decode attribute %d for resource %d: %w",
+				attr.AttributeDefinitionID,
+				resourceID,
 				err,
 			)
 		}
 
-		result[key] = value
+		result[attr.AttributeDefinition.Name] = value
 	}
 
 	return result, nil
 }
 
-// UpsertForResource creates or updates a batch of attributes for a specific resource.
 func (r *ResourceAttributeRepository) UpsertForResource(
 	ctx context.Context,
 	tenantID uint,
 	resourceID uint,
-	attributes map[string]interface{},
+	attrs map[string]interface{},
 ) error {
-	if len(attributes) == 0 {
+	if len(attrs) == 0 {
 		return nil
 	}
 
 	return r.db.Get().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Ensure the target resource belongs to the tenant.
-		var resourceEntity model.Resource
+		// Verify that the target resource belongs to this tenant.
+		var resource model.Resource
 		if err := tx.
 			Where("id = ? AND tenant_id = ?", resourceID, tenantID).
-			First(&resourceEntity).Error; err != nil {
-			return fmt.Errorf("get target resource: %w", err)
+			First(&resource).Error; err != nil {
+			return fmt.Errorf("resource %d not found for tenant: %w", resourceID, err)
 		}
 
-		for name, value := range attributes {
-			// Product-level values must use definitions attached to this
-			// product Resource, rather than unrelated tenant-wide definitions.
+		for name, value := range attrs {
+			// Only definitions belonging to this resource can be written.
 			var definition model.AttributeDefinition
 			if err := tx.
 				Where("resource_id = ? AND name = ?", resourceID, name).
@@ -515,7 +492,20 @@ func (r *ResourceAttributeRepository) UpsertForResource(
 	})
 }
 
+func (r *ResourceAttributeRepository) GetAttributesForResource(
+	ctx context.Context,
+	tenantID uint,
+	resourceID uint,
+) (map[string]interface{}, error) {
+	var resource model.Resource
+	if err := r.db.Get().WithContext(ctx).
+		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
+		First(&resource).Error; err != nil {
+		return nil, err
+	}
 
+	return r.GetForResource(ctx, resourceID)
+}
 
 func (r *ResourceAttributeRepository) BatchCreateResourceAttributes(
 	ctx context.Context,
@@ -529,42 +519,30 @@ func (r *ResourceAttributeRepository) BatchCreateResourceAttributes(
 		CreateInBatches(attrs, len(attrs)).Error
 }
 
-func (r *ResourceAttributeRepository) GetAttributesForResource(
+func (r *ResourceAttributeRepository) GetResourcesAndAttributesByIDs(
 	ctx context.Context,
 	tenantID uint,
-	resourceID uint,
-) (map[string]interface{}, error) {
-	var resourceEntity model.Resource
-	if err := r.db.Get().WithContext(ctx).
-		Where("id = ? AND tenant_id = ?", resourceID, tenantID).
-		First(&resourceEntity).Error; err != nil {
-		return nil, err
-	}
-
-	return r.GetForResource(ctx, resourceID)
-}
-
-func (r *ResourceAttributeRepository) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uint, resourceIDs []uint) ([]model.ResourceAttribute, error) {
-	var attributes []model.ResourceAttribute
+	resourceIDs []uint,
+) ([]model.ResourceAttribute, error) {
+	var attrs []model.ResourceAttribute
 	if len(resourceIDs) == 0 {
-		return attributes, nil
+		return attrs, nil
 	}
 
-	// We join with resources to filter by tenant_id, and Preload to efficiently fetch both associated Resource and AttributeDefinition objects.
 	err := r.db.Get().WithContext(ctx).
-		Preload("Resource").
 		Preload("AttributeDefinition").
-		Joins("JOIN resources ON resources.id = resource_attributes.resource_id").
+		Joins(
+			"JOIN resources ON resources.id = resource_attributes.resource_id",
+		).
 		Where("resource_attributes.resource_id IN ?", resourceIDs).
 		Where("resources.tenant_id = ?", tenantID).
-		Find(&attributes).Error
-
+		Find(&attrs).Error
 	if err != nil {
 		return nil, err
 	}
-	return attributes, nil
-}
 
+	return attrs, nil
+}
 
 // ===================================================================
 // ResourceAttributeRepository Implementation

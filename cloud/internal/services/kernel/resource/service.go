@@ -355,3 +355,41 @@ func (s *service) ReplaceAttributeDefinitions(ctx context.Context, resourceID ui
 func (s *service) GetResourcesAndAttributesByIDs(ctx context.Context, tenantID uint, resourceIDs []uint) ([]model.ResourceAttribute, error) {
 	return s.resAttrRepo.GetResourcesAndAttributesByIDs(ctx, tenantID, resourceIDs)
 }
+
+func (s *service) DeleteResourceAttributeValue(
+	ctx context.Context,
+	tenantID uint,
+	resourceID uint,
+	attributeDefinitionID uint,
+) error {
+	// Verify tenant ownership before deleting any attribute value.
+	if _, err := s.resourceRepo.GetResourceByID(ctx, tenantID, resourceID); err != nil {
+		return err
+	}
+
+	// Ensure the definition belongs to this resource.
+	definitions, err := s.attrDefRepo.FindAttributeDefinitionByResourceID(
+		ctx,
+		resourceID,
+	)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for _, definition := range definitions {
+		if definition.ID == attributeDefinitionID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.New("attribute definition not found for resource")
+	}
+
+	return s.resAttrRepo.DeleteAttribute(
+		ctx,
+		resourceID,
+		attributeDefinitionID,
+	)
+}

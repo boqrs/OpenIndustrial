@@ -41,3 +41,7 @@ type ListProductModelsRequest struct {
 	// PageSize int    `json:"page_size,omitempty"`
 	pkg.BasePageReq
 }
+
+type UpdateAttributeValuesRequest struct {
+	Values map[string]interface{} `json:"values"`
+}

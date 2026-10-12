@@ -42,6 +42,9 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup.Handle(http.MethodPost, "/product-models/:id/activate", h.activateProductModel)
 	externalGroup.Handle(http.MethodPost, "/product-models/:id/deactivate", h.deactivateProductModel)
 	externalGroup.Handle(http.MethodPost, "/product-models/:id/archive", h.archiveProductModel)
+	externalGroup.Handle(http.MethodGet, "/product-models/:id/attribute-values", h.getAttributeValues)
+	externalGroup.Handle(http.MethodPut, "/product-models/:id/attribute-values", h.updateAttributeValues)
+	externalGroup.Handle(http.MethodDelete, "/product-models/:id/attribute-values/:attributeId", h.deleteAttributeValue)
 }
 
 func (h *Handler) createProductModel(ctx *gin.Context) ginx.Render {
@@ -150,34 +153,34 @@ func (h *Handler) updateAttributes(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) activateProductModel(ctx *gin.Context) ginx.Render {
-    return h.updateStatus(ctx, model.StatusActive)
+	return h.updateStatus(ctx, model.StatusActive)
 }
 
 func (h *Handler) deactivateProductModel(ctx *gin.Context) ginx.Render {
-    return h.updateStatus(ctx, model.StatusInactive)
+	return h.updateStatus(ctx, model.StatusInactive)
 }
 
 func (h *Handler) archiveProductModel(ctx *gin.Context) ginx.Render {
-    return h.updateStatus(ctx, model.StatusArchived)
+	return h.updateStatus(ctx, model.StatusArchived)
 }
 
 func (h *Handler) updateStatus(ctx *gin.Context, status string) ginx.Render {
-    id, err := parseUintParam(ctx, "id")
-    if err != nil {
-        return ginx.Error(err)
-    }
+	id, err := parseUintParam(ctx, "id")
+	if err != nil {
+		return ginx.Error(err)
+	}
 
-    if err = h.service.UpdateProductModelStatus(
-        ctx.Request.Context(), id, status,
-    ); err != nil {
-        h.l.Get().Errorf(
-            "failed to update status: %s, error: %s",
-            status, err.Error(),
-        )
-        return ginx.Error(err)
-    }
+	if err = h.service.UpdateProductModelStatus(
+		ctx.Request.Context(), id, status,
+	); err != nil {
+		h.l.Get().Errorf(
+			"failed to update status: %s, error: %s",
+			status, err.Error(),
+		)
+		return ginx.Error(err)
+	}
 
-    return ginx.Success(nil)
+	return ginx.Success(nil)
 }
 
 // Helper function to parse uint from path parameter
@@ -188,4 +191,77 @@ func parseUintParam(c *gin.Context, paramName string) (uint, error) {
 		return 0, fmt.Errorf("invalid %s: %s", paramName, idStr)
 	}
 	return uint(id), nil
+}
+
+func (h *Handler) getAttributeValues(ctx *gin.Context) ginx.Render {
+	id, err := parseUintParam(ctx, "id")
+	if err != nil {
+		return ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	resp, err := h.service.GetAttributeValues(
+		ctx.Request.Context(),
+		id,
+	)
+	if err != nil {
+		h.l.Get().Errorf(
+			"failed to get product attribute values: %s",
+			err.Error(),
+		)
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(resp)
+}
+
+func (h *Handler) updateAttributeValues(ctx *gin.Context) ginx.Render {
+	id, err := parseUintParam(ctx, "id")
+	if err != nil {
+		return ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	var req srv.UpdateAttributeValuesRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		return ginx.Error(fmt.Errorf("invalid param json"))
+	}
+
+	if err := h.service.UpdateAttributeValues(
+		ctx.Request.Context(),
+		id,
+		&req,
+	); err != nil {
+		h.l.Get().Errorf(
+			"failed to update product attribute values: %s",
+			err.Error(),
+		)
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(nil)
+}
+
+func (h *Handler) deleteAttributeValue(ctx *gin.Context) ginx.Render {
+	productModelID, err := parseUintParam(ctx, "id")
+	if err != nil {
+		return ginx.Error(fmt.Errorf("invalid param"))
+	}
+
+	attributeDefinitionID, err := parseUintParam(ctx, "attributeId")
+	if err != nil {
+		return ginx.Error(fmt.Errorf("invalid attribute id"))
+	}
+
+	if err := h.service.DeleteAttributeValue(
+		ctx.Request.Context(),
+		productModelID,
+		attributeDefinitionID,
+	); err != nil {
+		h.l.Get().Errorf(
+			"failed to delete product attribute value: %s",
+			err.Error(),
+		)
+		return ginx.Error(err)
+	}
+
+	return ginx.Success(nil)
 }

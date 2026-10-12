@@ -598,3 +598,134 @@ func isSupportedAttributeType(value string) bool {
 		return false
 	}
 }
+
+func (s *serviceImpl) GetAttributeValues(
+	ctx context.Context,
+	productModelID uint,
+) (map[string]interface{}, error) {
+	entity, err := s.repository.GetByID(ctx, productModelID)
+	if err != nil {
+		return nil, ErrProductModelNotFound
+	}
+
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
+	resourceEntity, err := s.resourceSvc.GetResourceByID(
+		ctx,
+		tenantID,
+		entity.ResourceID,
+	)
+	if err != nil ||
+		resource.ResourceType(resourceEntity.ResourceType) != resource.ResourceTypeProductModel {
+		return nil, ErrProductModelNotFound
+	}
+
+	return s.resourceSvc.GetAttributesForResource(
+		ctx,
+		tenantID,
+		entity.ResourceID,
+	)
+}
+
+func (s *serviceImpl) UpdateAttributeValues(
+	ctx context.Context,
+	productModelID uint,
+	req *UpdateAttributeValuesRequest,
+) error {
+	if req == nil {
+		return errors.New("request is nil")
+	}
+	if len(req.Values) == 0 {
+		return errors.New("attribute values cannot be empty")
+	}
+
+	entity, err := s.repository.GetByID(ctx, productModelID)
+	if err != nil {
+		return ErrProductModelNotFound
+	}
+
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
+
+	resourceEntity, err := s.resourceSvc.GetResourceByID(
+		ctx,
+		tenantID,
+		entity.ResourceID,
+	)
+	if err != nil ||
+		resource.ResourceType(resourceEntity.ResourceType) != resource.ResourceTypeProductModel {
+		return ErrProductModelNotFound
+	}
+
+	definitions, err := s.resourceSvc.FindAttributeDefinitionByResourceID(
+		ctx,
+		tenantID,
+		entity.ResourceID,
+	)
+	if err != nil {
+		return fmt.Errorf("get attribute definitions: %w", err)
+	}
+
+	allowed := make(map[string]struct{}, len(definitions))
+	for _, definition := range definitions {
+		allowed[definition.Name] = struct{}{}
+	}
+
+	for name := range req.Values {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return errors.New("attribute name cannot be empty")
+		}
+		if _, exists := allowed[name]; !exists {
+			return fmt.Errorf(
+				"%w: %s",
+				ErrAttributeDefinitionNotFound,
+				name,
+			)
+		}
+	}
+
+	return s.resourceSvc.UpsertAttributesForResource(
+		ctx,
+		entity.ResourceID,
+		req.Values,
+	)
+}
+
+func (s *serviceImpl) DeleteAttributeValue(
+	ctx context.Context,
+	productModelID uint,
+	attributeDefinitionID uint,
+) error {
+	entity, err := s.repository.GetByID(ctx, productModelID)
+	if err != nil {
+		return ErrProductModelNotFound
+	}
+
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
+	}
+
+	resourceEntity, err := s.resourceSvc.GetResourceByID(
+		ctx,
+		tenantID,
+		entity.ResourceID,
+	)
+	if err != nil ||
+		resource.ResourceType(resourceEntity.ResourceType) != resource.ResourceTypeProductModel {
+		return ErrProductModelNotFound
+	}
+
+	return s.resourceSvc.DeleteResourceAttributeValue(
+		ctx,
+		tenantID,
+		entity.ResourceID,
+		attributeDefinitionID,
+	)
+}

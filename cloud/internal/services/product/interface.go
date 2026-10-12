@@ -36,4 +36,11 @@ type Service interface {
 	GetAttributeDefinitions(ctx context.Context, productModelID uint) ([]AttributeDefinitionResponse, error)
 
 	UpdateAttributeDefinitions(ctx context.Context, productModelID uint, req *UpdateAttributeDefinitionsRequest) error
+
+	// =========================================================
+	// Product Model Attribute Values
+	// =========================================================
+	GetAttributeValues(ctx context.Context, productModelID uint) (map[string]interface{}, error)
+	UpdateAttributeValues(ctx context.Context, productModelID uint, req *UpdateAttributeValuesRequest) error
+	DeleteAttributeValue(ctx context.Context, productModelID uint, attributeDefinitionID uint) error
 }
