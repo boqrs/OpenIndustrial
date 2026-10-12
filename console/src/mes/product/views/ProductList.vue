@@ -50,6 +50,9 @@ const createDialogVisible = ref(false);
 const createFormRef = ref<FormInstance>();
 const formError = ref("");
 
+/** 记录加载失败的图片，避免重复请求失败地址。 */
+const failedImageIds = ref<number[]>([]);
+
 const createForm = reactive({
   name: "",
   code: "",
@@ -149,7 +152,6 @@ function statusTagType(
   }
 }
 
-/** 为各个状态提供独立的视觉样式。 */
 function statusClass(status?: string): string {
   switch (status) {
     case "active":
@@ -178,6 +180,32 @@ function formatDate(value?: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+/**
+ * 读取产品外观图片。
+ * 图片地址来自通用属性值，不要求后端新增 image 专用字段。
+ */
+function getAppearanceImage(row: ProductModel): string {
+  const raw = row.attribute_values?.image;
+
+  if (typeof raw !== "string") return "";
+
+  // 兼容历史数据中的空格、末尾逗号和连续逗号。
+  const url = raw
+    .trim()
+    .replace(/,+\s*$/, "")
+    .trim();
+
+  if (!/^https?:\/\/\S+$/i.test(url)) return "";
+
+  return url;
+}
+
+function handleImageError(id: number) {
+  if (!failedImageIds.value.includes(id)) {
+    failedImageIds.value.push(id);
+  }
 }
 
 function resetCreateForm() {
@@ -260,6 +288,7 @@ async function loadProducts() {
 
     products.value = response.items ?? [];
     total.value = response.total ?? 0;
+    failedImageIds.value = [];
   } catch (error: unknown) {
     loadError.value =
       error instanceof Error
@@ -307,6 +336,7 @@ async function submitCreate() {
   if (!valid) return;
 
   const attributes = buildAttributes();
+
   if (typeof attributes === "string") {
     formError.value = attributes;
     return;
@@ -486,10 +516,21 @@ onMounted(() => {
         class="product-table"
         empty-text="暂无产品型号，请创建第一个产品型号"
       >
-        <el-table-column label="产品型号" min-width="240">
+        <el-table-column label="产品型号" min-width="260">
           <template #default="{ row }">
             <div class="product-name-cell">
-              <div class="product-mark">P</div>
+              <img
+                v-if="
+                  getAppearanceImage(row) && !failedImageIds.includes(row.id)
+                "
+                :src="getAppearanceImage(row)"
+                :alt="`${row.name || '产品'}外观`"
+                class="product-image"
+                loading="lazy"
+                @error="handleImageError(row.id)"
+              />
+              <div v-else class="product-mark">P</div>
+
               <div class="product-name-info">
                 <button class="product-name-link" @click="openDetail(row)">
                   {{ row.name || "未命名产品" }}
@@ -529,9 +570,9 @@ onMounted(() => {
 
         <el-table-column label="属性数" width="100" align="center">
           <template #default="{ row }">
-            <span class="attribute-count">{{
-              row.attributes?.length ?? "—"
-            }}</span>
+            <span class="attribute-count">
+              {{ row.attributes?.length ?? "—" }}
+            </span>
           </template>
         </el-table-column>
 
@@ -907,8 +948,8 @@ onMounted(() => {
 }
 
 .error-alert {
-  margin: 0 24px 16px;
   width: auto;
+  margin: 0 24px 16px;
 }
 
 .product-table {
@@ -916,7 +957,6 @@ onMounted(() => {
   border-top: 1px solid #f0f1f3;
 }
 
-/* 产品状态：列表和详情页采用一致的配色规则。 */
 .product-status-tag {
   min-width: 74px;
   justify-content: center;
@@ -961,6 +1001,8 @@ onMounted(() => {
   gap: 12px;
 }
 
+/* 产品外观图片与原有 P 占位图保持相同尺寸。 */
+.product-image,
 .product-mark,
 .dialog-intro-mark {
   display: grid;
@@ -969,6 +1011,17 @@ onMounted(() => {
   flex-shrink: 0;
   place-items: center;
   border-radius: 9px;
+}
+
+.product-image {
+  display: block;
+  border: 1px solid #eaecf0;
+  background: #fff;
+  object-fit: contain;
+}
+
+.product-mark,
+.dialog-intro-mark {
   background: #0e1f33;
   color: #f0a030;
   font-size: 15px;

@@ -84,3 +84,30 @@ export interface ProductListResponse {
   total: number;
   next: boolean;
 }
+
+/** 产品型号属性值 */
+export type AttributeValues = Record<string, unknown>;
+
+/** 更新产品型号属性值请求 */
+export interface UpdateAttributeValuesRequest {
+  values: AttributeValues;
+}
+
+/** 产品型号列表项 */
+export interface ProductModel {
+  id: number;
+  resource_id: number;
+  name: string;
+  code: string;
+  version: string;
+  category: string;
+  description?: string;
+  status: ProductStatus | string;
+  attributes?: ProductAttribute[];
+
+  /** 产品属性值，按属性标识名存储 */
+  attribute_values?: Record<string, unknown>;
+
+  created_at: string;
+  updated_at: string;
+}

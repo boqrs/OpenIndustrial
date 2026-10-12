@@ -1,8 +1,8 @@
-
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import AttributeValuesPanel from "./AttributeValuesPanel.vue";
 import {
   ArrowLeft,
   Refresh,
@@ -646,6 +646,10 @@ onMounted(() => {
           </div>
         </article>
       </section>
+      <AttributeValuesPanel
+        :product-id="product.id"
+        :definitions="definitions"
+      />
     </template>
   </div>
 </template>

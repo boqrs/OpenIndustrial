@@ -84,3 +84,34 @@ export async function deactivateProductModel(id: number): Promise<void> {
 export async function archiveProductModel(id: number): Promise<void> {
   await request.post(`/product-models/${id}/archive`);
 }
+
+import type { AttributeValues, UpdateAttributeValuesRequest } from "./types";
+
+/** 获取产品型号属性值 */
+
+/** 获取产品型号属性值 */
+export async function getAttributeValues(id: number): Promise<AttributeValues> {
+  const response = await request.get<AttributeValues>(
+    `/product-models/${id}/attribute-values`,
+  );
+
+  return response as unknown as AttributeValues;
+}
+
+/** 批量更新产品型号属性值 */
+export async function updateAttributeValues(
+  id: number,
+  data: UpdateAttributeValuesRequest,
+): Promise<void> {
+  await request.put(`/product-models/${id}/attribute-values`, data);
+}
+
+/** 删除单个产品型号属性值 */
+export async function deleteAttributeValue(
+  id: number,
+  attributeDefinitionId: number,
+): Promise<void> {
+  await request.delete(
+    `/product-models/${id}/attribute-values/${attributeDefinitionId}`,
+  );
+}
