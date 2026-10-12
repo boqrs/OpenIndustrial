@@ -28,17 +28,18 @@ type AttributeDefinitionResponse struct {
 }
 
 type ProductModelResponse struct {
-	ID          uint                `json:"id"`
-	ResourceID  uint                `json:"resource_id"`
-	Name        string              `json:"name"`
-	Code        string              `json:"code"`
-	Version     string              `json:"version"`
-	Category    string              `json:"category"`
-	Description string              `json:"description,omitempty"`
-	Status      string              `json:"status"`
-	Attributes  []AttributeResponse `json:"attributes,omitempty"`
-	CreatedAt   time.Time           `json:"created_at"`
-	UpdatedAt   time.Time           `json:"updated_at"`
+	ID              uint                   `json:"id"`
+	ResourceID      uint                   `json:"resource_id"`
+	Name            string                 `json:"name"`
+	Code            string                 `json:"code"`
+	Version         string                 `json:"version"`
+	Category        string                 `json:"category"`
+	Description     string                 `json:"description,omitempty"`
+	Status          string                 `json:"status"`
+	Attributes      []AttributeResponse    `json:"attributes,omitempty"`
+	AttributeValues map[string]interface{} `json:"attribute_values"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
 }
 
 type ProductDetailResponse struct {

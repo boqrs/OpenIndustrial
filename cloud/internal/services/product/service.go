@@ -2,6 +2,7 @@ package product
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -257,14 +258,13 @@ func (s *serviceImpl) ListProductModels(ctx context.Context, req *ListProductMod
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resources by ids: %w", err)
 	}
-	resourceMap := make(map[uint][]model.ResourceAttribute, len(resources))
-	for _, r := range products {
-		resourceMap[r.ID] = make([]model.ResourceAttribute, 0)
-		for _, rs := range resources {
-			if rs.ResourceID == r.ResourceID {
-				resourceMap[r.ID] = append(resourceMap[r.ID], rs)
-			}
-		}
+	resourceMap := make(map[uint][]model.ResourceAttribute, len(products))
+
+	for _, attr := range resources {
+		resourceMap[attr.ResourceID] = append(
+			resourceMap[attr.ResourceID],
+			attr,
+		)
 	}
 
 	// Build responses
@@ -523,37 +523,53 @@ func (s *serviceImpl) UpdateAttributeDefinitions(ctx context.Context, productMod
 }
 
 // --- Helper Functions ---
+
 func (s *serviceImpl) buildProductModelResponse(
 	dataM map[uint][]model.ResourceAttribute,
 	entity *model.ProductModel,
 	resourceEntity *model.Resource,
 ) *ProductModelResponse {
 	prs := &ProductModelResponse{
-		ID:          entity.ID,
-		ResourceID:  entity.ResourceID,
-		Name:        resourceEntity.ResourceName,
-		Code:        entity.Code,
-		Version:     entity.Version,
-		Category:    entity.Category,
-		Description: entity.Description,
-		Status:      resourceEntity.ResourceStatus,
-		CreatedAt:   entity.CreatedAt,
-		UpdatedAt:   entity.UpdatedAt,
+		ID:              entity.ID,
+		ResourceID:      entity.ResourceID,
+		Name:            resourceEntity.ResourceName,
+		Code:            entity.Code,
+		Version:         entity.Version,
+		Category:        entity.Category,
+		Description:     entity.Description,
+		Status:          resourceEntity.ResourceStatus,
+		Attributes:      make([]AttributeResponse, 0),
+		AttributeValues: make(map[string]interface{}),
+		CreatedAt:       entity.CreatedAt,
+		UpdatedAt:       entity.UpdatedAt,
 	}
 
-	if attributes, has := dataM[entity.ID]; has {
-		prs.Attributes = make([]AttributeResponse, 0, len(attributes))
+	// 属性值归属于 Resource，而不是 ProductModel。
+	attributes, has := dataM[entity.ResourceID]
+	if !has {
+		return prs
+	}
 
-		for _, attr := range attributes {
-			prs.Attributes = append(prs.Attributes, AttributeResponse{
-				ID:          attr.ID,
-				Name:        attr.AttributeDefinition.Name,
-				Label:       attr.AttributeDefinition.Label,
-				Description: attr.AttributeDefinition.Description,
-				DataType:    string(attr.AttributeDefinition.DataType),
-				Unit:        attr.AttributeDefinition.Unit,
-			})
+	for _, attr := range attributes {
+		// 返回属性定义信息。
+		prs.Attributes = append(prs.Attributes, AttributeResponse{
+			ID:          attr.AttributeDefinition.ID,
+			Name:        attr.AttributeDefinition.Name,
+			Label:       attr.AttributeDefinition.Label,
+			Description: attr.AttributeDefinition.Description,
+			DataType:    string(attr.AttributeDefinition.DataType),
+			Unit:        attr.AttributeDefinition.Unit,
+		})
+
+		// 通用解析 JSONB 属性值，不针对任何属性名称写死逻辑。
+		var value interface{}
+		if err := json.Unmarshal(attr.Value, &value); err != nil {
+			// JSONB 数据正常情况下应当是有效 JSON。
+			// 遇到异常值时跳过该值，避免影响整个列表接口。
+			continue
 		}
+
+		prs.AttributeValues[attr.AttributeDefinition.Name] = value
 	}
 
 	return prs
