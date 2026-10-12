@@ -1,3 +1,4 @@
+```vue
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -15,6 +16,7 @@ const materials = ref<Material[]>([]);
 const keyword = ref("");
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
+const formRef = ref();
 
 const emptyForm = (): CreateMaterialRequest => ({
   code: "",
@@ -35,21 +37,33 @@ const rules = {
   unit: [{ required: true, message: "请输入计量单位", trigger: "blur" }],
 };
 
-const formRef = ref();
-
+/**
+ * 兼容后端当前返回的 Go 默认大写字段。
+ * 注意：表单字段仍然使用前端原有的小写命名。
+ */
 const filteredMaterials = computed(() => {
   const value = keyword.value.trim().toLowerCase();
 
-  if (!value) return materials.value;
+  if (!value) {
+    return materials.value;
+  }
 
   return materials.value.filter((item) =>
-    [item.code, item.name, item.unit, item.description].some((field) =>
-      field?.toLowerCase().includes(value),
+    [
+      item.Code,
+      item.Name,
+      item.Unit,
+      item.Description ?? "",
+      item.MaterialType,
+    ].some((field) =>
+      String(field ?? "")
+        .toLowerCase()
+        .includes(value),
     ),
   );
 });
 
-function materialTypeLabel(type: string) {
+function materialTypeLabel(type: string | undefined) {
   const labels: Record<string, string> = {
     raw: "原材料",
     component: "零部件",
@@ -57,14 +71,35 @@ function materialTypeLabel(type: string) {
     packaging: "包装材料",
   };
 
+  if (!type) {
+    return "未分类";
+  }
+
   return labels[type] ?? type;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString();
 }
 
 async function loadMaterials() {
   loading.value = true;
 
   try {
-    materials.value = await listMaterials({ offset: 0, limit: 100 });
+    materials.value = await listMaterials({
+      offset: 0,
+      limit: 100,
+    });
   } catch (error) {
     ElMessage.error(
       error instanceof Error ? error.message : "加载物料列表失败",
@@ -81,24 +116,29 @@ function openCreateDialog() {
 }
 
 function openEditDialog(item: Material) {
-  editingId.value = item.id;
+  editingId.value = item.ID;
 
   Object.assign(form, {
-    code: item.code,
-    name: item.name,
-    material_type: item.material_type as MaterialType,
-    unit: item.unit,
-    description: item.description ?? "",
+    code: item.Code ?? "",
+    name: item.Name ?? "",
+    material_type: (item.MaterialType || "raw") as MaterialType,
+    unit: item.Unit ?? "",
+    description: item.Description ?? "",
   });
 
   dialogVisible.value = true;
 }
 
 async function submitForm() {
-  if (!formRef.value) return;
+  if (!formRef.value) {
+    return;
+  }
 
   const valid = await formRef.value.validate().catch(() => false);
-  if (!valid) return;
+
+  if (!valid) {
+    return;
+  }
 
   saving.value = true;
 
@@ -131,7 +171,7 @@ async function submitForm() {
 async function handleDelete(item: Material) {
   try {
     await ElMessageBox.confirm(
-      `确定删除物料“${item.code} - ${item.name}”吗？`,
+      `确定删除物料“${item.Code} - ${item.Name}”吗？`,
       "删除物料",
       {
         type: "warning",
@@ -140,17 +180,23 @@ async function handleDelete(item: Material) {
       },
     );
 
-    await deleteMaterial(item.id);
+    await deleteMaterial(item.ID);
+
     ElMessage.success("物料已删除");
     await loadMaterials();
   } catch (error) {
-    if (error === "cancel" || error === "close") return;
+    // 用户主动取消或关闭确认框时，不显示错误提示。
+    if (error === "cancel" || error === "close") {
+      return;
+    }
 
     ElMessage.error(error instanceof Error ? error.message : "删除物料失败");
   }
 }
 
-onMounted(loadMaterials);
+onMounted(() => {
+  void loadMaterials();
+});
 </script>
 
 <template>
@@ -170,8 +216,8 @@ onMounted(loadMaterials);
         <el-input
           v-model="keyword"
           clearable
-          placeholder="搜索物料编码、名称、单位或描述"
-          style="max-width: 360px"
+          placeholder="搜索物料编码、名称、类型、单位或描述"
+          style="max-width: 380px"
         />
 
         <el-button :loading="loading" @click="loadMaterials"> 刷新 </el-button>
@@ -180,33 +226,36 @@ onMounted(loadMaterials);
       <el-table
         v-loading="loading"
         :data="filteredMaterials"
-        row-key="id"
+        row-key="ID"
         stripe
         empty-text="暂无物料，请先新建物料"
       >
-        <el-table-column prop="code" label="物料编码" min-width="150" />
-        <el-table-column prop="name" label="物料名称" min-width="180" />
+        <el-table-column prop="Code" label="物料编码" min-width="150" />
+
+        <el-table-column prop="Name" label="物料名称" min-width="180" />
 
         <el-table-column label="物料类型" width="130">
           <template #default="{ row }">
-            {{ materialTypeLabel(row.material_type) }}
+            {{ materialTypeLabel(row.MaterialType) }}
           </template>
         </el-table-column>
 
-        <el-table-column prop="unit" label="基本单位" width="110" />
+        <el-table-column prop="Unit" label="基本单位" width="110" />
 
         <el-table-column
-          prop="description"
+          prop="Description"
           label="描述"
           min-width="200"
           show-overflow-tooltip
-        />
-
-        <el-table-column label="创建时间" min-width="180">
+        >
           <template #default="{ row }">
-            {{
-              row.created_at ? new Date(row.created_at).toLocaleString() : "-"
-            }}
+            {{ row.Description || "-" }}
+          </template>
+        </el-table-column>
+
+        <el-table-column label="创建时间" min-width="190">
+          <template #default="{ row }">
+            {{ formatDate(row.CreatedAt) }}
           </template>
         </el-table-column>
 
@@ -215,6 +264,7 @@ onMounted(loadMaterials);
             <el-button link type="primary" @click="openEditDialog(row)">
               编辑
             </el-button>
+
             <el-button link type="danger" @click="handleDelete(row)">
               删除
             </el-button>
@@ -251,7 +301,11 @@ onMounted(loadMaterials);
         </el-form-item>
 
         <el-form-item label="物料类型" prop="material_type">
-          <el-select v-model="form.material_type" style="width: 100%">
+          <el-select
+            v-model="form.material_type"
+            style="width: 100%"
+            placeholder="请选择物料类型"
+          >
             <el-option label="原材料" value="raw" />
             <el-option label="零部件" value="component" />
             <el-option label="耗材" value="consumable" />
@@ -262,7 +316,7 @@ onMounted(loadMaterials);
         <el-form-item label="基本单位" prop="unit">
           <el-input
             v-model="form.unit"
-            placeholder="例如：pcs、kg、m"
+            placeholder="例如：pcs、kg、m、台"
             maxlength="32"
           />
         </el-form-item>
@@ -272,13 +326,14 @@ onMounted(loadMaterials);
             v-model="form.description"
             type="textarea"
             :rows="3"
-            placeholder="可选"
+            placeholder="请输入物料描述（可选）"
           />
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
+
         <el-button type="primary" :loading="saving" @click="submitForm">
           保存
         </el-button>
@@ -358,3 +413,4 @@ onMounted(loadMaterials);
   }
 }
 </style>
+```

@@ -7,7 +7,7 @@ import type {
   UpdateMaterialRequest,
 } from "./types";
 
-/** 查询物料列表。后端当前返回数组，不返回 total。 */
+/** 查询物料列表 */
 export async function listMaterials(
   query: MaterialListQuery = {},
 ): Promise<Material[]> {
@@ -18,22 +18,32 @@ export async function listMaterials(
     },
   });
 
-  return Array.isArray(response) ? (response as Material[]) : [];
+  if (Array.isArray(response)) {
+    return response as Material[];
+  }
+
+  if (
+    response &&
+    typeof response === "object" &&
+    "data" in response &&
+    Array.isArray(response.data)
+  ) {
+    return response.data as Material[];
+  }
+
+  throw new Error("物料列表接口返回的数据格式不正确");
 }
 
-/** 查询物料详情 */
 export async function getMaterial(id: number): Promise<Material> {
   return request.get(`/materials/${id}`);
 }
 
-/** 创建物料 */
 export async function createMaterial(
   data: CreateMaterialRequest,
 ): Promise<unknown> {
   return request.post("/materials", data);
 }
 
-/** 更新物料 */
 export async function updateMaterial(
   id: number,
   data: UpdateMaterialRequest,
@@ -41,7 +51,6 @@ export async function updateMaterial(
   return request.put(`/materials/${id}`, data);
 }
 
-/** 删除物料。后端采用 GORM 软删除。 */
 export async function deleteMaterial(id: number): Promise<void> {
   await request.delete(`/materials/${id}`);
 }

@@ -1,15 +1,21 @@
-export type MaterialType = "raw" | "component" | "consumable" | "packaging";
+export type MaterialType =
+  | "raw"
+  | "component"
+  | "consumable"
+  | "packaging"
+  | "";
 
 export interface Material {
-  id: number;
-  tenant_id: number;
-  code: string;
-  name: string;
-  material_type: MaterialType | string;
-  unit: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
+  ID: number;
+  TenantID: number;
+  Code: string;
+  Name: string;
+  MaterialType: MaterialType | string;
+  Unit: string;
+  Description?: string;
+  CreatedAt: string;
+  UpdatedAt: string;
+  DeletedAt?: string | null;
 }
 
 export interface CreateMaterialRequest {
