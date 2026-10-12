@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Box,
   Calendar,
-  Connection,
   DataAnalysis,
   Document,
   OfficeBuilding,
@@ -21,439 +20,526 @@ import { Permissions } from "../../authz/permissions";
 const router = useRouter();
 const authStore = useAuthStore();
 
+/**
+ * 权限控制
+ *
+ * 产品管理：需要 PRODUCT_LIST 权限
+ * 原料管理、BOM 管理：需要 MES_VIEW 权限
+ *
+ * 其他模块暂时保留入口展示，后续接入对应页面权限时再细化。
+ */
 const canAccessProducts = computed(() =>
   hasPermission(authStore.user, Permissions.PRODUCT_LIST),
 );
 
-const resourceModules = [
-  {
-    key: "factory",
-    title: "工厂与生产资源",
-    subtitle: "FACTORY RESOURCES",
-    description: "逐步管理工厂、生产线、工位及其层级关系。",
-    icon: OfficeBuilding,
-    status: "建设中",
-    statusType: "planned",
-  },
-  {
-    key: "product",
-    title: "产品与工艺",
-    subtitle: "PRODUCT & PROCESS",
-    description: "维护产品型号、物料清单与工艺路线，为生产执行提供基础数据。",
-    icon: Box,
-    status: "已开放",
-    statusType: "available",
-  },
-  {
-    key: "planning",
-    title: "生产计划",
-    subtitle: "PRODUCTION PLANNING",
-    description: "规划生产任务，管理生产计划和生产工单。",
-    icon: Calendar,
-    status: "建设中",
-    statusType: "planned",
-  },
-  {
-    key: "execution",
-    title: "生产执行",
-    subtitle: "PRODUCTION EXECUTION",
-    description: "组织工序操作、执行记录、生产结果和设备身份生成。",
-    icon: Operation,
-    status: "建设中",
-    statusType: "planned",
-  },
-];
+const canAccessMaterials = computed(() =>
+  hasPermission(authStore.user, Permissions.MES_VIEW),
+);
 
-const productionStages = [
-  { title: "产品", description: "定义产品型号", icon: Box },
-  { title: "BOM", description: "定义物料结构", icon: Document },
-  { title: "工艺路线", description: "定义生产流程", icon: Tools },
-  { title: "生产计划", description: "安排生产任务", icon: Calendar },
-  { title: "生产工单", description: "形成执行任务", icon: Setting },
-  { title: "生产执行", description: "记录工序操作", icon: Operation },
-  { title: "生产结果", description: "确认生产结果", icon: DataAnalysis },
-];
+const canAccessBOMs = computed(() =>
+  hasPermission(authStore.user, Permissions.MES_VIEW),
+);
 
-function openProducts() {
-  if (!canAccessProducts.value) return;
-  void router.push("/mes/products");
+interface ResourceModule {
+  id: string;
+  title: string;
+  description: string;
+  icon: typeof Box;
+  path?: string;
+  status: string;
+  permission?: boolean;
+  color: string;
 }
 
-function handleStageClick(title: string) {
-  if (title === "产品") {
-    openProducts();
+const resourceModules = computed<ResourceModule[]>(() => [
+  {
+    id: "products",
+    title: "产品管理",
+    description: "维护产品定义、产品编码及产品基础信息。",
+    icon: Box,
+    path: "/mes/products",
+    status: "产品定义",
+    permission: canAccessProducts.value,
+    color: "blue",
+  },
+  {
+    id: "materials",
+    title: "原料管理",
+    description: "维护生产所需原料、物料编码及基础属性。",
+    icon: Tools,
+    path: "/mes/materials",
+    status: "物料基础数据",
+    permission: canAccessMaterials.value,
+    color: "orange",
+  },
+  {
+    id: "bom",
+    title: "BOM 管理",
+    description: "维护产品结构，定义产品与生产原料之间的组成关系。",
+    icon: Operation,
+    path: "/mes/boms",
+    status: "产品结构",
+    permission: canAccessBOMs.value,
+    color: "purple",
+  },
+  {
+    id: "planning",
+    title: "生产计划",
+    description: "规划生产任务，协调产品需求与生产资源。",
+    icon: Calendar,
+    status: "计划管理",
+    color: "green",
+  },
+  {
+    id: "execution",
+    title: "生产执行",
+    description: "跟踪工单执行、工序操作和生产过程记录。",
+    icon: Setting,
+    status: "过程执行",
+    color: "cyan",
+  },
+  {
+    id: "factory",
+    title: "工厂管理",
+    description: "维护工厂、生产线及工作站等生产组织结构。",
+    icon: OfficeBuilding,
+    status: "生产组织",
+    color: "slate",
+  },
+]);
+
+function openModule(module: ResourceModule) {
+  if (!module.path || module.permission === false) {
+    return;
   }
+
+  router.push(module.path);
+}
+
+function canOpenModule(module: ResourceModule) {
+  return Boolean(module.path) && module.permission !== false;
 }
 </script>
 
 <template>
   <div class="mes-home">
-    <section class="mes-hero">
-      <div class="hero-copy">
-        <div class="eyebrow">
-          <span class="eyebrow-line"></span>
+    <!-- 页面顶部 -->
+    <section class="hero-section">
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          <span class="eyebrow-line" />
           MANUFACTURING EXECUTION SYSTEM
         </div>
 
-        <h1>制造执行 <span>MES</span></h1>
+        <h1>制造执行系统</h1>
 
-        <p>
-          从工厂资源与产品定义，到生产计划、工序执行和生产结果，
-          在一个工作空间中逐步建立完整的制造业务流程。
+        <p class="hero-description">
+          从产品定义、物料管理与产品结构配置，到生产计划、生产执行及生产结果，
+          建立完整的制造业务流程。
         </p>
 
-        <div class="hero-meta">
-          <span class="meta-dot"></span>
-          <span>制造业务工作台</span>
-          <span class="meta-divider"></span>
-          <span>功能持续建设中</span>
+        <div class="hero-tags">
+          <span class="hero-tag">
+            <span class="tag-dot tag-dot--blue" />
+            产品与物料
+          </span>
+          <span class="hero-tag">
+            <span class="tag-dot tag-dot--orange" />
+            生产组织
+          </span>
+          <span class="hero-tag">
+            <span class="tag-dot tag-dot--green" />
+            制造执行
+          </span>
         </div>
       </div>
 
-      <div class="hero-visual" aria-hidden="true">
-        <div class="visual-ring ring-one"></div>
-        <div class="visual-ring ring-two"></div>
-        <div class="visual-center">
-          <svg viewBox="0 0 64 64">
-            <path
-              d="M8 52V12H17L32 31L47 12H56V52H46V28L32 46L18 28V52Z"
-              fill="#F0A030"
-            />
-            <path
-              d="M24 52H40"
-              stroke="#F0A030"
-              stroke-width="3"
-              stroke-linecap="round"
-            />
-          </svg>
+      <div class="hero-decoration" aria-hidden="true">
+        <div class="decoration-ring decoration-ring--outer" />
+        <div class="decoration-ring decoration-ring--middle" />
+        <div class="decoration-ring decoration-ring--inner" />
+
+        <div class="decoration-center">
+          <el-icon :size="38">
+            <DataAnalysis />
+          </el-icon>
         </div>
-        <div class="visual-node node-one"></div>
-        <div class="visual-node node-two"></div>
-        <div class="visual-node node-three"></div>
+
+        <div class="decoration-node decoration-node--one" />
+        <div class="decoration-node decoration-node--two" />
+        <div class="decoration-node decoration-node--three" />
+        <div class="decoration-node decoration-node--four" />
+      </div>
+
+      <div class="hero-index" aria-hidden="true">
+        <span>MES</span>
+        <span class="hero-index-number">01</span>
       </div>
     </section>
 
+    <!-- 制造业务模块 -->
     <section class="section-block">
       <div class="section-heading">
         <div>
-          <div class="section-kicker">MANUFACTURING MODULES</div>
+          <div class="section-kicker">BUSINESS MODULES</div>
           <h2>制造业务</h2>
-          <p>按制造业务的实际顺序组织功能，已开放的模块可以直接进入。</p>
+          <p>配置制造业务的基础数据与生产流程，逐步建立完整的制造执行体系。</p>
+        </div>
+
+        <div class="section-heading-mark">
+          <span class="heading-mark-line" />
+          <span>MES / CORE</span>
         </div>
       </div>
 
       <div class="module-grid">
-        <button
-          v-for="item in resourceModules"
-          :key="item.key"
-          type="button"
+        <article
+          v-for="module in resourceModules"
+          :key="module.id"
           class="module-card"
           :class="[
-            `module-card--${item.key}`,
-            {
-              'module-card--disabled':
-                item.statusType !== 'available' ||
-                (item.key === 'product' && !canAccessProducts),
-            },
+            `module-card--${module.color}`,
+            { 'module-card--disabled': !canOpenModule(module) },
           ]"
-          :disabled="
-            item.statusType !== 'available' ||
-            (item.key === 'product' && !canAccessProducts)
-          "
-          @click="item.key === 'product' && openProducts()"
+          :role="canOpenModule(module) ? 'button' : undefined"
+          :tabindex="canOpenModule(module) ? 0 : -1"
+          @click="openModule(module)"
+          @keydown.enter="openModule(module)"
+          @keydown.space.prevent="openModule(module)"
         >
           <div class="module-card-top">
             <div class="module-icon">
-              <el-icon :size="26">
-                <component :is="item.icon" />
+              <el-icon :size="23">
+                <component :is="module.icon" />
               </el-icon>
             </div>
 
-            <el-tag
-              :type="item.statusType === 'available' ? 'success' : 'info'"
-              effect="plain"
-              size="small"
-            >
-              {{
-                item.key === "product" && !canAccessProducts
-                  ? "无访问权限"
-                  : item.status
-              }}
-            </el-tag>
+            <span class="module-status">
+              <span class="module-status-dot" />
+              {{ module.status }}
+            </span>
           </div>
 
-          <div class="module-subtitle">{{ item.subtitle }}</div>
-          <h3>{{ item.title }}</h3>
-          <p class="module-description">{{ item.description }}</p>
+          <div class="module-card-content">
+            <h3>{{ module.title }}</h3>
+            <p>{{ module.description }}</p>
+          </div>
 
-          <div class="module-footer">
+          <div class="module-card-bottom">
             <span>
               {{
-                item.key === "product" && !canAccessProducts
-                  ? "请联系管理员申请权限"
-                  : item.statusType === "available"
-                    ? "进入模块"
-                    : "后续逐步开放"
+                canOpenModule(module)
+                  ? "进入模块"
+                  : module.permission === false
+                    ? "暂无访问权限"
+                    : "即将接入"
               }}
             </span>
-            <el-icon v-if="item.statusType === 'available'">
+
+            <el-icon v-if="canOpenModule(module)" :size="16">
               <ArrowRight />
             </el-icon>
+            <span v-else class="module-card-placeholder">—</span>
           </div>
-        </button>
+        </article>
       </div>
     </section>
 
-    <section class="section-block">
+    <!-- 制造业务主流程：独立 HTML 动画 -->
+    <section class="section-block flow-section">
       <div class="section-heading">
         <div>
           <div class="section-kicker">PRODUCTION FLOW</div>
           <h2>制造业务主流程</h2>
-          <p>以现有 MES 领域模型为基础，逐步贯通产品定义到生产结果。</p>
+          <p>
+            通过动态演示了解从产品定义、原料与 BOM 配置，到生产计划、
+            生产执行和生产结果的完整业务链路。
+          </p>
+        </div>
+
+        <div class="flow-heading-badge">
+          <span class="flow-heading-badge-dot" />
+          <span>PROCESS OVERVIEW</span>
         </div>
       </div>
 
-      <div class="flow-panel">
-        <div class="flow-list">
-          <template
-            v-for="(stage, index) in productionStages"
-            :key="stage.title"
-          >
-            <article
-              class="flow-stage"
-              :class="{
-                'flow-stage--clickable':
-                  stage.title === '产品' && canAccessProducts,
-              }"
-              :role="
-                stage.title === '产品' && canAccessProducts
-                  ? 'button'
-                  : undefined
-              "
-              :tabindex="
-                stage.title === '产品' && canAccessProducts ? 0 : undefined
-              "
-              :aria-label="
-                stage.title === '产品' && canAccessProducts
-                  ? '进入产品列表'
-                  : undefined
-              "
-              @click="handleStageClick(stage.title)"
-              @keydown.enter.prevent="handleStageClick(stage.title)"
-              @keydown.space.prevent="handleStageClick(stage.title)"
-            >
-              <div class="flow-icon">
-                <el-icon :size="20">
-                  <component :is="stage.icon" />
-                </el-icon>
-              </div>
-              <strong>{{ stage.title }}</strong>
-              <span>{{ stage.description }}</span>
-            </article>
+      <div class="production-animation">
+        <iframe
+          src="/manufacturing-flow.html"
+          title="制造业务主流程动态演示"
+          class="production-animation__frame"
+          loading="lazy"
+        />
+      </div>
 
-            <el-icon
-              v-if="index < productionStages.length - 1"
-              class="flow-arrow"
-            >
-              <ArrowRight />
-            </el-icon>
-          </template>
+      <div class="flow-caption">
+        <div class="flow-caption-icon">
+          <el-icon :size="18">
+            <Document />
+          </el-icon>
         </div>
 
-        <div class="flow-note">
-          <el-icon><Connection /></el-icon>
-          <p>
-            生产结果将作为后续设备实例生成和仓储入库的业务依据。
-            设备实例不在本工作台中随意创建，而应遵循既定的制造流程。
-          </p>
+        <div class="flow-caption-content">
+          <strong>业务流程说明</strong>
+          <span>
+            产品定义是制造业务的起点；原料与 BOM 为生产提供物料和结构依据；
+            后续通过生产计划、生产工单与生产执行形成生产结果。
+          </span>
         </div>
       </div>
     </section>
 
-    <section class="section-block">
+    <!-- 当前工作区 -->
+    <section class="section-block workspace-section">
       <div class="section-heading">
         <div>
-          <div class="section-kicker">WORKSPACE STATUS</div>
-          <h2>当前建设情况</h2>
-          <p>只展示已经确定的模块状态，不使用模拟数据代替真实业务统计。</p>
+          <div class="section-kicker">WORKSPACE</div>
+          <h2>工作区</h2>
+          <p>当前制造业务模块的接入情况。</p>
         </div>
       </div>
 
-      <div class="status-panel">
-        <div class="status-icon">
-          <el-icon :size="23"><DataAnalysis /></el-icon>
+      <div class="workspace-card">
+        <div class="workspace-icon">
+          <el-icon :size="22">
+            <DataAnalysis />
+          </el-icon>
         </div>
-        <div class="status-copy">
-          <strong>制造业务工作台已建立</strong>
-          <p>
-            当前产品型号模块已经接入现有 Cloud API。
-            生产资源、生产计划和生产执行模块将在后续阶段逐步实现。
-          </p>
+
+        <div class="workspace-main">
+          <strong>制造业务工作区</strong>
+          <span>
+            产品管理、原料管理和 BOM 管理已提供页面入口；
+            生产计划、生产执行及工厂管理可在后续开发中逐步接入。
+          </span>
         </div>
-        <el-tag type="info" effect="plain">持续建设中</el-tag>
+
+        <div class="workspace-status">
+          <span class="workspace-status-dot" />
+          <span>持续建设中</span>
+        </div>
       </div>
     </section>
 
-    <div class="bottom-space"></div>
+    <footer class="mes-footer">
+      <div class="footer-brand">
+        <span class="footer-brand-mark" />
+        OPENINDUSTRIAL
+      </div>
+
+      <span class="footer-divider" />
+
+      <span>Manufacturing Execution System</span>
+
+      <span class="footer-version">MES / WORKSPACE</span>
+    </footer>
   </div>
 </template>
 
 <style scoped>
 .mes-home {
-  width: min(1440px, calc(100% - 64px));
-  margin: 0 auto;
-  padding-top: 28px;
-  color: #17283b;
+  --mes-navy: #0e1f33;
+  --mes-navy-light: #16293f;
+  --mes-gold: #f0a030;
+  --mes-text: #172b42;
+  --mes-muted: #718096;
+  --mes-border: #e6ebf1;
+
+  width: 100%;
+  min-width: 0;
+  padding: 26px 30px 20px;
+  color: var(--mes-text);
+  background: #f5f7fa;
+  box-sizing: border-box;
 }
 
-.mes-hero {
+.hero-section {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 260px;
+  min-height: 238px;
   padding: 36px 42px;
   overflow: hidden;
-  border: 1px solid #243b53;
-  border-radius: 15px;
+  border-radius: 16px;
   color: #fff;
   background:
-    radial-gradient(circle at 85% 50%, rgb(240 160 48 / 12%), transparent 30%),
-    linear-gradient(120deg, #0e1f33 0%, #16293f 65%, #203951 100%);
+    radial-gradient(circle at 78% 48%, rgb(57 91 125 / 30%) 0, transparent 32%),
+    linear-gradient(115deg, #0e1f33 0%, #16293f 58%, #203a55 100%);
+  box-sizing: border-box;
 }
 
-.hero-copy {
+.hero-content {
   position: relative;
-  z-index: 1;
-  max-width: 720px;
+  z-index: 2;
+  max-width: 680px;
 }
 
-.eyebrow {
+.hero-eyebrow {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 18px;
-  color: #b9c7d7;
+  color: #c4d0dd;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: 2px;
 }
 
 .eyebrow-line {
-  width: 24px;
+  display: inline-block;
+  width: 22px;
   height: 2px;
-  background: #f0a030;
+  background: var(--mes-gold);
 }
 
-.mes-hero h1 {
-  margin: 0;
+.hero-content h1 {
+  margin: 21px 0 12px;
   color: #fff;
   font-size: 32px;
-  font-weight: 750;
-  letter-spacing: -0.8px;
-}
-
-.mes-hero h1 span {
-  margin-left: 8px;
-  color: #f0a030;
-  font-size: 21px;
+  font-weight: 650;
   letter-spacing: 1px;
+  line-height: 1.25;
 }
 
-.mes-hero p {
-  max-width: 650px;
-  margin-top: 16px;
-  color: #c3cfdb;
+.hero-description {
+  max-width: 590px;
+  margin: 0;
+  color: #c0cbd7;
   font-size: 13px;
   line-height: 1.9;
 }
 
-.hero-meta {
+.hero-tags {
   display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 25px;
+}
+
+.hero-tag {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 23px;
-  color: #b9c7d7;
+  gap: 7px;
+  color: #e2e8ef;
   font-size: 11px;
 }
 
-.meta-dot {
-  width: 7px;
-  height: 7px;
+.tag-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+}
+
+.tag-dot--blue {
+  background: #77b7f4;
+}
+
+.tag-dot--orange {
   background: #f0a030;
 }
 
-.meta-divider {
-  width: 1px;
-  height: 12px;
-  margin: 0 3px;
-  background: #52667a;
+.tag-dot--green {
+  background: #64c9a0;
 }
 
-.hero-visual {
+.hero-decoration {
   position: absolute;
   top: 50%;
-  right: 8%;
-  width: 210px;
-  height: 210px;
+  right: 12%;
+  width: 230px;
+  height: 230px;
   transform: translateY(-50%);
+  opacity: 0.88;
 }
 
-.visual-ring {
+.decoration-ring {
   position: absolute;
-  inset: 8px;
-  border: 1px solid rgb(240 160 48 / 20%);
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgb(173 199 224 / 17%);
   border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 
-.ring-two {
-  inset: 32px;
-  border-color: rgb(188 205 222 / 18%);
+.decoration-ring--outer {
+  width: 220px;
+  height: 220px;
 }
 
-.visual-center {
+.decoration-ring--middle {
+  width: 160px;
+  height: 160px;
+  border-style: dashed;
+}
+
+.decoration-ring--inner {
+  width: 100px;
+  height: 100px;
+  border-color: rgb(240 160 48 / 40%);
+}
+
+.decoration-center {
   position: absolute;
   top: 50%;
   left: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 84px;
-  height: 84px;
-  border: 1px solid rgb(240 160 48 / 35%);
-  border-radius: 20px;
-  background: #203951;
-  box-shadow: 0 10px 32px rgb(0 0 0 / 12%);
+  width: 62px;
+  height: 62px;
+  color: var(--mes-gold);
+  border: 1px solid rgb(240 160 48 / 40%);
+  border-radius: 18px;
+  background: rgb(14 31 51 / 70%);
   transform: translate(-50%, -50%);
 }
 
-.visual-center svg {
-  width: 56px;
-  height: 56px;
-}
-
-.visual-node {
+.decoration-node {
   position: absolute;
   width: 9px;
   height: 9px;
-  border: 2px solid #f0a030;
+  border: 2px solid #d6e2ed;
   border-radius: 50%;
-  background: #16293f;
+  background: #284762;
+  box-shadow: 0 0 12px rgb(140 188 225 / 35%);
 }
 
-.node-one {
-  top: 28px;
-  right: 40px;
+.decoration-node--one {
+  top: 22px;
+  left: 108px;
 }
 
-.node-two {
-  bottom: 33px;
-  left: 22px;
+.decoration-node--two {
+  top: 108px;
+  right: 3px;
 }
 
-.node-three {
-  right: 13px;
-  bottom: 61px;
+.decoration-node--three {
+  bottom: 16px;
+  left: 69px;
+}
+
+.decoration-node--four {
+  top: 68px;
+  left: 15px;
+  border-color: var(--mes-gold);
+}
+
+.hero-index {
+  position: absolute;
+  right: 28px;
+  bottom: 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: rgb(255 255 255 / 38%);
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.hero-index-number {
+  color: rgb(255 255 255 / 70%);
+  font-size: 18px;
+  font-weight: 300;
 }
 
 .section-block {
@@ -461,356 +547,512 @@ function handleStageClick(title: string) {
 }
 
 .section-heading {
-  margin-bottom: 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 19px;
 }
 
 .section-kicker {
-  margin-bottom: 8px;
-  color: #9a743b;
+  margin-bottom: 7px;
+  color: #8a98a9;
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.8px;
+  font-weight: 750;
+  letter-spacing: 2px;
 }
 
 .section-heading h2 {
   margin: 0;
-  color: #20354a;
-  font-size: 22px;
-  font-weight: 750;
-  letter-spacing: -0.4px;
+  color: #182c43;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
 }
 
 .section-heading p {
-  margin-top: 8px;
-  color: #728296;
+  margin: 8px 0 0;
+  color: var(--mes-muted);
   font-size: 12px;
-  line-height: 1.8;
+  line-height: 1.7;
+}
+
+.section-heading-mark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 3px;
+  color: #97a3b1;
+  font-size: 9px;
+  letter-spacing: 1.3px;
+  white-space: nowrap;
+}
+
+.heading-mark-line {
+  width: 22px;
+  height: 1px;
+  background: var(--mes-gold);
 }
 
 .module-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .module-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  min-height: 252px;
-  padding: 23px 22px 19px;
-  border: 1px solid #e5eaf0;
-  border-radius: 13px;
-  color: #17283b;
+  min-height: 194px;
+  padding: 21px 22px 17px;
+  overflow: hidden;
+  border: 1px solid var(--mes-border);
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 3px 12px rgb(26 43 61 / 2%);
-  text-align: left;
+  box-sizing: border-box;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease;
 }
 
-button.module-card:not(:disabled) {
+.module-card[role="button"] {
   cursor: pointer;
 }
 
-button.module-card:not(:disabled):hover {
-  border-color: #d8c3a3;
-  box-shadow: 0 10px 26px rgb(26 43 61 / 6%);
+.module-card[role="button"]:hover {
+  z-index: 1;
+  border-color: #cbd7e3;
+  box-shadow: 0 8px 22px rgb(23 43 66 / 7%);
   transform: translateY(-3px);
 }
 
+.module-card[role="button"]:focus-visible {
+  outline: 2px solid #4a83b8;
+  outline-offset: 3px;
+}
+
 .module-card--disabled {
-  background: #fcfcfd;
+  background: #fbfcfd;
 }
 
 .module-card-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 21px;
+  gap: 12px;
 }
 
 .module-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 54px;
-  border-radius: 12px;
-  color: #8c682f;
-  background: #fbf3e7;
+  width: 43px;
+  height: 43px;
+  flex: 0 0 auto;
+  border-radius: 11px;
 }
 
-.module-card--product .module-icon {
-  color: #315572;
-  background: #edf3f8;
+.module-card--blue .module-icon {
+  color: #3c78b4;
+  background: #eaf3fc;
 }
 
-.module-card--planning .module-icon {
-  color: #538a77;
-  background: #edf6f1;
+.module-card--orange .module-icon {
+  color: #c7832d;
+  background: #fff3e2;
 }
 
-.module-card--execution .module-icon {
-  color: #637aa1;
-  background: #eff2fa;
+.module-card--purple .module-icon {
+  color: #7861bd;
+  background: #f0edfb;
 }
 
-.module-subtitle {
-  margin-bottom: 7px;
-  color: #8a99a8;
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 1.3px;
+.module-card--green .module-icon {
+  color: #329572;
+  background: #e8f7f0;
 }
 
-.module-card h3 {
+.module-card--cyan .module-icon {
+  color: #258a9d;
+  background: #e5f5f8;
+}
+
+.module-card--slate .module-icon {
+  color: #64788d;
+  background: #edf1f5;
+}
+
+.module-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #8a96a4;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.module-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a9b4c0;
+}
+
+.module-card--blue .module-status-dot {
+  background: #6195cb;
+}
+
+.module-card--orange .module-status-dot {
+  background: #e3a14d;
+}
+
+.module-card--purple .module-status-dot {
+  background: #927bce;
+}
+
+.module-card-content {
+  flex: 1;
+  padding-top: 18px;
+}
+
+.module-card-content h3 {
   margin: 0;
-  color: #20354a;
-  font-size: 17px;
-  font-weight: 700;
+  color: #20344b;
+  font-size: 15px;
+  font-weight: 650;
 }
 
-.module-description {
-  margin: 12px 0 20px;
-  color: #728296;
-  font-size: 12px;
-  line-height: 1.85;
+.module-card-content p {
+  margin: 8px 0 0;
+  color: #8290a0;
+  font-size: 11px;
+  line-height: 1.8;
 }
 
-.module-footer {
+.module-card-bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 15px;
-  border-top: 1px solid #edf0f4;
-  color: #536b80;
-  font-size: 11px;
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f2f5;
+  color: #7e8d9e;
+  font-size: 10px;
 }
 
-.module-card--disabled .module-footer {
-  color: #98a4b0;
+.module-card[role="button"] .module-card-bottom {
+  color: #4b7197;
 }
 
-.flow-panel {
-  padding: 25px;
+.module-card-placeholder {
+  color: #b6c0cb;
+}
+
+.flow-heading-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid #e4eaf0;
+  border-radius: 6px;
+  color: #718296;
+  background: #fff;
+  font-size: 9px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.flow-heading-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #56b995;
+  box-shadow: 0 0 0 3px #e8f6f0;
+}
+
+.production-animation {
+  width: 100%;
+  overflow: hidden;
   border: 1px solid #e5eaf0;
   border-radius: 13px;
-  background: #fff;
+  background: #f5f6f8;
+  box-shadow: 0 3px 12px rgb(26 45 66 / 3%);
 }
 
-.flow-list {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
+.production-animation__frame {
+  display: block;
+  width: 100%;
+  height: 440px;
+  border: 0;
+  background: transparent;
 }
 
-.flow-stage {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  align-items: center;
-  min-width: 0;
-  text-align: center;
-}
-
-.flow-stage--clickable {
-  cursor: pointer;
-  border-radius: 10px;
-  transition:
-    background-color 180ms ease,
-    transform 180ms ease;
-}
-
-.flow-stage--clickable:hover {
-  background-color: #f5f7fa;
-  transform: translateY(-2px);
-}
-
-.flow-stage--clickable:focus-visible {
-  outline: 2px solid #f0a030;
-  outline-offset: 3px;
-}
-
-.flow-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 45px;
-  height: 45px;
-  margin-bottom: 12px;
-  border: 1px solid #e5eaf0;
-  border-radius: 12px;
-  color: #536f8a;
-  background: #f5f7fa;
-}
-
-.flow-stage strong {
-  color: #31485e;
-  font-size: 12px;
-}
-
-.flow-stage > span {
-  margin-top: 7px;
-  color: #8a99a8;
-  font-size: 10px;
-  line-height: 1.6;
-}
-
-.flow-arrow {
-  flex: 0 0 auto;
-  margin-top: 14px;
-  color: #c2cbd4;
-}
-
-.flow-note {
+.flow-caption {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-top: 25px;
+  gap: 12px;
+  margin-top: 13px;
   padding: 15px 17px;
-  border: 1px solid #f0e3ce;
-  border-radius: 8px;
-  color: #9a743b;
-  background: #fffbf4;
-}
-
-.flow-note p {
-  color: #756b5b;
-  font-size: 11px;
-  line-height: 1.8;
-}
-
-.status-panel {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 22px;
-  border: 1px solid #e5eaf0;
-  border-radius: 12px;
+  border: 1px solid #e8edf2;
+  border-radius: 9px;
   background: #fff;
 }
 
-.status-icon {
+.flow-caption-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
-  border-radius: 11px;
-  color: #315572;
-  background: #edf3f8;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  color: #6e87a2;
+  background: #eff3f7;
 }
 
-.status-copy {
-  flex: 1;
-  min-width: 0;
+.flow-caption-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 1px;
 }
 
-.status-copy strong {
-  color: #31485e;
-  font-size: 13px;
+.flow-caption-content strong {
+  color: #30455b;
+  font-size: 12px;
+  font-weight: 650;
 }
 
-.status-copy p {
-  margin-top: 7px;
-  color: #728296;
+.flow-caption-content span {
+  color: #8290a0;
   font-size: 11px;
   line-height: 1.8;
 }
 
-.bottom-space {
-  height: 48px;
+.workspace-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 19px 21px;
+  border: 1px solid var(--mes-border);
+  border-radius: 11px;
+  background: #fff;
 }
 
-@media (max-width: 1200px) {
+.workspace-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 43px;
+  height: 43px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  color: #547ba1;
+  background: #edf3f9;
+}
+
+.workspace-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workspace-main strong {
+  color: #263c53;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.workspace-main span {
+  color: #8290a0;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #e5eee8;
+  border-radius: 5px;
+  color: #568b72;
+  background: #f5faf7;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.workspace-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5cb58a;
+}
+
+.mes-footer {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 35px;
+  padding: 17px 0 4px;
+  border-top: 1px solid #e5eaf0;
+  color: #a0aab6;
+  font-size: 9px;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #718196;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 1.3px;
+}
+
+.footer-brand-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--mes-gold);
+  transform: rotate(45deg);
+}
+
+.footer-divider {
+  width: 1px;
+  height: 12px;
+  background: #dce2e9;
+}
+
+.footer-version {
+  margin-left: auto;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 1100px) {
+  .mes-home {
+    padding-right: 22px;
+    padding-left: 22px;
+  }
+
+  .hero-decoration {
+    right: 6%;
+    opacity: 0.55;
+  }
+
   .module-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .hero-visual {
-    right: 4%;
-    opacity: 0.65;
-  }
-
-  .hero-copy {
-    max-width: 70%;
   }
 }
 
 @media (max-width: 760px) {
   .mes-home {
-    width: calc(100% - 32px);
-    padding-top: 18px;
+    padding: 16px 13px 18px;
   }
 
-  .mes-hero {
-    min-height: 0;
-    padding: 28px 23px;
+  .hero-section {
+    min-height: 245px;
+    padding: 27px 23px;
   }
 
-  .mes-hero h1 {
-    font-size: 26px;
-  }
-
-  .hero-copy {
+  .hero-content {
     max-width: 100%;
   }
 
-  .hero-visual {
-    display: none;
+  .hero-content h1 {
+    font-size: 26px;
+  }
+
+  .hero-description {
+    max-width: 100%;
+    font-size: 12px;
+  }
+
+  .hero-decoration {
+    top: auto;
+    right: -75px;
+    bottom: -95px;
+    transform: none;
+    opacity: 0.24;
+  }
+
+  .hero-index {
+    right: 17px;
+    bottom: 13px;
   }
 
   .section-block {
-    margin-top: 28px;
+    margin-top: 27px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .section-heading h2 {
+    font-size: 18px;
+  }
+
+  .section-heading p {
+    max-width: 100%;
+  }
+
+  .section-heading-mark,
+  .flow-heading-badge {
+    display: none;
   }
 
   .module-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
   .module-card {
-    min-height: 220px;
+    min-height: 175px;
+    padding: 17px 18px 14px;
   }
 
-  .flow-panel {
-    padding: 18px;
+  .production-animation__frame {
+    height: 540px;
   }
 
-  .flow-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px 12px;
-  }
-
-  .flow-stage {
-    padding: 12px 5px;
-  }
-
-  .flow-arrow {
-    display: none;
-  }
-
-  .status-panel {
+  .workspace-card {
     align-items: flex-start;
     flex-wrap: wrap;
-    padding: 18px;
+    padding: 16px;
   }
 
-  .status-copy {
-    flex-basis: calc(100% - 65px);
+  .workspace-main {
+    flex-basis: calc(100% - 60px);
   }
 
-  .status-panel > .el-tag {
-    margin-left: 64px;
+  .workspace-status {
+    margin-left: 58px;
+  }
+
+  .mes-footer {
+    flex-wrap: wrap;
+    gap: 9px;
+    line-height: 1.6;
+  }
+
+  .footer-version {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-card {
+    transition: none;
+  }
+
+  .module-card[role="button"]:hover {
+    transform: none;
   }
 }
 </style>

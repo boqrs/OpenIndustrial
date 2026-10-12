@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>制造业务主流程 · 动态演示</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 50% 0%, #eef4ff 0%, #f5f6f8 60%);
+            font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        .panel {
+            width: 1180px;
+            max-width: 96vw;
+            background: #fff;
+            border-radius: 20px;
+            padding: 34px 40px 30px;
+            box-shadow: 0 20px 60px rgba(31, 60, 120, .10);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel h1 {
+            font-size: 20px;
+            margin: 0 0 6px;
+            color: #1f2329;
+        }
+
+        .panel .desc {
+            font-size: 13px;
+            color: #8a9099;
+            margin: 0 0 26px;
+        }
+
+        /* ---------- 舞台 ---------- */
+        .stage {
+            position: relative;
+            height: 260px;
+        }
+
+        /* 传送带 */
+        .belt {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 84px;
+            height: 10px;
+            border-radius: 6px;
+            background: repeating-linear-gradient(90deg, #e6ebf2 0 22px, #d7dee8 22px 44px);
+            background-size: 44px 100%;
+            animation: beltMove 1.1s linear infinite;
+            opacity: .85;
+        }
+
+        @keyframes beltMove {
+            to {
+                background-position: -44px 0;
+            }
+        }
+
+        /* ---------- 流程节点 ---------- */
+        .flow {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 104px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .node {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: .28;
+            transform: translateY(6px);
+            transition: opacity .5s ease, transform .5s ease;
+            height: 150px;
+        }
+
+        .node.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: #f0f2f5;
+            border: 1px solid #e3e6eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9aa1ab;
+            transition: all .4s ease;
+            flex: 0 0 56px;
+        }
+
+        .node.active .icon {
+            background: #eaf3ff;
+            border-color: #b8d4ff;
+            color: #2b7fff;
+            box-shadow: 0 0 0 5px rgba(43, 127, 255, .08);
+        }
+
+        .node.pop .icon {
+            animation: pop .5s cubic-bezier(.34, 1.56, .64, 1);
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(.7);
+            }
+
+            60% {
+                transform: scale(1.18);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .icon svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        .label {
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2329;
+            line-height: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .sub {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #8a9099;
+            line-height: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        /* ---------- 物料精灵 ---------- */
+        .material {
+            position: absolute;
+            left: 0;
+            bottom: 108px;
+            width: 54px;
+            height: 54px;
+            transform: translateX(0);
+            transition: transform 1s cubic-bezier(.45, .05, .35, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .material svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* ---------- 火花粒子 ---------- */
+        .spark {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2b7fff;
+            opacity: 0;
+            z-index: 7;
+            pointer-events: none;
+        }
+
+        .spark.go {
+            animation: sparkFly .7s ease-out forwards;
+        }
+
+        @keyframes sparkFly {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(var(--dx), var(--dy)) scale(.2);
+            }
+        }
+
+        /* ---------- 底部提示条 ---------- */
+        .notice {
+            margin-top: 22px;
+            background: #fffaf0;
+            border: 1px solid #ffe4b3;
+            border-radius: 10px;
+            padding: 14px 18px;
+            font-size: 13px;
+            color: #8a6d3b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all .5s ease;
+        }
+
+        .notice.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .notice svg {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 18px;
+            color: #d99a2b;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="panel">
+        <h1>制造业务主流程</h1>
+        <p class="desc">先定义产品和原料，再建立 BOM，随后进入工艺、计划和生产执行。</p>
+
+        <div class="stage" id="stage">
+            <div class="belt"></div>
+            <div class="flow" id="flow"></div>
+
+            <!-- 会移动的物料精灵 -->
+            <div class="material" id="material"></div>
+        </div>
+
+        <div class="notice" id="notice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M4 4h12l4 4v12H4z" />
+                <path d="M8 12h8M8 16h5" />
+            </svg>
+            <span>生产结果将作为后续设备实例生成和仓储入库的业务依据，设备实例不在本工作台中随意创建，而应遵循既定的制造流程。</span>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           数据
+           ========================================================= */
+        const STEPS = [
+            { name: '产品', sub: '定义产品型号', icon: 'box' },
+            { name: '原料', sub: '维护原料基础信息', icon: 'doc' },
+            { name: 'BOM', sub: '定义物料结构', icon: 'gear' },
+            { name: '工艺路线', sub: '定义生产流程', icon: 'cog' },
+            { name: '生产计划', sub: '安排生产任务', icon: 'calendar' },
+            { name: '生产工单', sub: '形成执行任务', icon: 'list' },
+            { name: '生产执行', sub: '记录工序操作', icon: 'gear' },
+            { name: '生产结果', sub: '确认生产结果', icon: 'cart' },
+        ];
+
+        const ICONS = {
+            box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 21V11"/></svg>',
+            doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+            gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+            cog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>',
+            calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+            list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+            cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12.5a2 2 0 0 0 2 1.5h8.5a2 2 0 0 0 2-1.6L22 7H6"/></svg>',
+        };
+
+        /* 物料形态 */
+        const MATERIAL_FORMS = {
+            raw: `
+    <svg viewBox="0 0 60 60">
+      <rect x="6"  y="30" width="20" height="18" rx="3" fill="#d9a066" stroke="#b8843f" stroke-width="1.5"/>
+      <rect x="22" y="22" width="18" height="16" rx="3" fill="#e8b877" stroke="#b8843f" stroke-width="1.5"/>
+      <circle cx="46" cy="40" r="9" fill="#9aa7b5" stroke="#6f7c8a" stroke-width="1.5"/>
+      <rect x="34" y="40" width="16" height="10" rx="2" fill="#c7d0da" stroke="#8f9aa8" stroke-width="1.5"/>
+    </svg>`,
+            bom: `
+    <svg viewBox="0 0 60 60">
+      <rect x="8"  y="34" width="14" height="14" rx="3" fill="#cfe0ff" stroke="#7aa7ff" stroke-width="1.5"/>
+      <rect x="26" y="30" width="12" height="18" rx="3" fill="#cfe0ff" stroke="#7aa7ff" stroke-width="1.5"/>
+      <circle cx="46" cy="40" r="8" fill="#cfe0ff" stroke="#7aa7ff" stroke-width="1.5"/>
+      <path d="M8 26 H52" stroke="#7aa7ff" stroke-width="1.4" stroke-dasharray="3 3"/>
+      <path d="M30 26 V20" stroke="#7aa7ff" stroke-width="1.4"/>
+      <circle cx="30" cy="16" r="3.5" fill="#fff" stroke="#7aa7ff" stroke-width="1.5"/>
+    </svg>`,
+            process: `
+    <svg viewBox="0 0 60 60">
+      <rect x="8"  y="34" width="14" height="14" rx="3" fill="#d9a066" stroke="#b8843f" stroke-width="1.5"/>
+      <rect x="26" y="30" width="12" height="18" rx="3" fill="#e8b877" stroke="#b8843f" stroke-width="1.5"/>
+      <g transform="translate(42 36)" fill="none" stroke="#2b7fff" stroke-width="1.6">
+        <circle r="6"/>
+        <path d="M0 -9 v3 M0 9 v-3 M-9 0 h3 M9 0 h-3 M-6.4 -6.4 l2.1 2.1 M6.4 6.4 l-2.1 -2.1 M6.4 -6.4 l-2.1 2.1 M-6.4 6.4 l2.1 -2.1"/>
+      </g>
+    </svg>`,
+            plan: `
+    <svg viewBox="0 0 60 60">
+      <rect x="10" y="18" width="16" height="12" rx="2" fill="#c7d0da" stroke="#8f9aa8" stroke-width="1.4"/>
+      <rect x="10" y="34" width="16" height="12" rx="2" fill="#c7d0da" stroke="#8f9aa8" stroke-width="1.4"/>
+      <rect x="34" y="18" width="16" height="12" rx="2" fill="#c7d0da" stroke="#8f9aa8" stroke-width="1.4"/>
+      <rect x="34" y="34" width="16" height="12" rx="2" fill="#c7d0da" stroke="#8f9aa8" stroke-width="1.4"/>
+      <path d="M14 24 l3 3 l5 -6" fill="none" stroke="#2b7fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+            assemble: `
+    <svg viewBox="0 0 60 60">
+      <rect x="14" y="20" width="32" height="26" rx="4" fill="#eaf3ff" stroke="#2b7fff" stroke-width="1.6"/>
+      <rect x="20" y="26" width="20" height="10" rx="2" fill="#fff" stroke="#7aa7ff" stroke-width="1.4"/>
+      <circle cx="22" cy="41" r="2.5" fill="#2b7fff"/>
+      <circle cx="38" cy="41" r="2.5" fill="#2b7fff"/>
+    </svg>`,
+            product: `
+    <svg viewBox="0 0 60 60">
+      <rect x="8"  y="14" width="44" height="30" rx="5" fill="#eaf3ff" stroke="#2b7fff" stroke-width="1.8"/>
+      <rect x="14" y="20" width="32" height="12" rx="2" fill="#fff" stroke="#7aa7ff" stroke-width="1.4"/>
+      <circle cx="20" cy="40" r="3" fill="#2b7fff"/>
+      <circle cx="40" cy="40" r="3" fill="#2b7fff"/>
+      <path d="M18 49 h24" stroke="#2b7fff" stroke-width="2" stroke-linecap="round"/>
+    </svg>`,
+        };
+
+        /* =========================================================
+           构建 DOM
+           ========================================================= */
+        const flowEl = document.getElementById('flow');
+        const materialEl = document.getElementById('material');
+        const noticeEl = document.getElementById('notice');
+        const stageEl = document.getElementById('stage');
+
+        const nodes = [];
+        STEPS.forEach(step => {
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.innerHTML = `
+    <div class="icon">${ICONS[step.icon]}</div>
+    <div class="label">${step.name}</div>
+    <div class="sub">${step.sub}</div>
+  `;
+            flowEl.appendChild(node);
+            nodes.push(node);
+        });
+
+        /* =========================================================
+           播放逻辑（循环）
+           ========================================================= */
+        let timers = [];
+        let loopTimer = null;
+        let isPlaying = false;
+
+        const clearAll = () => {
+            timers.forEach(clearTimeout);
+            timers = [];
+            if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
+        };
+        const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+        const FORM_SEQUENCE = [
+            'raw',      // 产品
+            'raw',      // 原料
+            'bom',      // BOM
+            'process',  // 工艺路线
+            'plan',     // 生产计划
+            'plan',     // 生产工单
+            'assemble', // 生产执行
+            'product',  // 生产结果
+        ];
+
+        function setMaterialForm(form) {
+            materialEl.innerHTML = MATERIAL_FORMS[form] || '';
+        }
+
+        function nodeCenterX(index) {
+            const node = nodes[index];
+            const stageRect = stageEl.getBoundingClientRect();
+            const rect = node.getBoundingClientRect();
+            return rect.left - stageRect.left + rect.width / 2;
+        }
+
+        function spawnSpark(x, y) {
+            const s = document.createElement('div');
+            s.className = 'spark';
+            s.style.left = x + 'px';
+            s.style.top = y + 'px';
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 20 + Math.random() * 30;
+            s.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+            s.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+            stageEl.appendChild(s);
+            s.classList.add('go');
+            setTimeout(() => s.remove(), 750);
+        }
+
+        function play() {
+            if (isPlaying) return;
+            isPlaying = true;
+
+            clearAll();
+
+            nodes.forEach(n => n.classList.remove('active', 'pop'));
+            noticeEl.classList.remove('show');
+
+            // 重置物料到起点
+            materialEl.style.transition = 'none';
+            materialEl.style.transform = 'translateX(0)';
+            materialEl.style.opacity = '1';
+            setMaterialForm('raw');
+
+            void materialEl.offsetWidth;
+            materialEl.style.transition = 'transform 1s cubic-bezier(.45,.05,.35,1)';
+
+            const STEP_DELAY = 950;
+            const TRAVEL_MS = 900;
+
+            STEPS.forEach((step, i) => {
+                const arriveAt = i * STEP_DELAY;
+
+                later(() => {
+                    nodes[i].classList.add('active', 'pop');
+                    later(() => nodes[i].classList.remove('pop'), 520);
+                }, arriveAt);
+
+                later(() => {
+                    const targetX = nodeCenterX(i) - materialEl.offsetWidth / 2;
+                    materialEl.style.transform = `translateX(${targetX}px)`;
+                }, arriveAt);
+
+                later(() => {
+                    setMaterialForm(FORM_SEQUENCE[i]);
+                    const stageRect = stageEl.getBoundingClientRect();
+                    const nodeRect = nodes[i].getBoundingClientRect();
+                    const cx = nodeRect.left - stageRect.left + nodeRect.width / 2;
+                    const cy = nodeRect.top - stageRect.top + nodeRect.height - 10;
+                    for (let k = 0; k < 3; k++) {
+                        setTimeout(() => spawnSpark(cx, cy), k * 90);
+                    }
+                }, arriveAt + TRAVEL_MS * 0.7);
+            });
+
+            const lastArrive = (STEPS.length - 1) * STEP_DELAY + TRAVEL_MS;
+
+            // 最后一站：火花提示完成
+            later(() => {
+                const stageRect = stageEl.getBoundingClientRect();
+                const nodeRect = nodes[STEPS.length - 1].getBoundingClientRect();
+                const cx = nodeRect.left - stageRect.left + nodeRect.width / 2;
+                const cy = nodeRect.top - stageRect.top + nodeRect.height - 10;
+                for (let k = 0; k < 6; k++) {
+                    setTimeout(() => spawnSpark(cx, cy), k * 70);
+                }
+            }, lastArrive);
+
+            // 显示提示条
+            later(() => noticeEl.classList.add('show'), lastArrive + 600);
+
+            // 循环：停留一段时间后重新播放
+            const LOOP_HOLD = 2600;  // 提示条展示时长（毫秒）
+            loopTimer = setTimeout(() => {
+                isPlaying = false;
+                play();
+            }, lastArrive + 600 + LOOP_HOLD);
+        }
+
+        /* 进入视口后开始循环播放 */
+        const io = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    play();
+                    io.disconnect();
+                }
+            });
+        }, { threshold: 0.35 });
+        io.observe(document.querySelector('.panel'));
+    </script>
+</body>
+
+</html>
