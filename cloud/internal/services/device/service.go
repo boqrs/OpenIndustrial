@@ -96,6 +96,15 @@ func (s *serviceImpl) CreateFromExecutionResultTx(
 	ctx context.Context,
 	req *CreateDeviceFromExecutionResultRequest,
 ) (*DeviceResponse, error) {
+	if req == nil {
+		return nil, ErrInvalidCreateRequest
+	}
+
+	// Copy the request before normalizing its identity fields.
+	normalized := *req
+	normalized.SerialNumber = strings.TrimSpace(normalized.SerialNumber)
+	normalized.HardwareID = strings.TrimSpace(normalized.HardwareID)
+	req = &normalized
 	if err := validateCreateRequest(req); err != nil {
 		return nil, ErrInvalidCreateRequest
 	}
