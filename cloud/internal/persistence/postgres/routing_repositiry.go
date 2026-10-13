@@ -25,14 +25,24 @@ func (r *routingRepository) CreateRouting(ctx context.Context, entity *model.Rou
 }
 
 // ProductBelongsToTenant checks the product model through its backing Resource.
-func (r *routingRepository) ProductBelongsToTenant(ctx context.Context, tenantID, productID uint) (bool, error) {
+// ProductBelongsToTenant checks product ownership through its backing Resource.
+func (r *routingRepository) ProductBelongsToTenant(
+	ctx context.Context,
+	tenantID, productID uint,
+) (bool, error) {
 	var count int64
-	err := r.db.Get().WithContext(ctx).
+
+	err := r.db.Get().
+		WithContext(ctx).
 		Table("product_models AS p").
 		Joins("JOIN resources AS res ON res.id = p.resource_id").
-		Where("p.id = ? AND res.tenant_id = ?", productID, tenantID).
-		Where("p.deleted_at IS NULL AND res.deleted_at IS NULL").
+		Where(
+			"p.id = ? AND res.tenant_id = ? AND res.deleted_at IS NULL",
+			productID,
+			tenantID,
+		).
 		Count(&count).Error
+
 	return count > 0, err
 }
 
