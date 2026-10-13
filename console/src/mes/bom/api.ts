@@ -1,10 +1,7 @@
 import request from "../../api/request";
-import type {
-  BOM,
-  CreateBOMRequest,
-  Material,
-  UpdateBOMRequest,
-} from "./types";
+import type { BOM, CreateBOMRequest, UpdateBOMRequest } from "./types";
+
+import type { Material } from "../material/types";
 
 /** 创建 BOM 草稿 */
 export async function createBOM(data: CreateBOMRequest): Promise<BOM> {

@@ -83,11 +83,21 @@ const resourceModules = computed<ResourceModule[]>(() => [
     color: "purple",
   },
   {
+    id: "factory",
+    title: "产线管理",
+    description: "维护生产线及工作站等生产组织结构。",
+    icon: OfficeBuilding,
+    status: "生产组织",
+    color: "slate",
+  },
+  {
     id: "planning",
     title: "生产计划",
     description: "规划生产任务，协调产品需求与生产资源。",
     icon: Calendar,
+    path: "/mes/production-plans",
     status: "计划管理",
+    permission: canAccessMaterials.value,
     color: "green",
   },
   {
@@ -98,17 +108,17 @@ const resourceModules = computed<ResourceModule[]>(() => [
     status: "过程执行",
     color: "cyan",
   },
-  {
-    id: "factory",
-    title: "产线管理",
-    description: "维护生产线及工作站等生产组织结构。",
-    icon: OfficeBuilding,
-    status: "生产组织",
-    color: "slate",
-  },
 ]);
 
 function openModule(module: ResourceModule) {
+  console.log("[MESHome] 点击模块", {
+    id: module.id,
+    title: module.title,
+    path: module.path,
+    permission: module.permission,
+    canOpen: canOpenModule(module),
+  });
+
   if (!module.path || module.permission === false) {
     return;
   }

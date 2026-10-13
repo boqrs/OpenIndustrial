@@ -133,9 +133,31 @@ export const routes: RouteRecordRaw[] = [
           permission: Permissions.MES_VIEW,
         },
       },
+
+      // --------------------------------------------------------
+      // MES - 生产计划
+      // --------------------------------------------------------
+      {
+        path: "mes/production-plans",
+        name: "ProductionPlanList",
+        component: () =>
+          import("../mes/production/views/ProductionPlanList.vue"),
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
+      {
+        path: "mes/production-plans/:id",
+        name: "ProductionPlanDetail",
+        component: () =>
+          import("../mes/production/views/ProductionPlanDetail.vue"),
+        props: true,
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
     ],
   },
-
   // ============================================================
   // 兜底路由
   // ============================================================
