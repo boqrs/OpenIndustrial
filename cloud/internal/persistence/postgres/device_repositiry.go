@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/device"
 	"github.com/boqrs/nexus/database"
 )
@@ -167,19 +168,15 @@ func (r *DeviceRepository) ActivateBySerialNumber(
 
 	result := db.
 		Model(&model.Device{}).
-		Where(
-			"serial_number = ?",
-			serialNumber,
-		).
-		Where(
-			"customer_uuid IS NULL",
-		).
-		Where(
-			"activated_at IS NULL",
-		).
+		Where("serial_number = ?", serialNumber).
+		Where("status = ?", model.DeviceStatusCreated).
+		Where("customer_uuid IS NULL").
+		Where("activated_at IS NULL").
 		Updates(map[string]interface{}{
 			"customer_uuid": customerUUID,
 			"activated_at":  now,
+			"status":        model.DeviceStatusActivated,
+			"updated_at":    now,
 		})
 
 	if result.Error != nil {
@@ -227,9 +224,16 @@ func (r *DeviceRepository) List(
 	var items []*model.Device
 	var total int64
 
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has || tenantID == 0 {
+		return nil, 0, errors.New("tenant id not found")
+	}
+
 	query := r.db.Get().
 		WithContext(ctx).
-		Model(&model.Device{})
+		Model(&model.Device{}).
+		Joins("JOIN resources ON resources.id = devices.resource_id").
+		Where("resources.tenant_id = ?", tenantID)
 
 	if req.ProductID != nil {
 		query = query.Where(
@@ -246,14 +250,10 @@ func (r *DeviceRepository) List(
 	}
 
 	if req.ParentID != nil {
-		query = query.
-			Joins(
-				"JOIN resources ON resources.id = devices.resource_id",
-			).
-			Where(
-				"resources.parent_id = ?",
-				*req.ParentID,
-			)
+		query = query.Where(
+			"resources.parent_id = ?",
+			*req.ParentID,
+		)
 	}
 
 	if err := query.Count(

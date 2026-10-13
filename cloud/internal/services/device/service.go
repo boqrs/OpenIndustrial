@@ -370,83 +370,30 @@ func (s *serviceImpl) ActivateDevice(
 	ctx context.Context,
 	req *ActivateDeviceRequest,
 ) (*DeviceResponse, error) {
-
 	if req == nil {
-		return nil, ErrInvalidUpdateRequest
+		return nil, ErrInvalidActivationRequest
 	}
 
-	if req.SerialNumber == "" {
-		return nil, ErrDeviceNotFound
+	serialNumber := strings.TrimSpace(req.SerialNumber)
+	if serialNumber == "" {
+		return nil, ErrInvalidActivationRequest
 	}
 
-	// user identity comes from token
 	customerUUID, has := pkg.UserIDFromContext(ctx)
-	if !has {
-		return nil, errors.New("user not found")
+	if !has || customerUUID == uuid.Nil {
+		return nil, ErrUserNotAuthenticated
 	}
 
-	if customerUUID == uuid.Nil {
-		return nil, errors.New(
-			"user id not found in context",
-		)
-	}
-
-	device, err := s.repo.GetBySerialNumber(
+	activated, err := s.repo.ActivateBySerialNumber(
 		ctx,
-		req.SerialNumber,
+		serialNumber,
+		customerUUID,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
-	if device == nil {
-		return nil, ErrDeviceNotFound
-	}
-
-	// Device can only be activated once
-	if device.ActivatedAt != nil {
-		return nil, ErrDeviceAlreadyActivated
-	}
-
-	// Only manufactured devices can be activated.
-	//
-	// Device lifecycle:
-	//
-	// created
-	//    |
-	// activated
-	//    |
-	// online/offline
-	//
-	if device.Status != model.DeviceStatusCreated {
-		return nil, ErrInvalidDeviceStatus
-	}
-
-	now := time.Now().UTC()
-
-	device.CustomerUUID = &customerUUID
-	device.Status = model.DeviceStatusActivated
-	device.ActivatedAt = &now
-
-	// After activation device is ready for IoT connection.
-	//
-	// It is not online yet.
-	//
-	// MQTT connection will update status separately.
-	//device.ConnectionStatus = model.ConnectionStatusConnected
-
-	if err := s.repo.Update(
-		ctx,
-		device,
-	); err != nil {
-		return nil, err
-	}
-
-	return s.GetDevice(
-		ctx,
-		device.ID,
-	)
+	return s.GetDevice(ctx, activated.ID)
 }
 
 // DeleteDevice intentionally remains disabled.

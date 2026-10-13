@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
@@ -169,6 +170,10 @@ func (s *service) BindResourceIdentity(
 	ctx context.Context,
 	req BindResourceIdentityRequest,
 ) (*ResourceIdentityResponse, error) {
+
+	req.HardwareID = strings.TrimSpace(req.HardwareID)
+	req.SerialNumber = strings.TrimSpace(req.SerialNumber)
+
 	return s.bindResourceIdentity(ctx, req)
 }
 
@@ -317,6 +322,10 @@ func (s *service) ProvisionDevice(
 	ctx context.Context,
 	req ProvisionDeviceRequest,
 ) (*ProvisionDeviceResponse, error) {
+	req.BootstrapToken = strings.TrimSpace(req.BootstrapToken)
+	req.HardwareID = strings.TrimSpace(req.HardwareID)
+	req.SerialNumber = strings.TrimSpace(req.SerialNumber)
+	req.CSR = strings.TrimSpace(req.CSR)
 	if req.BootstrapToken == "" {
 		return nil, errors.New(
 			"bootstrap_token is required",
@@ -415,14 +424,12 @@ func (s *service) ProvisionDevice(
 					err,
 				)
 			}
-
 			if identity.HardwareID != "" &&
 				identity.HardwareID != req.HardwareID {
 				return ErrIdentityMismatch
 			}
 
 			if identity.SerialNumber != "" &&
-				req.SerialNumber != "" &&
 				identity.SerialNumber != req.SerialNumber {
 				return ErrIdentityMismatch
 			}
