@@ -21,6 +21,7 @@ type Repository interface {
 type Service interface {
 	CreateProductionPlan(ctx context.Context, req *CreateProductionPlanRequest) (*ProductionPlanResponse, error)
 	GetProductionPlanByID(ctx context.Context, id uint) (*ProductionPlanResponse, error)
+	GetProductionPlanForUpdateTx(ctx context.Context, tenantID uint, id uint) (*ProductionPlanResponse, error)
 	ListProductionPlans(ctx context.Context, status *model.ProductionPlanStatus) ([]*ProductionPlanResponse, error)
 	UpdateProductionPlan(ctx context.Context, id uint, req *UpdateProductionPlanRequest) (*ProductionPlanResponse, error)
 	ReleaseProductionPlan(ctx context.Context, id uint) error

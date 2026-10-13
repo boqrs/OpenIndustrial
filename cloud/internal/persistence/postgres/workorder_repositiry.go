@@ -108,7 +108,7 @@ func (r *WorkOrderRepository) UpdateTx(ctx context.Context, entity *model.WorkOr
 // This is a P0 fix to ensure work order quantity does not exceed the production plan's total quantity.
 func (r *WorkOrderRepository) SumQuantityByPlanID(ctx context.Context, tenantID uint, productionPlanID uint) (int64, error) {
 	var totalQuantity int64
-	err := r.db.Get().WithContext(ctx).
+	err := dbFromContext(ctx, r.db.Get()).WithContext(ctx).
 		Model(&model.WorkOrder{}).
 		Where("tenant_id = ? AND production_plan_id = ?", tenantID, productionPlanID).
 		Select("COALESCE(SUM(planned_quantity), 0)").

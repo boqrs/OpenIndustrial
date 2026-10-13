@@ -86,13 +86,17 @@ func (s *serviceImpl) Create(
 	var result *model.WorkOrder
 
 	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
-		plan, err := s.repository.GetByIDForUpdateTx(
+
+		plan, err := s.psrv.GetProductionPlanForUpdateTx(
 			txCtx,
 			tenantID,
 			req.ProductionPlanID,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf(
+				"get production plan for update: %w",
+				err,
+			)
 		}
 
 		if plan.ProductID != req.ProductID {
@@ -103,8 +107,8 @@ func (s *serviceImpl) Create(
 			return ErrQuantityExceedsPlan
 		}
 
-		if plan.Status != model.WorkOrderStatus(model.ProductionPlanStatusReleased) &&
-			plan.Status != model.WorkOrderStatus(model.ProductionPlanStatusInProgress) {
+		if plan.Status != model.ProductionPlanStatusReleased &&
+			plan.Status != model.ProductionPlanStatusInProgress {
 			return ErrInvalidWorkOrderState
 		}
 
@@ -234,68 +238,126 @@ func (s *serviceImpl) Create(
 
 	return ToResponse(result), nil
 }
-func (s *serviceImpl) Release(ctx context.Context, tenantID uint, id uint) error {
-	entity, err := s.repository.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return fmt.Errorf("failed to get work order for release: %w", err)
-	}
-	if entity.Status != model.WorkOrderStatusDraft {
-		return ErrInvalidWorkOrderState
+
+func (s *serviceImpl) Release(
+	ctx context.Context,
+	tenantID uint,
+	id uint,
+) error {
+	if tenantID == 0 || id == 0 {
+		return ErrInvalidWorkOrder
 	}
 
-	// 1. Re-validate Production Plan
-	plan, err := s.psrv.GetProductionPlanByID(ctx, entity.ProductionPlanID)
-	if err != nil {
-		return fmt.Errorf("failed to get production plan for release: %w", err)
-	}
-	if plan.ProductID != entity.ProductID {
-		return ErrPlanProductMismatch
-	}
-	if plan.Status != model.ProductionPlanStatusReleased && plan.Status != model.ProductionPlanStatusInProgress {
-		return ErrInvalidWorkOrderState
-	}
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		// 1. Lock the WorkOrder and validate its current state.
+		entity, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get work order for release: %w",
+				err,
+			)
+		}
 
-	// 2. Re-validate Quantity
-	// Note: The entity is already in the DB, so SumQuantityByPlanID includes its quantity.
-	// We just need to check if the total allocation exceeds the plan.
-	allocated, err := s.repository.SumQuantityByPlanID(ctx, tenantID, entity.ProductionPlanID)
-	if err != nil {
-		return fmt.Errorf("failed to calculate allocated work order quantity for release: %w", err)
-	}
-	if allocated > plan.PlannedQuantity {
-		return ErrQuantityExceedsPlan
-	}
+		if entity.Status != model.WorkOrderStatusDraft {
+			return ErrInvalidWorkOrderState
+		}
 
-	// 3. Re-validate BOM
-	bom, err := s.bsrv.GetByID(ctx, tenantID, entity.BOMID)
-	if err != nil {
-		return fmt.Errorf("failed to get bom for release: %w", err)
-	}
-	if bom.ProductID != entity.ProductID {
-		return ErrBOMProductMismatch
-	}
-	if bom.Status != "released" {
-		return ErrBOMNotReleased
-	}
+		// 2. Lock the actual ProductionPlan.
+		plan, err := s.psrv.GetProductionPlanForUpdateTx(
+			txCtx,
+			tenantID,
+			entity.ProductionPlanID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get production plan for release: %w",
+				err,
+			)
+		}
 
-	// 4. Re-validate Routing
-	routing, err := s.rsrv.GetRouting(ctx, entity.RoutingID)
-	if err != nil {
-		return fmt.Errorf("failed to get routing for release: %w", err)
-	}
-	if routing.ProductID != entity.ProductID {
-		return ErrRoutingProductMismatch
-	}
-	if routing.Status != "active" {
-		return ErrRoutingNotActive
-	}
+		if plan.ProductID != entity.ProductID {
+			return ErrPlanProductMismatch
+		}
 
-	// All checks passed, proceed to release
-	entity.Status = model.WorkOrderStatusReleased
-	if err := s.repository.Update(ctx, entity); err != nil {
-		return fmt.Errorf("failed to release work order: %w", err)
-	}
-	return nil
+		if plan.Status != model.ProductionPlanStatusReleased &&
+			plan.Status != model.ProductionPlanStatusInProgress {
+			return ErrInvalidWorkOrderState
+		}
+
+		// 3. Revalidate total WorkOrder quantity under the transaction.
+		totalQuantity, err := s.repository.SumQuantityByPlanID(
+			txCtx,
+			tenantID,
+			entity.ProductionPlanID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"calculate work order quantity for release: %w",
+				err,
+			)
+		}
+
+		if totalQuantity > plan.PlannedQuantity {
+			return ErrQuantityExceedsPlan
+		}
+
+		// 4. Revalidate BOM.
+		bom, err := s.bsrv.GetByID(
+			txCtx,
+			tenantID,
+			entity.BOMID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get BOM for release: %w",
+				err,
+			)
+		}
+
+		if bom.ProductID != entity.ProductID {
+			return ErrBOMProductMismatch
+		}
+
+		if bom.Status != "released" {
+			return ErrBOMNotReleased
+		}
+
+		// 5. Revalidate Routing.
+		routing, err := s.rsrv.GetRouting(
+			txCtx,
+			entity.RoutingID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get routing for release: %w",
+				err,
+			)
+		}
+
+		if routing.ProductID != entity.ProductID {
+			return ErrRoutingProductMismatch
+		}
+
+		if routing.Status != "active" {
+			return ErrRoutingNotActive
+		}
+
+		// 6. Persist the state transition in the same transaction.
+		entity.Status = model.WorkOrderStatusReleased
+
+		if err := s.repository.UpdateTx(txCtx, entity); err != nil {
+			return fmt.Errorf(
+				"release work order: %w",
+				err,
+			)
+		}
+
+		return nil
+	})
 }
 
 // ... (GetByID, List, Update, and other methods remain the same)
