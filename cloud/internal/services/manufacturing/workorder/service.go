@@ -396,55 +396,127 @@ func (s *serviceImpl) List(ctx context.Context, req *ListRequest) (*ListResp, er
 	return &resp, nil
 }
 
-func (s *serviceImpl) Update(ctx context.Context, tenantID uint, id uint, req *UpdateRequest) (*Response, error) {
-	if req == nil {
+func (s *serviceImpl) Update(
+	ctx context.Context,
+	tenantID uint,
+	id uint,
+	req *UpdateRequest,
+) (*Response, error) {
+	if tenantID == 0 || id == 0 || req == nil {
 		return nil, ErrInvalidWorkOrder
 	}
-	entity, err := s.repository.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get work order for update: %w", err)
-	}
-	if entity.Status != model.WorkOrderStatusDraft {
-		return nil, ErrInvalidWorkOrderState
-	}
+
 	if req.Code == "" || req.PlannedQuantity <= 0 {
 		return nil, ErrInvalidWorkOrder
 	}
 
-	plan, err := s.psrv.GetProductionPlanByID(ctx, entity.ProductionPlanID)
+	var result *model.WorkOrder
+
+	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
+		// 1. 锁定工单，确保状态检查和修改针对同一条记录。
+		entity, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get work order for update: %w",
+				err,
+			)
+		}
+
+		if entity.Status != model.WorkOrderStatusDraft {
+			return ErrInvalidWorkOrderState
+		}
+
+		// 2. 锁定生产计划，串行化同一计划下的数量校验。
+		plan, err := s.psrv.GetProductionPlanForUpdateTx(
+			txCtx,
+			tenantID,
+			entity.ProductionPlanID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"get production plan for update: %w",
+				err,
+			)
+		}
+
+		if plan.ProductID != entity.ProductID {
+			return ErrPlanProductMismatch
+		}
+
+		if plan.Status != model.ProductionPlanStatusReleased &&
+			plan.Status != model.ProductionPlanStatusInProgress {
+			return ErrInvalidWorkOrderState
+		}
+
+		// 3. 查询该生产计划下所有工单的计划数量。
+		totalQuantity, err := s.repository.SumQuantityByPlanID(
+			txCtx,
+			tenantID,
+			entity.ProductionPlanID,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"calculate work order quantity: %w",
+				err,
+			)
+		}
+
+		// 总量包含当前工单，因此先减去旧数量，再加上新数量。
+		newTotalQuantity := totalQuantity -
+			entity.PlannedQuantity +
+			req.PlannedQuantity
+
+		if newTotalQuantity > plan.PlannedQuantity {
+			return ErrQuantityExceedsPlan
+		}
+
+		// 4. 检查销售订单分配数量上限。
+		allocatedQuantity, err :=
+			s.alSrv.GetAllocatedQuantityByProductionPlanID(
+				txCtx,
+				tenantID,
+				entity.ProductionPlanID,
+			)
+		if err != nil {
+			return fmt.Errorf(
+				"get production plan allocation: %w",
+				err,
+			)
+		}
+
+		if allocatedQuantity <= 0 ||
+			newTotalQuantity > allocatedQuantity {
+			return ErrQuantityExceedsAllocation
+		}
+
+		// 5. 更新允许修改的字段。
+		entity.Code = req.Code
+		entity.PlannedQuantity = req.PlannedQuantity
+		entity.Priority = req.Priority
+		entity.DueDate = req.DueDate
+
+		// 6. 必须使用事务内的更新方法。
+		if err := s.repository.UpdateTx(txCtx, entity); err != nil {
+			return fmt.Errorf(
+				"update work order: %w",
+				err,
+			)
+		}
+
+		result = entity
+		return nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get production plan: %w", err)
-	}
-	if plan.ProductID != entity.ProductID {
-		return nil, ErrPlanProductMismatch
-	}
-	if plan.Status != model.ProductionPlanStatusReleased && plan.Status != model.ProductionPlanStatusInProgress {
-		return nil, ErrInvalidWorkOrderState
+		return nil, err
 	}
 
-	allocated, err := s.repository.SumQuantityByPlanID(ctx, tenantID, entity.ProductionPlanID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate allocated work order quantity: %w", err)
-	}
-
-	// Remove the current WorkOrder's old quantity.
-	allocated -= entity.PlannedQuantity
-	if allocated+req.PlannedQuantity > plan.PlannedQuantity {
-		return nil, ErrQuantityExceedsPlan
-	}
-
-	entity.Code = req.Code
-	entity.PlannedQuantity = req.PlannedQuantity
-	entity.Priority = req.Priority
-	entity.DueDate = req.DueDate
-
-	if err := s.repository.Update(ctx, entity); err != nil {
-		return nil, fmt.Errorf("failed to update work order: %w", err)
-	}
-
-	return ToResponse(entity), nil
+	return ToResponse(result), nil
 }
-
 func (s *serviceImpl) Start(ctx context.Context, tenantID uint, id uint) error {
 	entity, err := s.repository.GetByID(ctx, tenantID, id)
 	if err != nil {
