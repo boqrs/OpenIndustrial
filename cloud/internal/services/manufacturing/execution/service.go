@@ -202,7 +202,7 @@ func (s *serviceImpl) createExecution(
 			op.Parameters...,
 		)
 
-		workstationID := op.WorkStationID
+		WorkstationID := op.WorkstationID
 
 		operations = append(
 			operations,
@@ -212,7 +212,7 @@ func (s *serviceImpl) createExecution(
 				Code:               op.Code,
 				Name:               op.Name,
 				Description:        op.Description,
-				WorkstationID:      &workstationID,
+				WorkstationID:      WorkstationID,
 				Parameters:         parameters,
 				Status:             model.ExecutionOperationStatusPending,
 			},

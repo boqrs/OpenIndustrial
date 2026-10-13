@@ -417,6 +417,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	routingService := routSrv.NewService(
 		routingRepo,
+		resourceService,
 	)
 
 	allocationService := allocationSrv.NewService(
