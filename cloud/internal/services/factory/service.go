@@ -214,10 +214,35 @@ func (s *serviceImpl) UpdateFactory(ctx context.Context, factoryID uint, req *Up
 	return s.factoryResponse(resourceEntity, factory), nil
 }
 
-func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uint) error {
+func (s *serviceImpl) DeleteFactory(
+	ctx context.Context,
+	factoryID uint,
+) error {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return fmt.Errorf("tenant id not found")
+	}
+
 	factory, err := s.repository.GetByID(ctx, factoryID)
 	if err != nil {
+		if errors.Is(err, ErrFactoryNotFound) {
+			return ErrFactoryNotFound
+		}
+		return fmt.Errorf("get factory: %w", err)
+	}
+
+	// Verify tenant ownership before performing any destructive operation.
+	factoryResource, err := s.resourceSvc.GetResourceByID(
+		ctx,
+		tenantID,
+		factory.ResourceID,
+	)
+	if err != nil {
 		return ErrFactoryNotFound
+	}
+
+	if resource.ResourceType(factoryResource.ResourceType) != resource.ResourceTypeFactory {
+		return ErrResourceTypeMismatch
 	}
 
 	children, err := s.resourceSvc.GetChildren(ctx, factory.ResourceID)
@@ -228,20 +253,18 @@ func (s *serviceImpl) DeleteFactory(ctx context.Context, factoryID uint) error {
 		return ErrCannotDeleteFactoryWithChildren
 	}
 
-	if err := s.repository.Delete(ctx, factory.ID); err != nil {
-		return fmt.Errorf("delete factory from repository: %w", err)
-	}
-
-	// TODO: tenantID should be properly extracted from context
-	tenantID, has := pkg.TenantIDFromContext(ctx)
-	if !has {
-		return fmt.Errorf("tenant id not found")
-	}
-
-	if err := s.resourceSvc.DeleteResource(ctx, tenantID, factory.ResourceID); err != nil {
-		// Note: The factory entry is already deleted, this could lead to orphaned resources.
-		// A transaction would be ideal here.
+	// Delete the Resource first, so a tenant mismatch or Resource deletion
+	// failure cannot leave a deleted Factory record behind.
+	if err := s.resourceSvc.DeleteResource(
+		ctx,
+		tenantID,
+		factory.ResourceID,
+	); err != nil {
 		return fmt.Errorf("delete factory resource: %w", err)
+	}
+
+	if err := s.repository.Delete(ctx, factory.ID); err != nil {
+		return fmt.Errorf("delete factory record: %w", err)
 	}
 
 	return nil
@@ -273,12 +296,21 @@ func (s *serviceImpl) CreateTopologyNode(ctx context.Context, req *CreateTopolog
 		return nil, fmt.Errorf("tenant id not found")
 	}
 
-	parentResourceID := factory.ResourceID // Default parent is the factory itself
+	parentResourceID := factory.ResourceID
 	if req.ParentResourceID != nil {
 		parentResourceID = *req.ParentResourceID
-		if err := s.validateTopologyParent(ctx, tenantID, factory.ResourceID, parentResourceID, resource.ResourceType(req.Type)); err != nil {
-			return nil, err
-		}
+	}
+
+	// Validate both explicitly supplied and default parent IDs.
+	// This prevents a workstation from being created directly under a factory.
+	if err := s.validateTopologyParent(
+		ctx,
+		tenantID,
+		factory.ResourceID,
+		parentResourceID,
+		resource.ResourceType(req.Type),
+	); err != nil {
+		return nil, err
 	}
 
 	var metadata []byte
@@ -377,6 +409,10 @@ func (s *serviceImpl) MoveTopologyNode(ctx context.Context, req *MoveTopologyNod
 	if !has {
 		return fmt.Errorf("tenant id not found")
 	}
+
+	if req.ParentResourceID == nil || *req.ParentResourceID == 0 {
+		return ErrInvalidParent
+	}
 	node, err := s.resourceSvc.GetResourceByID(ctx, tenantID, req.ResourceID)
 	if err != nil {
 		return ErrNodeNotFound
@@ -463,36 +499,6 @@ func (s *serviceImpl) GetTopology(ctx context.Context, factoryID uint) (*Factory
 }
 
 // --- Helper Functions ---
-
-func (s *serviceImpl) validateTopologyParent(ctx context.Context, tenantID uint, factoryResourceID, parentResourceID uint, childType resource.ResourceType) error {
-	parent, err := s.resourceSvc.GetResourceByID(ctx, tenantID, parentResourceID)
-	if err != nil {
-		return ErrInvalidParent
-	}
-
-	isUnder, err := s.isResourceUnderFactory(ctx, tenantID, parent.ID, factoryResourceID)
-	if err != nil {
-		return fmt.Errorf("checking parent ancestry: %w", err)
-	}
-	if !isUnder {
-		return ErrInvalidParent
-	}
-
-	// Parent validation rules
-	switch childType {
-	case resource.ResourceTypeWorkStation:
-		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeProductionLine {
-			return ErrInvalidParent
-		}
-	case resource.ResourceTypeProductionLine:
-		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeWorkStation {
-			return ErrInvalidParent
-		}
-	}
-
-	return nil
-}
-
 func (s *serviceImpl) isResourceUnderFactory(ctx context.Context, tenantID uint, resourceID, factoryResourceID uint) (bool, error) {
 	currentID := resourceID
 	for {
@@ -604,4 +610,53 @@ func decodeMetadata(value []byte) map[string]interface{} {
 		return nil // Should probably log this error
 	}
 	return result
+}
+
+func (s *serviceImpl) validateTopologyParent(
+	ctx context.Context,
+	tenantID uint,
+	factoryResourceID uint,
+	parentResourceID uint,
+	childType resource.ResourceType,
+) error {
+	parent, err := s.resourceSvc.GetResourceByID(
+		ctx,
+		tenantID,
+		parentResourceID,
+	)
+	if err != nil {
+		return ErrInvalidParent
+	}
+
+	// The parent must belong to the requested factory's topology.
+	isUnder, err := s.isResourceUnderFactory(
+		ctx,
+		tenantID,
+		parent.ID,
+		factoryResourceID,
+	)
+	if err != nil {
+		return fmt.Errorf("checking parent ancestry: %w", err)
+	}
+	if !isUnder {
+		return ErrInvalidParent
+	}
+
+	// Factory -> ProductionLine -> WorkStation
+	switch childType {
+	case resource.ResourceTypeProductionLine:
+		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeFactory {
+			return ErrInvalidParent
+		}
+
+	case resource.ResourceTypeWorkStation:
+		if resource.ResourceType(parent.ResourceType) != resource.ResourceTypeProductionLine {
+			return ErrInvalidParent
+		}
+
+	default:
+		return ErrInvalidTopologyType
+	}
+
+	return nil
 }

@@ -1,23 +1,31 @@
 package model
 
-import (
-	"time"
-)
+import "time"
 
-// Factory represents the factory entity in the database.
-// It uses an auto-incrementing integer as the primary key for internal database use,
-// and a separate UUID field as the public-facing business identifier.
+// Factory represents a factory belonging to a tenant.
+// TenantID defines the security boundary.
+// ResourceID links the factory to its corresponding Resource.
 type Factory struct {
-	// ID is the internal auto-incrementing primary key.
+	// Internal database primary key.
 	ID uint `gorm:"primaryKey"`
-	// ResourceID points to the corresponding entry in the resources table.
-	ResourceID uint `gorm:"not null;index"`
-	// Code is a user-defined unique code for the factory.
-	Code string `gorm:"type:varchar(100);not null;uniqueIndex"`
-	// Address stores the physical address of the factory.
+
+	// Tenant that owns this factory.
+	// Factory codes are unique within a tenant, not globally.
+	TenantID uint `gorm:"not null;uniqueIndex:idx_factory_tenant_code,priority:1;index"`
+
+	// Corresponding factory resource.
+	// One Resource can be associated with at most one Factory.
+	ResourceID uint `gorm:"not null;uniqueIndex"`
+
+	// Factory code, unique within the same tenant.
+	Code string `gorm:"type:varchar(100);not null;uniqueIndex:idx_factory_tenant_code,priority:2"`
+
+	// Physical address of the factory.
 	Address string `gorm:"type:text"`
+
 	// Timezone of the factory's location.
-	Timezone  string    `gorm:"type:varchar(100);not null;default:'UTC'"`
+	Timezone string `gorm:"type:varchar(100);not null;default:'UTC'"`
+
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
