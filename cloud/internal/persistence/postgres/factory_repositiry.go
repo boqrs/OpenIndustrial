@@ -11,17 +11,14 @@ import (
 	"github.com/boqrs/nexus/database"
 )
 
-// factoryRepository implements the Factory Repository interface.
 type factoryRepository struct {
 	db *database.DBProvider
 }
 
-// NewFactoryRepository creates a new Factory Repository.
 func NewFactoryRepository(db *database.DBProvider) factory.Repository {
 	return &factoryRepository{db: db}
 }
 
-// Create inserts a new factory record.
 func (r *factoryRepository) Create(
 	ctx context.Context,
 	entity *model.Factory,
@@ -31,17 +28,16 @@ func (r *factoryRepository) Create(
 		Create(entity).Error
 }
 
-// GetByID retrieves a factory by its auto-increment primary key.
 func (r *factoryRepository) GetByID(
 	ctx context.Context,
 	id uint,
 ) (*model.Factory, error) {
-	var f model.Factory
+	var entity model.Factory
 
 	err := r.db.Get().
 		WithContext(ctx).
 		Where("id = ?", id).
-		First(&f).Error
+		First(&entity).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -50,20 +46,19 @@ func (r *factoryRepository) GetByID(
 		return nil, err
 	}
 
-	return &f, nil
+	return &entity, nil
 }
 
-// GetByResourceID retrieves a factory by its associated Resource ID.
 func (r *factoryRepository) GetByResourceID(
 	ctx context.Context,
 	resourceID uint,
 ) (*model.Factory, error) {
-	var f model.Factory
+	var entity model.Factory
 
 	err := r.db.Get().
 		WithContext(ctx).
 		Where("resource_id = ?", resourceID).
-		First(&f).Error
+		First(&entity).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -72,22 +67,20 @@ func (r *factoryRepository) GetByResourceID(
 		return nil, err
 	}
 
-	return &f, nil
+	return &entity, nil
 }
 
-// GetByCode retrieves a factory by its code.
-// Tenant-scoped uniqueness will be implemented together with the
-// Factory TenantID model change.
 func (r *factoryRepository) GetByCode(
 	ctx context.Context,
+	tenantID uint,
 	code string,
 ) (*model.Factory, error) {
-	var f model.Factory
+	var entity model.Factory
 
 	err := r.db.Get().
 		WithContext(ctx).
-		Where("code = ?", code).
-		First(&f).Error
+		Where("tenant_id = ? AND code = ?", tenantID, code).
+		First(&entity).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -96,10 +89,9 @@ func (r *factoryRepository) GetByCode(
 		return nil, err
 	}
 
-	return &f, nil
+	return &entity, nil
 }
 
-// Update saves changes to an existing factory.
 func (r *factoryRepository) Update(
 	ctx context.Context,
 	entity *model.Factory,
@@ -109,12 +101,21 @@ func (r *factoryRepository) Update(
 		Save(entity).Error
 }
 
-// Delete removes a factory by its primary key.
 func (r *factoryRepository) Delete(
 	ctx context.Context,
 	id uint,
 ) error {
-	return r.db.Get().
+	result := r.db.Get().
 		WithContext(ctx).
-		Delete(&model.Factory{ID: id}).Error
+		Delete(&model.Factory{ID: id})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return factory.ErrFactoryNotFound
+	}
+
+	return nil
 }
+
