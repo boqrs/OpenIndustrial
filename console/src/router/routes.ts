@@ -156,6 +156,26 @@ export const routes: RouteRecordRaw[] = [
           permission: Permissions.MES_VIEW,
         },
       },
+
+      // --------------------------------------------------------
+      // MES - 工厂管理
+      // --------------------------------------------------------
+      {
+        path: "mes/factories",
+        name: "FactoryList",
+        component: () => import("../mes/factory/views/FactoryList.vue"),
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
+      {
+        path: "mes/production-topology",
+        name: "ProductionTopology",
+        component: () => import("../mes/factory/views/ProductionTopology.vue"),
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
     ],
   },
   // ============================================================

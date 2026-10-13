@@ -21,23 +21,59 @@ CREATE INDEX idx_product_models_category
     ON product_models(category);
 
 
-CREATE TABLE factories (
+
+CREATE TABLE IF NOT EXISTS factories (
     id BIGSERIAL PRIMARY KEY,
+
+    -- 租户归属：一个 Tenant 可以拥有多个 Factory
+    tenant_id BIGINT NOT NULL,
+
+    -- 关联 Resource，工厂仍然属于资源体系
     resource_id BIGINT NOT NULL,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    address TEXT,
-    timezone VARCHAR(100) NOT NULL DEFAULT 'UTC',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- 工厂基础信息
+    name VARCHAR(128) NOT NULL,
+    code VARCHAR(64) NOT NULL,
+    address VARCHAR(512),
+    timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+
+    -- 工厂状态
+    status VARCHAR(32) NOT NULL DEFAULT 'active',
+
+    -- 时间字段
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+
+    -- 外键约束
+    CONSTRAINT fk_factories_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id),
 
     CONSTRAINT fk_factories_resource
         FOREIGN KEY (resource_id)
-        REFERENCES resources(id)
-        ON DELETE RESTRICT
+        REFERENCES resources(id),
+
+    -- 同一租户内工厂编码唯一
+    CONSTRAINT uq_factories_tenant_code
+        UNIQUE (tenant_id, code),
+
+    -- 一个 Resource 只能对应一个 Factory
+    CONSTRAINT uq_factories_resource
+        UNIQUE (resource_id)
 );
 
-CREATE INDEX idx_factories_resource_id
-    ON factories(resource_id);
+-- 租户查询
+CREATE INDEX IF NOT EXISTS idx_factories_tenant_id
+    ON factories (tenant_id);
+
+-- 按租户和状态查询
+CREATE INDEX IF NOT EXISTS idx_factories_tenant_status
+    ON factories (tenant_id, status);
+
+-- 软删除场景下，查询未删除工厂
+CREATE INDEX IF NOT EXISTS idx_factories_tenant_deleted_at
+    ON factories (tenant_id, deleted_at);
 
 
 CREATE TABLE production_plans (

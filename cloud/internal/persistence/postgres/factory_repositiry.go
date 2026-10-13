@@ -119,3 +119,21 @@ func (r *factoryRepository) Delete(
 	return nil
 }
 
+// ListByTenant returns factories belonging to the specified tenant.
+func (r *factoryRepository) ListByTenant(
+    ctx context.Context,
+    tenantID uint,
+) ([]*model.Factory, error) {
+    var entities []*model.Factory
+
+    err := r.db.Get().
+        WithContext(ctx).
+        Where("tenant_id = ?", tenantID).
+        Order("id ASC").
+        Find(&entities).Error
+    if err != nil {
+        return nil, err
+    }
+
+    return entities, nil
+}

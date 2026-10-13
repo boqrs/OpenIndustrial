@@ -590,6 +590,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 
 	factory.NewHandler(
 		factoryService,
+		authService,
 	).RouterRegister(router)
 
 	// -------------------------------------------------------------------------

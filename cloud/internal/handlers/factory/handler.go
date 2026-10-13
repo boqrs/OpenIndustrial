@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/boqrs/OpenIndustrial/cloud/internal/handlers/middleware"
 	srv "github.com/boqrs/OpenIndustrial/cloud/internal/services/factory"
 	"github.com/boqrs/zeus/ginx"
 	"github.com/gin-gonic/gin"
@@ -13,17 +14,22 @@ import (
 // api handles the HTTP requests for the factory domain.
 type Handler struct {
 	service srv.Service
+	auth    middleware.Service
 }
 
 // NewAPI creates a new API handler for the factory service.
-func NewHandler(service srv.Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service srv.Service, auth    middleware.Service) *Handler {
+	return &Handler{
+		service: service,
+		auth:    auth,
+	}
 }
 
 // Register registers all factory routes to the given router group.
 func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 
 	externalGroup := router.Group("/api/v1/external")
+	externalGroup.Use(h.auth.Authenticate())
 	externalGroup.Handle(http.MethodPost, "/factories", h.createFactory)
 	externalGroup.Handle(http.MethodGet, "/factories/:factory_id", h.getFactory)
 	externalGroup.Handle(http.MethodPut, "/factories/:factory_id", h.updateFactory)
@@ -33,6 +39,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup.Handle(http.MethodPut, "/factories/topology/nodes/:resource_id", h.updateTopologyNode)
 	externalGroup.Handle(http.MethodPost, "/factories/topology/nodes/move", h.moveTopologyNode)
 	externalGroup.Handle(http.MethodDelete, "/factories/topology/nodes/:resource_id", h.deleteTopologyNode)
+	externalGroup.Handle( http.MethodGet,"/factories", h.listFactories)
 }
 
 func (a *Handler) createFactory(ctx *gin.Context) ginx.Render {
@@ -176,4 +183,14 @@ func (a *Handler) getTopology(ctx *gin.Context) ginx.Render {
 	}
 
 	return ginx.Success(resp)
+}
+
+func (h *Handler) listFactories(ctx *gin.Context) ginx.Render {
+    resp, err := h.service.ListFactories(ctx.Request.Context())
+    if err != nil {
+		fmt.Println(err.Error())
+        return ginx.Error(err)
+    }
+
+    return ginx.Success(resp)
 }

@@ -25,6 +25,7 @@ type Repository interface {
 	Update(ctx context.Context, entity *model.Factory) error
 
 	Delete(ctx context.Context, id uint) error
+	ListByTenant(ctx context.Context, tenantID uint) ([]*model.Factory, error)
 }
 
 type Service interface {
@@ -68,4 +69,5 @@ type Service interface {
 		ctx context.Context,
 		factoryID uint,
 	) (*FactoryTopologyResponse, error)
+	ListFactories(ctx context.Context) ([]FactoryResponse, error)
 }

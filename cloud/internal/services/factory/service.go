@@ -10,6 +10,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
+	"gorm.io/gorm"
 )
 
 var (
@@ -45,22 +46,14 @@ func NewService(
 	}
 }
 
-func (s *serviceImpl) tenantIDFromContext(ctx context.Context) (uint, error) {
-	tenantID, ok := pkg.TenantIDFromContext(ctx)
-	if !ok || tenantID == 0 {
-		return 0, errors.New("tenant id not found")
-	}
-	return tenantID, nil
-}
-
 // getFactoryForTenant ensures that a factory belongs to the current tenant.
 func (s *serviceImpl) getFactoryForTenant(
 	ctx context.Context,
 	factoryID uint,
 ) (*model.Factory, uint, error) {
-	tenantID, err := s.tenantIDFromContext(ctx)
-	if err != nil {
-		return nil, 0, err
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, 0, errors.New("tenant id not found")
 	}
 
 	entity, err := s.repository.GetByID(ctx, factoryID)
@@ -107,11 +100,11 @@ func (s *serviceImpl) CreateFactory(
 		return nil, errors.New("request is nil")
 	}
 
-	tenantID, err := s.tenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil,
+		 errors.New("tenant id not found")
 	}
-
 	name := strings.TrimSpace(req.Name)
 	code := strings.TrimSpace(req.Code)
 	timezone := strings.TrimSpace(req.Timezone)
@@ -151,6 +144,7 @@ func (s *serviceImpl) CreateFactory(
 	entity := &model.Factory{
 		TenantID:   tenantID,
 		ResourceID: resourceEntity.ID,
+		Name: req.Name,
 		Code:       code,
 		Address:    strings.TrimSpace(req.Address),
 		Timezone:   timezone,
@@ -407,9 +401,9 @@ func (s *serviceImpl) UpdateTopologyNode(
 		return nil, errors.New("request is nil")
 	}
 
-	tenantID, err := s.tenantIDFromContext(ctx)
-	if err != nil {
-		return nil, err
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil,  errors.New("tenant id not found")
 	}
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
@@ -491,9 +485,9 @@ func (s *serviceImpl) MoveTopologyNode(
 		return ErrInvalidParent
 	}
 
-	tenantID, err := s.tenantIDFromContext(ctx)
-	if err != nil {
-		return err
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	node, err := s.resourceSvc.GetResourceByID(
@@ -545,9 +539,9 @@ func (s *serviceImpl) DeleteTopologyNode(
 	ctx context.Context,
 	resourceID uint,
 ) error {
-	tenantID, err := s.tenantIDFromContext(ctx)
-	if err != nil {
-		return err
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return errors.New("tenant id not found")
 	}
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
@@ -808,4 +802,32 @@ func decodeMetadata(value []byte) map[string]interface{} {
 	}
 
 	return result
+}
+
+func (s *serviceImpl) ListFactories(
+    ctx context.Context,
+) ([]FactoryResponse, error) {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+    entities, err := s.repository.ListByTenant(ctx, tenantID)
+    if err != nil && !errors.Is(err, gorm.ErrRecordNotFound){
+        return nil, fmt.Errorf("list factories: %w", err)
+    }
+	result := make([]FactoryResponse, 0, len(entities))
+    for _, entity := range entities {
+        res, err := s.getFactoryResource(ctx, tenantID, entity)
+        if err != nil {
+            return nil, fmt.Errorf(
+                "get resource for factory %d: %w",
+                entity.ID,
+                err,
+            )
+        }
+
+        result = append(result, *s.factoryResponse(res, entity))
+    }
+
+    return result, nil
 }
