@@ -18,7 +18,7 @@ type Handler struct {
 }
 
 // NewAPI creates a new API handler for the factory service.
-func NewHandler(service srv.Service, auth    middleware.Service) *Handler {
+func NewHandler(service srv.Service, auth middleware.Service) *Handler {
 	return &Handler{
 		service: service,
 		auth:    auth,
@@ -39,7 +39,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	externalGroup.Handle(http.MethodPut, "/factories/topology/nodes/:resource_id", h.updateTopologyNode)
 	externalGroup.Handle(http.MethodPost, "/factories/topology/nodes/move", h.moveTopologyNode)
 	externalGroup.Handle(http.MethodDelete, "/factories/topology/nodes/:resource_id", h.deleteTopologyNode)
-	externalGroup.Handle( http.MethodGet,"/factories", h.listFactories)
+	externalGroup.Handle(http.MethodGet, "/factories", h.listFactories)
 }
 
 func (a *Handler) createFactory(ctx *gin.Context) ginx.Render {
@@ -106,13 +106,11 @@ func (a *Handler) deleteFactory(ctx *gin.Context) ginx.Render {
 func (a *Handler) createTopologyNode(ctx *gin.Context) ginx.Render {
 	var req srv.CreateTopologyNodeRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		//c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return ginx.Error(fmt.Errorf("invalid param"))
 	}
 
 	resp, err := a.service.CreateTopologyNode(ctx.Request.Context(), &req)
 	if err != nil {
-		//a.handleError(c, err)
 		return ginx.Error(err)
 	}
 
@@ -186,11 +184,11 @@ func (a *Handler) getTopology(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) listFactories(ctx *gin.Context) ginx.Render {
-    resp, err := h.service.ListFactories(ctx.Request.Context())
-    if err != nil {
+	resp, err := h.service.ListFactories(ctx.Request.Context())
+	if err != nil {
 		fmt.Println(err.Error())
-        return ginx.Error(err)
-    }
+		return ginx.Error(err)
+	}
 
-    return ginx.Success(resp)
+	return ginx.Success(resp)
 }

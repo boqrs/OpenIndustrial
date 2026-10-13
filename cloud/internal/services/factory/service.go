@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/kernel/resource"
-	"gorm.io/gorm"
+	zlog "github.com/boqrs/nexus/log"
 )
 
 var (
@@ -34,15 +36,18 @@ var topologyTypes = map[resource.ResourceType]struct{}{
 type serviceImpl struct {
 	resourceSvc resource.Service
 	repository  Repository
+	l           *zlog.Provider
 }
 
 func NewService(
 	resourceSvc resource.Service,
 	repository Repository,
+	l *zlog.Provider,
 ) Service {
 	return &serviceImpl{
 		resourceSvc: resourceSvc,
 		repository:  repository,
+		l:           l,
 	}
 }
 
@@ -103,7 +108,7 @@ func (s *serviceImpl) CreateFactory(
 	tenantID, has := pkg.TenantIDFromContext(ctx)
 	if !has {
 		return nil,
-		 errors.New("tenant id not found")
+			errors.New("tenant id not found")
 	}
 	name := strings.TrimSpace(req.Name)
 	code := strings.TrimSpace(req.Code)
@@ -144,7 +149,7 @@ func (s *serviceImpl) CreateFactory(
 	entity := &model.Factory{
 		TenantID:   tenantID,
 		ResourceID: resourceEntity.ID,
-		Name: req.Name,
+		Name:       req.Name,
 		Code:       code,
 		Address:    strings.TrimSpace(req.Address),
 		Timezone:   timezone,
@@ -326,27 +331,50 @@ func (s *serviceImpl) CreateTopologyNode(
 	req *CreateTopologyNodeRequest,
 ) (*TopologyNodeResponse, error) {
 	if req == nil {
+		s.l.Get().Errorf("request is nil")
 		return nil, errors.New("request is nil")
 	}
 	if req.FactoryID == 0 {
+		s.l.Get().Errorf("factory id is empty")
 		return nil, errors.New("factory_id is required")
 	}
 
-	nodeType := resource.ResourceType(req.Type)
+	var nodeType resource.ResourceType
+
+	switch strings.ToLower(strings.TrimSpace(req.Type)) {
+	case "production_line":
+		nodeType = resource.ResourceTypeProductionLine
+	case "work_station":
+		nodeType = resource.ResourceTypeWorkStation
+	default:
+		s.l.Get().Errorf(
+			"invalid topology resource type: %q",
+			req.Type,
+		)
+		return nil, ErrInvalidTopologyType
+	}
+
 	if _, ok := topologyTypes[nodeType]; !ok {
+		s.l.Get().Errorf(
+			"topology resource type is not allowed: %q",
+			nodeType,
+		)
 		return nil, ErrInvalidTopologyType
 	}
 
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
+		s.l.Get().Errorf("name is empty")
 		return nil, errors.New("name is required")
 	}
 
 	entity, tenantID, err := s.getFactoryForTenant(ctx, req.FactoryID)
 	if err != nil {
+		s.l.Get().Errorf("factory not found by tenant")
 		return nil, err
 	}
 	if _, err := s.getFactoryResource(ctx, tenantID, entity); err != nil {
+		s.l.Get().Errorf("resource not found")
 		return nil, err
 	}
 
@@ -362,6 +390,7 @@ func (s *serviceImpl) CreateTopologyNode(
 		parentResourceID,
 		nodeType,
 	); err != nil {
+		s.l.Get().Errorf("invalid topology parent resource, error: %s", err.Error())
 		return nil, err
 	}
 
@@ -369,6 +398,7 @@ func (s *serviceImpl) CreateTopologyNode(
 	if len(req.Metadata) > 0 {
 		metadata, err = json.Marshal(req.Metadata)
 		if err != nil {
+			s.l.Get().Errorf("json error: %s", err.Error())
 			return nil, fmt.Errorf("marshal metadata: %w", err)
 		}
 	}
@@ -386,6 +416,7 @@ func (s *serviceImpl) CreateTopologyNode(
 		},
 	)
 	if err != nil {
+		s.l.Get().Errorf("failed to create resource error: %s", err.Error())
 		return nil, fmt.Errorf("create topology node: %w", err)
 	}
 
@@ -403,7 +434,7 @@ func (s *serviceImpl) UpdateTopologyNode(
 
 	tenantID, has := pkg.TenantIDFromContext(ctx)
 	if !has {
-		return nil,  errors.New("tenant id not found")
+		return nil, errors.New("tenant id not found")
 	}
 
 	entity, err := s.resourceSvc.GetResourceByID(ctx, tenantID, resourceID)
@@ -805,29 +836,29 @@ func decodeMetadata(value []byte) map[string]interface{} {
 }
 
 func (s *serviceImpl) ListFactories(
-    ctx context.Context,
+	ctx context.Context,
 ) ([]FactoryResponse, error) {
 	tenantID, has := pkg.TenantIDFromContext(ctx)
 	if !has {
 		return nil, errors.New("tenant id not found")
 	}
-    entities, err := s.repository.ListByTenant(ctx, tenantID)
-    if err != nil && !errors.Is(err, gorm.ErrRecordNotFound){
-        return nil, fmt.Errorf("list factories: %w", err)
-    }
+	entities, err := s.repository.ListByTenant(ctx, tenantID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("list factories: %w", err)
+	}
 	result := make([]FactoryResponse, 0, len(entities))
-    for _, entity := range entities {
-        res, err := s.getFactoryResource(ctx, tenantID, entity)
-        if err != nil {
-            return nil, fmt.Errorf(
-                "get resource for factory %d: %w",
-                entity.ID,
-                err,
-            )
-        }
+	for _, entity := range entities {
+		res, err := s.getFactoryResource(ctx, tenantID, entity)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"get resource for factory %d: %w",
+				entity.ID,
+				err,
+			)
+		}
 
-        result = append(result, *s.factoryResponse(res, entity))
-    }
+		result = append(result, *s.factoryResponse(res, entity))
+	}
 
-    return result, nil
+	return result, nil
 }

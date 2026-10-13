@@ -14,7 +14,7 @@ type Factory struct {
 
 	// Factory code is unique within a tenant.
 	Code string `gorm:"type:varchar(100);not null;uniqueIndex:idx_factory_tenant_code,priority:2"`
-    Name       string `gorm:"size:128;not null"`
+	Name string `gorm:"size:128;not null"`
 
 	Address  string `gorm:"type:text"`
 	Timezone string `gorm:"type:varchar(100);not null;default:'UTC'"`
@@ -22,4 +22,3 @@ type Factory struct {
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
-

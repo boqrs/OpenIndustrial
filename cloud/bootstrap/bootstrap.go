@@ -359,6 +359,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	factoryService := fSrv.NewService(
 		resourceService,
 		factoryRepo,
+		logProv,
 	)
 
 	notificationService := notification.NewService(
