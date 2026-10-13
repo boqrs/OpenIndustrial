@@ -197,7 +197,10 @@ func (s *serviceImpl) UpdateRouting(
 	return toRoutingResponse(entity), nil
 }
 
-func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
+func (s *serviceImpl) ActivateRouting(
+	ctx context.Context,
+	id uint,
+) error {
 	tenantID, ok := pkg.TenantIDFromContext(ctx)
 	if !ok {
 		return errors.New("tenant id not found")
@@ -207,9 +210,11 @@ func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
 	if err != nil {
 		return err
 	}
+
 	if entity.Status == model.RoutingStatusActive {
 		return nil
 	}
+
 	if entity.Status == model.RoutingStatusArchived {
 		return ErrInvalidRoutingState
 	}
@@ -218,12 +223,26 @@ func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
 	if err != nil {
 		return fmt.Errorf("count routing operations: %w", err)
 	}
+
 	if count == 0 {
 		return errors.New("cannot activate a routing with no operations")
 	}
 
-	entity.Status = model.RoutingStatusActive
-	return s.repository.UpdateRouting(ctx, entity)
+	blocked, err := s.repository.ActivateRoutingExclusive(
+		ctx,
+		tenantID,
+		entity.ProductID,
+		entity.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("activate routing: %w", err)
+	}
+
+	if blocked {
+		return ErrRoutingInUse
+	}
+
+	return nil
 }
 
 func (s *serviceImpl) DeactivateRouting(

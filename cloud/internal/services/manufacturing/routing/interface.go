@@ -24,6 +24,7 @@ type Repository interface {
 	UpdateOperation(ctx context.Context, entity *model.RoutingOperation) error
 	DeleteOperation(ctx context.Context, tenantID, routingID, operationID uint) error
 	HasUnfinishedWorkOrders(ctx context.Context, tenantID uint, routingID uint) (bool, error)
+	ActivateRoutingExclusive(ctx context.Context, tenantID uint, productID uint, routingID uint) (bool, error)
 }
 
 type Service interface {

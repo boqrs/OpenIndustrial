@@ -9,6 +9,7 @@ import (
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/nexus/database"
+	"gorm.io/gorm/clause"
 )
 
 type routingRepository struct {
@@ -298,4 +299,152 @@ func (r *routingRepository) HasUnfinishedWorkOrders(
 
 	return count > 0, nil
 
+}
+
+func (r *routingRepository) ActivateRoutingExclusive(
+	ctx context.Context,
+	tenantID uint,
+	productID uint,
+	routingID uint,
+) (bool, error) {
+	blocked := false
+
+	err := r.db.Get().WithContext(ctx).Transaction(
+		func(tx *gorm.DB) error {
+			// 1. 锁定产品记录，串行化同一产品的激活操作。
+			var product struct {
+				ID uint
+			}
+
+			err := tx.
+				Table("product_models AS p").
+				Select("p.id").
+				Joins("JOIN resources AS res ON res.id = p.resource_id").
+				Where(
+					"p.id = ? AND res.tenant_id = ? AND res.deleted_at IS NULL",
+					productID,
+					tenantID,
+				).
+				Clauses(clause.Locking{Strength: "UPDATE"}).
+				Take(&product).Error
+			if err != nil {
+				return err
+			}
+
+			// 2. 验证目标路线属于当前租户及指定产品。
+			var target model.Routing
+
+			err = tx.
+				Model(&model.Routing{}).
+				Joins("JOIN resources AS res ON res.id = routings.resource_id").
+				Where(
+					"res.tenant_id = ? AND routings.product_id = ? AND routings.id = ?",
+					tenantID,
+					productID,
+					routingID,
+				).
+				Take(&target).Error
+			if err != nil {
+				return err
+			}
+
+			if target.Status == model.RoutingStatusArchived {
+				return errors.New("cannot activate an archived routing")
+			}
+
+			if target.Status == model.RoutingStatusActive {
+				return nil
+			}
+
+			// 3. 查询同一产品的其他活动路线。
+			var activeRoutings []model.Routing
+
+			err = tx.
+				Model(&model.Routing{}).
+				Joins("JOIN resources AS res ON res.id = routings.resource_id").
+				Where(
+					"res.tenant_id = ? AND routings.product_id = ? AND routings.status = ? AND routings.id <> ?",
+					tenantID,
+					productID,
+					model.RoutingStatusActive,
+					routingID,
+				).
+				Find(&activeRoutings).Error
+			if err != nil {
+				return err
+			}
+
+			// 4. 任何旧路线仍被未完成工单使用，都拒绝切换。
+			for _, oldRouting := range activeRoutings {
+				var count int64
+
+				err = tx.
+					Model(&model.WorkOrder{}).
+					Where(
+						"tenant_id = ? AND routing_id = ?",
+						tenantID,
+						oldRouting.ID,
+					).
+					Where(
+						"status IN ?",
+						[]model.WorkOrderStatus{
+							model.WorkOrderStatusDraft,
+							model.WorkOrderStatusReleased,
+							model.WorkOrderStatusInProgress,
+						},
+					).
+					Count(&count).Error
+				if err != nil {
+					return err
+				}
+
+				if count > 0 {
+					blocked = true
+					return nil
+				}
+			}
+
+			// 5. 停用旧路线。
+			for _, oldRouting := range activeRoutings {
+				result := tx.
+					Model(&model.Routing{}).
+					Where(
+						"id = ? AND status = ?",
+						oldRouting.ID,
+						model.RoutingStatusActive,
+					).
+					Update("status", model.RoutingStatusInactive)
+
+				if result.Error != nil {
+					return result.Error
+				}
+			}
+
+			// 6. 激活目标路线。
+			result := tx.
+				Model(&model.Routing{}).
+				Where(
+					"id = ? AND status <> ?",
+					routingID,
+					model.RoutingStatusArchived,
+				).
+				Update("status", model.RoutingStatusActive)
+
+			if result.Error != nil {
+				return result.Error
+			}
+
+			if result.RowsAffected != 1 {
+				return gorm.ErrRecordNotFound
+			}
+
+			return nil
+		},
+	)
+
+	if err != nil {
+		return false, err
+	}
+
+	return blocked, nil
 }
