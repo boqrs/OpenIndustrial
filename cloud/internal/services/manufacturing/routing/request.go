@@ -1,38 +1,34 @@
 package routing
 
-import (
-//"github.com/google/uuid"
-
-)
-
 type CreateRoutingRequest struct {
-	ProductID   uint   `json:"productId"`
-	Name        string `json:"name"`
+	ProductID   uint   `json:"productId" binding:"required,gt=0"`
+	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
-	IsDefault   bool   `json:"isDefault"`
 }
 
 type UpdateRoutingRequest struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
-	IsDefault   *bool   `json:"isDefault,omitempty"`
 }
 
 type CreateOperationRequest struct {
-	Code           string `json:"code"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	WorkCenterID   uint   `json:"workCenterId"` // Assuming WorkCenter is also a resource with uint ID
-	Sequence       int    `json:"sequence"`
-	SetupTime      int    `json:"setupTime"`
-	ProcessingTime int    `json:"processingTime"`
+	Code                    string         `json:"code" binding:"required"`
+	Name                    string         `json:"name" binding:"required"`
+	Description             string         `json:"description"`
+	WorkstationID           *uint          `json:"workstationId"`
+	Sequence                int            `json:"sequence" binding:"required,gt=0"`
+	StandardDurationSeconds int64          `json:"standardDurationSeconds"`
+	Required                *bool          `json:"required"`
+	Parameters              map[string]any `json:"parameters"`
 }
 
 type UpdateOperationRequest struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
-	//WorkCenterID   *uint   `json:"workCenterId,omitempty"`
-	Sequence *int `json:"sequence,omitempty"`
-	//SetupTime      *int    `json:"setupTime,omitempty"`
-	//ProcessingTime *int    `json:"processingTime,omitempty"`
+	Code                    *string        `json:"code,omitempty"`
+	Name                    *string        `json:"name,omitempty"`
+	Description             *string        `json:"description,omitempty"`
+	WorkstationID           *uint          `json:"workstationId,omitempty"`
+	Sequence                *int           `json:"sequence,omitempty"`
+	StandardDurationSeconds *int64         `json:"standardDurationSeconds,omitempty"`
+	Required                *bool          `json:"required,omitempty"`
+	Parameters              map[string]any `json:"parameters,omitempty"`
 }

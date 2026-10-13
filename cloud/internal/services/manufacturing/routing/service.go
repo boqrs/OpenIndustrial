@@ -53,11 +53,11 @@ func (s *serviceImpl) CreateRouting(ctx context.Context, req *CreateRoutingReque
 		return nil, ErrRoutingExists
 	}
 
-	if req.IsDefault {
-		if err := s.repository.DeactivateOtherRoutings(ctx, tenantID, req.ProductID, 0); err != nil {
-			return nil, fmt.Errorf("failed to handle default routing logic: %w", err)
-		}
-	}
+	// if req.IsDefault {
+	// 	if err := s.repository.DeactivateOtherRoutings(ctx, tenantID, req.ProductID, 0); err != nil {
+	// 		return nil, fmt.Errorf("failed to handle default routing logic: %w", err)
+	// 	}
+	// }
 
 	entity := &model.Routing{
 		ProductID:   req.ProductID,
@@ -122,14 +122,14 @@ func (s *serviceImpl) UpdateRouting(ctx context.Context, id uint, req *UpdateRou
 	if req.Description != nil {
 		entity.Description = *req.Description
 	}
-	if req.IsDefault != nil {
-		if *req.IsDefault {
-			if err := s.repository.DeactivateOtherRoutings(ctx, tenantID, entity.ProductID, entity.ID); err != nil {
-				return nil, fmt.Errorf("failed to handle default routing logic: %w", err)
-			}
-		}
-		//entity.IsDefault = *req.IsDefault
-	}
+	// if req.IsDefault != nil {
+	// 	if *req.IsDefault {
+	// 		if err := s.repository.DeactivateOtherRoutings(ctx, tenantID, entity.ProductID, entity.ID); err != nil {
+	// 			return nil, fmt.Errorf("failed to handle default routing logic: %w", err)
+	// 		}
+	// 	}
+	// 	//entity.IsDefault = *req.IsDefault
+	// }
 
 	if err := s.repository.UpdateRouting(ctx, entity); err != nil {
 		return nil, fmt.Errorf("failed to update routing: %w", err)
