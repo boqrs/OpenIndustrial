@@ -517,21 +517,42 @@ func (s *serviceImpl) Update(
 
 	return ToResponse(result), nil
 }
-func (s *serviceImpl) Start(ctx context.Context, tenantID uint, id uint) error {
-	entity, err := s.repository.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return fmt.Errorf("failed to get work order for start: %w", err)
+func (s *serviceImpl) Start(
+	ctx context.Context,
+	tenantID uint,
+	id uint,
+) error {
+	if tenantID == 0 || id == 0 {
+		return ErrInvalidWorkOrder
 	}
-	if entity.Status != model.WorkOrderStatusReleased {
-		return ErrInvalidWorkOrderState
-	}
-	now := time.Now()
-	entity.Status = model.WorkOrderStatusInProgress
-	entity.StartedAt = &now
-	if err := s.repository.Update(ctx, entity); err != nil {
-		return fmt.Errorf("failed to start work order: %w", err)
-	}
-	return nil
+
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		entity, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
+		)
+		if err != nil {
+			return fmt.Errorf("get work order for start: %w", err)
+		}
+		if entity == nil {
+			return ErrWorkOrderNotFound
+		}
+
+		if entity.Status != model.WorkOrderStatusReleased {
+			return ErrInvalidWorkOrderState
+		}
+
+		now := time.Now()
+		entity.Status = model.WorkOrderStatusInProgress
+		entity.StartedAt = &now
+
+		if err := s.repository.UpdateTx(txCtx, entity); err != nil {
+			return fmt.Errorf("start work order: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func (s *serviceImpl) Complete(
@@ -539,49 +560,80 @@ func (s *serviceImpl) Complete(
 	tenantID uint,
 	id uint,
 ) error {
-	entity, err := s.repository.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return err
+	if tenantID == 0 || id == 0 {
+		return ErrInvalidWorkOrder
 	}
 
-	if entity == nil {
-		return ErrWorkOrderNotFound
-	}
-
-	if entity.Status != model.WorkOrderStatusInProgress {
-		return ErrInvalidWorkOrderState
-	}
-
-	if entity.CompletedQuantity < entity.PlannedQuantity {
-		return fmt.Errorf(
-			"cannot complete work order: completed quantity %d is less than planned quantity %d",
-			entity.CompletedQuantity,
-			entity.PlannedQuantity,
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		entity, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
 		)
-	}
+		if err != nil {
+			return fmt.Errorf("get work order for completion: %w", err)
+		}
+		if entity == nil {
+			return ErrWorkOrderNotFound
+		}
 
-	now := time.Now()
+		if entity.Status != model.WorkOrderStatusInProgress {
+			return ErrInvalidWorkOrderState
+		}
 
-	entity.Status = model.WorkOrderStatusCompleted
-	entity.CompletedAt = &now
+		if entity.CompletedQuantity < entity.PlannedQuantity {
+			return fmt.Errorf(
+				"cannot complete work order: completed quantity %d is less than planned quantity %d",
+				entity.CompletedQuantity,
+				entity.PlannedQuantity,
+			)
+		}
 
-	return s.repository.Update(ctx, entity)
+		now := time.Now()
+		entity.Status = model.WorkOrderStatusCompleted
+		entity.CompletedAt = &now
+
+		if err := s.repository.UpdateTx(txCtx, entity); err != nil {
+			return fmt.Errorf("complete work order: %w", err)
+		}
+
+		return nil
+	})
 }
 
-func (s *serviceImpl) Cancel(ctx context.Context, tenantID uint, id uint) error {
-	entity, err := s.repository.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return fmt.Errorf("failed to get work order for cancellation: %w", err)
+func (s *serviceImpl) Cancel(
+	ctx context.Context,
+	tenantID uint,
+	id uint,
+) error {
+	if tenantID == 0 || id == 0 {
+		return ErrInvalidWorkOrder
 	}
 
-	// You can cancel a draft or a released work order
-	if entity.Status != model.WorkOrderStatusDraft && entity.Status != model.WorkOrderStatusReleased {
-		return ErrInvalidWorkOrderState
-	}
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		entity, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
+		)
+		if err != nil {
+			return fmt.Errorf("get work order for cancellation: %w", err)
+		}
+		if entity == nil {
+			return ErrWorkOrderNotFound
+		}
 
-	entity.Status = model.WorkOrderStatusCancelled
-	if err := s.repository.Update(ctx, entity); err != nil {
-		return fmt.Errorf("failed to cancel work order: %w", err)
-	}
-	return nil
+		if entity.Status != model.WorkOrderStatusDraft &&
+			entity.Status != model.WorkOrderStatusReleased {
+			return ErrInvalidWorkOrderState
+		}
+
+		entity.Status = model.WorkOrderStatusCancelled
+
+		if err := s.repository.UpdateTx(txCtx, entity); err != nil {
+			return fmt.Errorf("cancel work order: %w", err)
+		}
+
+		return nil
+	})
 }

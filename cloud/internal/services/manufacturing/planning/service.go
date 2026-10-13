@@ -430,29 +430,29 @@ func toResponse(
 }
 
 func (s *serviceImpl) GetProductionPlanForUpdateTx(
-    ctx context.Context,
-    tenantID uint,
-    id uint,
+	ctx context.Context,
+	tenantID uint,
+	id uint,
 ) (*ProductionPlanResponse, error) {
-    if tenantID == 0 || id == 0 {
-        return nil, ErrInvalidProductionPlan
-    }
+	if tenantID == 0 || id == 0 {
+		return nil, ErrInvalidProductionPlan
+	}
 
-    entity, err := s.repository.GetByIDForUpdateTx(
-        ctx,
-        tenantID,
-        id,
-    )
-    if err != nil {
-        if errors.Is(err, gorm.ErrRecordNotFound) {
-            return nil, ErrProductionPlanNotFound
-        }
+	entity, err := s.repository.GetByIDForUpdateTx(
+		ctx,
+		tenantID,
+		id,
+	)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProductionPlanNotFound
+		}
 
-        return nil, fmt.Errorf(
-            "get production plan for update: %w",
-            err,
-        )
-    }
+		return nil, fmt.Errorf(
+			"get production plan for update: %w",
+			err,
+		)
+	}
 
-    return toResponse(entity), nil
+	return toResponse(entity), nil
 }
