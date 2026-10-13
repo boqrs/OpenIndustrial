@@ -19,6 +19,7 @@ const (
 
 	// Product-related resource types
 	ResourceTypeProductModel ResourceType = "PRODUCT_MODEL"
+	ResourceTypeRouting      ResourceType = "ROUTING"
 	//ResourceTypeProductInstance ResourceType = "PRODUCT_INSTANCE"
 )
 
@@ -27,7 +28,7 @@ const (
 
 // CreateResource defines the parameters for creating a new resource.
 type CreateResource struct {
-	Type string  `json:"type" binding:"required,resourcetype"`
+	Type string  `json:"type" binding:"required"`
 	Name string  `json:"name" binding:"required,min=2,max=100"`
 	Code *string `json:"code,omitempty"`
 	// Status must be one of the predefined resource statuses.
