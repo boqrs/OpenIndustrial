@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
@@ -88,20 +90,29 @@ func (s *serviceImpl) CreateProductionPlan(
 	// Plan number uniqueness
 	// ---------------------------------------------------------------------
 
+	// Plan number uniqueness.
 	_, err := s.repository.GetByPlanNo(
 		ctx,
 		tenantID,
 		planNo,
 	)
 
-	if err == nil {
+	switch {
+	case err == nil:
+		// A record with the same plan number already exists.
 		return nil, ErrProductionPlanNoExists
-	}
 
-	if !errors.Is(err, ErrProductionPlanNotFound) {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// No existing record: the plan number is available.
+
+	case errors.Is(err, ErrProductionPlanNotFound):
+		// Preserve compatibility if the repository later returns
+		// the service-level not-found error.
+
+	default:
+		// A genuine database or repository error occurred.
 		return nil, err
 	}
-
 	// ---------------------------------------------------------------------
 	// Validate Product
 	// ---------------------------------------------------------------------
@@ -177,6 +188,10 @@ func (s *serviceImpl) GetProductionPlanByID(
 		id,
 	)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProductionPlanNotFound
+		}
+
 		return nil, err
 	}
 

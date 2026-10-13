@@ -1,3 +1,4 @@
+```vue
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -19,15 +20,18 @@ import {
   releaseBOM,
   obsoleteBOM,
 } from "../api";
-import type { BOM, BOMItemInput, Material } from "../types";
+import type { BOM, BOMItemInput } from "../types";
+import type { Material } from "../../material/types";
 
 const route = useRoute();
 const router = useRouter();
 
 const bomId = computed(() => Number(route.params.id));
+
 const loading = ref(false);
 const saving = ref(false);
 const publishing = ref(false);
+
 const bom = ref<BOM | null>(null);
 const product = ref<ProductModel | null>(null);
 const materials = ref<Material[]>([]);
@@ -57,6 +61,7 @@ const statusText = computed(() => {
     released: "已发布",
     obsolete: "已作废",
   };
+
   return labels[bom.value?.status ?? ""] ?? bom.value?.status ?? "未知";
 });
 
@@ -68,8 +73,12 @@ const statusType = computed(() => {
 
 function formatDate(value?: string): string {
   if (!value) return "—";
+
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
 
   return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
@@ -80,9 +89,16 @@ function formatDate(value?: string): string {
   }).format(date);
 }
 
+/**
+ * 根据物料 ID 获取物料显示名称。
+ *
+ * 注意：物料接口的字段使用 Go 结构体序列化后的大写名称，
+ * 因此这里使用 ID、Code、Name，而不是 id、code、name。
+ */
 function materialLabel(id?: number): string {
-  const item = materials.value.find((material) => material.id === id);
-  return item ? `${item.code} — ${item.name}` : "";
+  const item = materials.value.find((material) => material.ID === id);
+
+  return item ? `${item.Code} — ${item.Name}` : "";
 }
 
 function addItem() {
@@ -99,16 +115,26 @@ function addItem() {
 
 function removeItem(index: number) {
   rows.value.splice(index, 1);
+
   rows.value.forEach((item, position) => {
     item.sequence = position + 1;
   });
 }
 
+/**
+ * 选择物料后，自动填充物料的默认单位。
+ */
 function onMaterialChange(row: ItemRow) {
-  const material = materials.value.find((item) => item.id === row.material_id);
-  if (material) row.unit = material.unit;
+  const material = materials.value.find((item) => item.ID === row.material_id);
+
+  if (material) {
+    row.unit = material.Unit;
+  }
 }
 
+/**
+ * 加载 BOM 详情、物料列表和关联产品型号。
+ */
 async function loadDetail() {
   if (!Number.isInteger(bomId.value) || bomId.value <= 0) {
     loadError.value = "BOM ID 无效";
@@ -151,6 +177,9 @@ async function loadDetail() {
   }
 }
 
+/**
+ * 校验并构造 BOM 明细提交数据。
+ */
 function buildItems(): BOMItemInput[] | string {
   const result: BOMItemInput[] = [];
   const seen = new Set<number>();
@@ -165,6 +194,7 @@ function buildItems(): BOMItemInput[] | string {
     if (seen.has(row.material_id)) {
       return `物料「${materialLabel(row.material_id)}」重复，请合并为一行`;
     }
+
     seen.add(row.material_id);
 
     if (!Number.isFinite(row.quantity) || row.quantity <= 0) {
@@ -189,22 +219,31 @@ function buildItems(): BOMItemInput[] | string {
   return result;
 }
 
+/**
+ * 保存 BOM 草稿。
+ */
 async function saveDraft() {
-  if (!bom.value || !editable.value || saving.value) return;
+  if (!bom.value || !editable.value || saving.value) {
+    return;
+  }
 
   const items = buildItems();
+
   if (typeof items === "string") {
     ElMessage.warning(items);
     return;
   }
 
   saving.value = true;
+
   try {
     await updateBOM(bom.value.id, {
       description: form.description.trim(),
       items,
     });
+
     ElMessage.success("BOM 草稿已保存");
+
     await loadDetail();
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : "保存失败");
@@ -213,8 +252,15 @@ async function saveDraft() {
   }
 }
 
+/**
+ * 发布 BOM。
+ *
+ * 发布前先保存当前页面的最新明细，避免发布旧数据。
+ */
 async function publishBOM() {
-  if (!bom.value || !editable.value) return;
+  if (!bom.value || !editable.value || publishing.value) {
+    return;
+  }
 
   if (rows.value.length === 0) {
     ElMessage.warning("请至少添加一条物料明细后再发布");
@@ -235,21 +281,25 @@ async function publishBOM() {
     return;
   }
 
-  // 发布前先保存明细，避免发布旧数据。
   const items = buildItems();
+
   if (typeof items === "string") {
     ElMessage.warning(items);
     return;
   }
 
   publishing.value = true;
+
   try {
     await updateBOM(bom.value.id, {
       description: form.description.trim(),
       items,
     });
+
     await releaseBOM(bom.value.id);
+
     ElMessage.success("BOM 已发布");
+
     await loadDetail();
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : "发布失败");
@@ -258,8 +308,13 @@ async function publishBOM() {
   }
 }
 
+/**
+ * 作废已发布的 BOM。
+ */
 async function makeObsolete() {
-  if (!bom.value || bom.value.status !== "released") return;
+  if (!bom.value || bom.value.status !== "released") {
+    return;
+  }
 
   try {
     await ElMessageBox.confirm("作废后该 BOM 不可恢复，请确认。", "作废 BOM", {
@@ -269,11 +324,18 @@ async function makeObsolete() {
     });
 
     await obsoleteBOM(bom.value.id);
+
     ElMessage.success("BOM 已作废");
+
     await loadDetail();
   } catch (error: unknown) {
-    if (error === "cancel" || error === "close") return;
-    if (error instanceof Error) ElMessage.error(error.message);
+    if (error === "cancel" || error === "close") {
+      return;
+    }
+
+    if (error instanceof Error) {
+      ElMessage.error(error.message);
+    }
   }
 }
 
@@ -289,8 +351,11 @@ onMounted(() => {
         <el-button text :icon="ArrowLeft" @click="router.push('/mes/boms')">
           返回 BOM 列表
         </el-button>
+
         <div class="eyebrow">MES / BOM DETAIL</div>
+
         <h1>{{ bom?.bom_no || "BOM 详情" }}</h1>
+
         <p class="description">查看物料组成与工艺信息，并维护 BOM 版本。</p>
       </div>
 
@@ -298,6 +363,7 @@ onMounted(() => {
         <el-button :icon="Refresh" :loading="loading" @click="loadDetail">
           刷新
         </el-button>
+
         <el-button
           v-if="editable"
           :icon="Check"
@@ -307,6 +373,7 @@ onMounted(() => {
         >
           保存草稿
         </el-button>
+
         <el-button
           v-if="editable"
           type="success"
@@ -315,6 +382,7 @@ onMounted(() => {
         >
           发布 BOM
         </el-button>
+
         <el-button
           v-if="bom?.status === 'released'"
           type="danger"
@@ -337,19 +405,26 @@ onMounted(() => {
       <section class="overview-grid">
         <article class="overview-card">
           <span>状态</span>
-          <el-tag :type="statusType" effect="light">{{ statusText }}</el-tag>
+          <el-tag :type="statusType" effect="light">
+            {{ statusText }}
+          </el-tag>
         </article>
+
         <article class="overview-card">
           <span>BOM 版本</span>
           <strong>V{{ bom.version }}</strong>
         </article>
+
         <article class="overview-card">
           <span>物料明细</span>
           <strong>{{ rows.length }} <small>行</small></strong>
         </article>
+
         <article class="overview-card">
           <span>最后更新</span>
-          <strong class="date-value">{{ formatDate(bom.updated_at) }}</strong>
+          <strong class="date-value">
+            {{ formatDate(bom.updated_at) }}
+          </strong>
         </article>
       </section>
 
@@ -364,13 +439,17 @@ onMounted(() => {
         <div class="basic-grid">
           <div class="info-field">
             <label>产品型号</label>
-            <strong>{{ product?.name || `产品 ID ${bom.product_id}` }}</strong>
+            <strong>
+              {{ product?.name || `产品 ID ${bom.product_id}` }}
+            </strong>
             <small>{{ product?.code || "—" }}</small>
           </div>
+
           <div class="info-field">
             <label>BOM 编号</label>
             <strong>{{ bom.bom_no }}</strong>
           </div>
+
           <div class="info-field">
             <label>创建时间</label>
             <strong>{{ formatDate(bom.created_at) }}</strong>
@@ -398,6 +477,7 @@ onMounted(() => {
             <h2>物料明细</h2>
             <p>每种物料单独占一行，数量必须大于 0。</p>
           </div>
+
           <el-button
             v-if="editable"
             type="primary"
@@ -429,9 +509,9 @@ onMounted(() => {
               >
                 <el-option
                   v-for="material in materials"
-                  :key="material.id"
-                  :label="`${material.code} — ${material.name}`"
-                  :value="material.id"
+                  :key="material.ID"
+                  :label="`${material.Code} — ${material.Name}`"
+                  :value="material.ID"
                 />
               </el-select>
             </template>
@@ -510,8 +590,9 @@ onMounted(() => {
         </div>
 
         <div v-if="editable" class="bottom-actions">
-          <el-button :icon="Plus" @click="addItem">添加一行</el-button>
-          <span>草稿可随时修改；发布前必须至少包含一条有效物料明细。</span>
+          <el-button :icon="Plus" @click="addItem"> 添加一行 </el-button>
+
+          <span> 草稿可随时修改；发布前必须至少包含一条有效物料明细。 </span>
         </div>
       </section>
     </template>
@@ -734,3 +815,4 @@ h1 {
   }
 }
 </style>
+```

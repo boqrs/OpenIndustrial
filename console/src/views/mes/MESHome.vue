@@ -100,8 +100,8 @@ const resourceModules = computed<ResourceModule[]>(() => [
   },
   {
     id: "factory",
-    title: "工厂管理",
-    description: "维护工厂、生产线及工作站等生产组织结构。",
+    title: "产线管理",
+    description: "维护生产线及工作站等生产组织结构。",
     icon: OfficeBuilding,
     status: "生产组织",
     color: "slate",

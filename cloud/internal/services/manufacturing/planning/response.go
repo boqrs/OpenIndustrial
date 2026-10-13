@@ -7,10 +7,8 @@ import (
 )
 
 // ProductionPlanResponse defines the response body for a production plan.
-// ProductionPlanResponse defines the response body for a production plan.
 type ProductionPlanResponse struct {
 	ID              uint                       `json:"id"`
-	ResourceID      uint                       `json:"resourceUuid"`
 	TenantID        uint                       `json:"tenantId"`
 	PlanNo          string                     `json:"planNo"`
 	ProductID       uint                       `json:"productId"`
