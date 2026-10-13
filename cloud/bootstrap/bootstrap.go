@@ -489,6 +489,7 @@ func InitInfra(router ginx.ZeroGinRouter) (InfraCloseFunc, error) {
 	// =========================================================================
 
 	executionResultService := executionresult.NewService(
+		uow,
 		executionResultRepo,
 		executionService,
 	)

@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/model"
+	"github.com/boqrs/OpenIndustrial/cloud/internal/persistence/postgres"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/pkg"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution"
 )
@@ -20,12 +21,18 @@ var (
 )
 
 type service struct {
+	uow        postgres.UnitOfWork
 	repository Repository
 	executions execution.Service
 }
 
-func NewService(repository Repository, executions execution.Service) Service {
+func NewService(
+	uow postgres.UnitOfWork,
+	repository Repository,
+	executions execution.Service,
+) Service {
 	return &service{
+		uow:        uow,
 		repository: repository,
 		executions: executions,
 	}
@@ -38,11 +45,9 @@ func (s *service) CreateResult(
 	if req == nil {
 		return nil, errors.New("create execution result request is required")
 	}
-
 	if req.ExecutionID == 0 {
 		return nil, errors.New("execution id is required")
 	}
-
 	if err := validateQuantities(
 		req.ProducedQuantity,
 		req.QualifiedQuantity,
@@ -55,40 +60,23 @@ func (s *service) CreateResult(
 	if !has {
 		return nil, errors.New("tenant id not found")
 	}
-	// Execution is the source of WorkOrderID.
+
+	// Execution 是 WorkOrderID 的权威来源。
 	exec, err := s.executions.GetExecution(ctx, req.ExecutionID)
 	if err != nil {
 		return nil, fmt.Errorf("get execution: %w", err)
 	}
-
 	if exec == nil {
 		return nil, errors.New("execution not found")
 	}
-
-	// A production result can only be created after the execution
-	// has finished all routing operations.
+	if exec.TenantID != tenantID {
+		return nil, errors.New("execution not found")
+	}
 	if exec.Status != model.ProductionExecutionStatusCompleted {
 		return nil, fmt.Errorf(
 			"%w: execution status=%s",
 			ErrInvalidResultState,
 			exec.Status,
-		)
-	}
-
-	existing, err := s.repository.GetByExecutionID(
-		ctx,
-		tenantID,
-		req.ExecutionID,
-	)
-
-	if err == nil && existing != nil {
-		return nil, ErrResultAlreadyExists
-	}
-
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf(
-			"check existing execution result: %w",
-			err,
 		)
 	}
 
@@ -102,11 +90,30 @@ func (s *service) CreateResult(
 		Status:            model.ExecutionResultStatusDraft,
 	}
 
-	if err := s.repository.Create(ctx, entity); err != nil {
-		return nil, fmt.Errorf(
-			"create execution result: %w",
-			err,
+	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
+		// 事务内再次检查，避免普通的事务外预检查。
+		existing, err := s.repository.GetByExecutionID(
+			txCtx,
+			tenantID,
+			req.ExecutionID,
 		)
+		if err == nil && existing != nil {
+			return ErrResultAlreadyExists
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf(
+				"check existing execution result: %w",
+				err,
+			)
+		}
+
+		if err := s.repository.CreateTx(txCtx, entity); err != nil {
+			return fmt.Errorf("create execution result: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return toResponse(entity), nil
@@ -161,39 +168,48 @@ func (s *service) CancelResult(
 	ctx context.Context,
 	id uint,
 ) error {
+	if id == 0 {
+		return ErrResultNotFound
+	}
+
 	tenantID, has := pkg.TenantIDFromContext(ctx)
 	if !has {
 		return errors.New("tenant id not found")
 	}
 
-	entity, err := s.repository.GetByID(ctx, tenantID, id)
-	if err != nil {
-		return fmt.Errorf("get execution result: %w", err)
-	}
-
-	if entity == nil {
-		return ErrResultNotFound
-	}
-
-	if entity.Status == model.ExecutionResultStatusCancelled {
-		return nil
-	}
-
-	if entity.Status != model.ExecutionResultStatusDraft {
-		return fmt.Errorf(
-			"%w: status=%s",
-			ErrInvalidResultState,
-			entity.Status,
+	return s.uow.Execute(ctx, func(txCtx context.Context) error {
+		entity, err := s.repository.GetByIDForUpdateTx(
+			txCtx,
+			tenantID,
+			id,
 		)
-	}
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrResultNotFound
+			}
+			return fmt.Errorf("get execution result for cancellation: %w", err)
+		}
 
-	entity.Status = model.ExecutionResultStatusCancelled
+		if entity.Status == model.ExecutionResultStatusCancelled {
+			return nil
+		}
 
-	if err := s.repository.Update(ctx, entity); err != nil {
-		return fmt.Errorf("cancel execution result: %w", err)
-	}
+		if entity.Status != model.ExecutionResultStatusDraft {
+			return fmt.Errorf(
+				"%w: status=%s",
+				ErrInvalidResultState,
+				entity.Status,
+			)
+		}
 
-	return nil
+		entity.Status = model.ExecutionResultStatusCancelled
+
+		if err := s.repository.UpdateTx(txCtx, entity); err != nil {
+			return fmt.Errorf("cancel execution result: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func validateQuantities(
