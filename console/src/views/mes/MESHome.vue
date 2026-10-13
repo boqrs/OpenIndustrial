@@ -93,15 +93,6 @@ const resourceModules = computed<ResourceModule[]>(() => [
     color: "slate",
   },
   {
-    id: "production-topology",
-    title: "产线与工作站",
-    description: "维护工厂、生产线与工作站之间的层级关系。",
-    icon: Operation,
-    status: "生产组织结构",
-    permission: canAccessMaterials.value,
-    color: "purple",
-  },
-  {
     id: "planning",
     title: "生产计划",
     description: "规划生产任务，协调产品需求与生产资源。",

@@ -60,15 +60,55 @@ const emptyForm = (): NodeForm => ({
 const form = ref<NodeForm>(emptyForm());
 
 const rules = {
-  name: [{ required: true, message: "请输入节点名称", trigger: "blur" }],
+  name: [
+    {
+      required: true,
+      message: "请输入节点名称",
+      trigger: "blur",
+    },
+  ],
 };
+
+/**
+ * 统一前后端节点类型。
+ *
+ * 后端 Resource 内部类型通常为：
+ *   PRODUCTION_LINE
+ *   WORK_STATION
+ *
+ * 前端使用：
+ *   production_line
+ *   work_station
+ *
+ * 所有拓扑展示和操作统一使用归一化后的类型，
+ * 避免统计错误、树节点错误以及按钮不显示。
+ */
+function normalizeNodeType(type: string): string {
+  switch (type.trim().toUpperCase()) {
+    case "PRODUCTION_LINE":
+      return "production_line";
+    case "WORK_STATION":
+      return "work_station";
+    default:
+      return type;
+  }
+}
 
 const selectedFactory = computed(
   () =>
     factories.value.find((item) => item.id === selectedFactoryId.value) ?? null,
 );
 
-const flatNodes = computed(() => topology.value?.nodes ?? []);
+/**
+ * 统一处理后端返回的节点类型。
+ * 后续统计、树结构、按钮判断均使用该数据。
+ */
+const flatNodes = computed<TopologyNode[]>(() =>
+  (topology.value?.nodes ?? []).map((node) => ({
+    ...node,
+    type: normalizeNodeType(node.type),
+  })),
+);
 
 const productionLines = computed(() =>
   flatNodes.value.filter((node) => node.type === "production_line"),
@@ -78,7 +118,12 @@ const workStations = computed(() =>
   flatNodes.value.filter((node) => node.type === "work_station"),
 );
 
-/** 根据后端返回的扁平节点构建树形结构。 */
+/**
+ * 根据后端返回的扁平节点构建树形结构。
+ *
+ * parent_resource_id 指向父节点的 resource_id。
+ * 没有找到父节点的节点作为根节点展示。
+ */
 const treeNodes = computed<TopologyNode[]>(() => {
   const nodes = flatNodes.value.map((node) => ({
     ...node,
@@ -86,7 +131,10 @@ const treeNodes = computed<TopologyNode[]>(() => {
   }));
 
   const byId = new Map<number, TopologyNode>();
-  nodes.forEach((node) => byId.set(node.resource_id, node));
+
+  nodes.forEach((node) => {
+    byId.set(node.resource_id, node);
+  });
 
   const roots: TopologyNode[] = [];
 
@@ -105,6 +153,9 @@ const treeNodes = computed<TopologyNode[]>(() => {
   return roots;
 });
 
+/**
+ * 创建工作站时的生产线选项。
+ */
 const parentLineOptions = computed(() =>
   productionLines.value.map((node) => ({
     label: node.name,
@@ -112,6 +163,13 @@ const parentLineOptions = computed(() =>
   })),
 );
 
+/**
+ * 加载当前租户的工厂列表。
+ *
+ * 优先选择 URL 中指定的工厂，
+ * 其次保留当前选中的工厂，
+ * 最后默认选择列表中的第一家工厂。
+ */
 async function loadFactories() {
   loadingFactories.value = true;
 
@@ -119,6 +177,7 @@ async function loadFactories() {
     factories.value = await listFactories();
 
     const queryId = Number(route.query.factory_id);
+
     const requestedFactory = factories.value.find(
       (factory) => factory.id === queryId,
     );
@@ -144,6 +203,9 @@ async function loadFactories() {
   }
 }
 
+/**
+ * 加载当前工厂的生产拓扑。
+ */
 async function loadTopology() {
   if (!selectedFactoryId.value) {
     topology.value = null;
@@ -156,6 +218,7 @@ async function loadTopology() {
     topology.value = await getFactoryTopology(selectedFactoryId.value);
   } catch (error) {
     topology.value = null;
+
     ElMessage.error(
       error instanceof Error ? error.message : "获取生产拓扑失败",
     );
@@ -164,52 +227,86 @@ async function loadTopology() {
   }
 }
 
+/**
+ * 切换工厂。
+ */
 function onFactoryChange(value: number | undefined) {
   selectedFactoryId.value = value;
 
   if (value) {
     router.replace({
       name: "ProductionTopology",
-      query: { factory_id: String(value) },
+      query: {
+        factory_id: String(value),
+      },
     });
   }
 
   void loadTopology();
 }
 
+/**
+ * 打开新建生产线对话框。
+ *
+ * 生产线直接归属于当前工厂，
+ * 不需要在请求中传入 parent_resource_id。
+ */
 function openCreateLine() {
   editingNode.value = null;
+
   form.value = {
     ...emptyForm(),
     type: "production_line",
   };
+
   dialogVisible.value = true;
 }
 
+/**
+ * 打开新建工作站对话框。
+ *
+ * 工作站必须归属于一条生产线。
+ */
 function openCreateWorkStation(parent: TopologyNode) {
-  if (parent.type !== "production_line") return;
+  if (normalizeNodeType(parent.type) !== "production_line") {
+    ElMessage.warning("只能在生产线下创建工作站");
+    return;
+  }
 
   editingNode.value = null;
+
   form.value = {
     type: "work_station",
     name: "",
     code: "",
     parent_resource_id: parent.resource_id,
   };
+
   dialogVisible.value = true;
 }
 
+/**
+ * 打开编辑节点对话框。
+ *
+ * 编辑时只允许修改节点名称；
+ * 节点类型和父节点关系不在此处修改。
+ */
 function openEditNode(node: TopologyNode) {
   editingNode.value = node;
+
   form.value = {
-    type: node.type as TopologyNodeType,
+    type: normalizeNodeType(node.type) as TopologyNodeType,
     name: node.name,
     code: "",
     parent_resource_id: node.parent_resource_id,
   };
+
   dialogVisible.value = true;
 }
 
+/**
+ * 创建或更新拓扑节点。
+ */
 async function submitNode() {
   if (!formRef.value) return;
 
@@ -228,6 +325,7 @@ async function submitNode() {
         await updateTopologyNode(editingNode.value.resource_id, {
           name: form.value.name.trim(),
         });
+
         ElMessage.success("节点已更新");
       } else {
         const payload: CreateTopologyNodeRequest = {
@@ -247,6 +345,7 @@ async function submitNode() {
         }
 
         await createTopologyNode(payload);
+
         ElMessage.success(
           form.value.type === "production_line"
             ? "生产线创建成功"
@@ -264,8 +363,15 @@ async function submitNode() {
   });
 }
 
+/**
+ * 删除生产线或工作站。
+ *
+ * 如果生产线还有工作站，后端应拒绝删除。
+ */
 async function removeNode(node: TopologyNode) {
-  const label = node.type === "production_line" ? "生产线" : "工作站";
+  const normalizedType = normalizeNodeType(node.type);
+
+  const label = normalizedType === "production_line" ? "生产线" : "工作站";
 
   try {
     await ElMessageBox.confirm(
@@ -279,31 +385,61 @@ async function removeNode(node: TopologyNode) {
     );
 
     await deleteTopologyNode(node.resource_id);
+
     ElMessage.success("节点已删除");
+
     await loadTopology();
   } catch (error) {
-    if (error === "cancel" || error === "close") return;
+    if (error === "cancel" || error === "close") {
+      return;
+    }
 
     ElMessage.error(error instanceof Error ? error.message : "删除节点失败");
   }
 }
 
+/**
+ * 节点类型显示名称。
+ */
 function nodeTypeLabel(type: string) {
-  if (type === "production_line") return "生产线";
-  if (type === "work_station") return "工作站";
+  const normalizedType = normalizeNodeType(type);
+
+  if (normalizedType === "production_line") {
+    return "生产线";
+  }
+
+  if (normalizedType === "work_station") {
+    return "工作站";
+  }
+
   return type;
 }
 
+/**
+ * 节点状态显示名称。
+ */
 function nodeStatusLabel(status: string) {
   if (status === "active") return "启用";
-  if (status === "inactive" || status === "disabled") return "停用";
+
+  if (status === "inactive" || status === "disabled") {
+    return "停用";
+  }
+
   return status || "未知";
 }
 
+/**
+ * 判断节点是否有子节点。
+ */
 function hasChildren(node: TopologyNode) {
   return Boolean(node.children?.length);
 }
 
+/**
+ * 监听 URL 中的工厂 ID。
+ *
+ * 支持从其他页面跳转到指定工厂的生产拓扑。
+ */
 watch(
   () => route.query.factory_id,
   (value) => {
@@ -327,7 +463,9 @@ onMounted(loadFactories);
   <div class="topology-page">
     <section class="page-hero">
       <div class="hero-icon">
-        <el-icon :size="26"><Connection /></el-icon>
+        <el-icon :size="26">
+          <Connection />
+        </el-icon>
       </div>
 
       <div class="hero-copy">
@@ -340,14 +478,25 @@ onMounted(loadFactories);
         <el-button :icon="ArrowLeft" @click="router.push('/mes/factories')">
           返回工厂列表
         </el-button>
-        <el-button :icon="Refresh" @click="loadTopology"> 刷新拓扑 </el-button>
+
+        <el-button
+          :icon="Refresh"
+          :loading="loadingTopology"
+          @click="loadTopology"
+        >
+          刷新拓扑
+        </el-button>
       </div>
     </section>
 
     <section class="selector-card">
       <div class="selector-copy">
         <span class="selector-label">当前工厂</span>
-        <strong>{{ selectedFactory?.name ?? "请选择工厂" }}</strong>
+
+        <strong>
+          {{ selectedFactory?.name ?? "请选择工厂" }}
+        </strong>
+
         <span class="selector-code">
           {{ selectedFactory?.code ?? "尚未选择" }}
         </span>
@@ -372,8 +521,11 @@ onMounted(loadFactories);
     <section class="stat-grid">
       <div class="stat-card">
         <span class="stat-icon stat-icon--factory">
-          <el-icon><OfficeBuilding /></el-icon>
+          <el-icon>
+            <OfficeBuilding />
+          </el-icon>
         </span>
+
         <div>
           <span class="stat-label">生产工厂</span>
           <strong>{{ selectedFactory ? 1 : 0 }}</strong>
@@ -382,8 +534,11 @@ onMounted(loadFactories);
 
       <div class="stat-card">
         <span class="stat-icon stat-icon--line">
-          <el-icon><Operation /></el-icon>
+          <el-icon>
+            <Operation />
+          </el-icon>
         </span>
+
         <div>
           <span class="stat-label">生产线</span>
           <strong>{{ productionLines.length }}</strong>
@@ -392,8 +547,11 @@ onMounted(loadFactories);
 
       <div class="stat-card">
         <span class="stat-icon stat-icon--station">
-          <el-icon><Monitor /></el-icon>
+          <el-icon>
+            <Monitor />
+          </el-icon>
         </span>
+
         <div>
           <span class="stat-label">工作站</span>
           <strong>{{ workStations.length }}</strong>
@@ -438,16 +596,19 @@ onMounted(loadFactories);
               <span
                 class="node-icon"
                 :class="
-                  row.type === 'production_line'
+                  normalizeNodeType(row.type) === 'production_line'
                     ? 'node-icon--line'
                     : 'node-icon--station'
                 "
               >
                 <el-icon>
-                  <Operation v-if="row.type === 'production_line'" />
+                  <Operation
+                    v-if="normalizeNodeType(row.type) === 'production_line'"
+                  />
                   <Monitor v-else />
                 </el-icon>
               </span>
+
               <span>{{ row.name }}</span>
             </div>
           </template>
@@ -456,7 +617,11 @@ onMounted(loadFactories);
         <el-table-column label="节点类型" width="130">
           <template #default="{ row }">
             <el-tag
-              :type="row.type === 'production_line' ? 'primary' : 'success'"
+              :type="
+                normalizeNodeType(row.type) === 'production_line'
+                  ? 'primary'
+                  : 'success'
+              "
               effect="light"
             >
               {{ nodeTypeLabel(row.type) }}
@@ -466,7 +631,9 @@ onMounted(loadFactories);
 
         <el-table-column label="资源 ID" min-width="120">
           <template #default="{ row }">
-            <span class="resource-id">{{ row.resource_id }}</span>
+            <span class="resource-id">
+              {{ row.resource_id }}
+            </span>
           </template>
         </el-table-column>
 
@@ -484,7 +651,7 @@ onMounted(loadFactories);
         <el-table-column label="操作" fixed="right" width="250">
           <template #default="{ row }">
             <el-button
-              v-if="row.type === 'production_line'"
+              v-if="normalizeNodeType(row.type) === 'production_line'"
               link
               type="primary"
               :icon="Plus"
@@ -492,9 +659,11 @@ onMounted(loadFactories);
             >
               添加工作站
             </el-button>
+
             <el-button link type="primary" @click="openEditNode(row)">
               编辑
             </el-button>
+
             <el-button
               link
               type="danger"
@@ -530,13 +699,21 @@ onMounted(loadFactories);
           <el-tag v-if="form.type === 'production_line'" type="primary">
             生产线
           </el-tag>
-          <el-tag v-else type="success">工作站</el-tag>
+
+          <el-tag v-else type="success"> 工作站 </el-tag>
         </el-form-item>
 
         <el-form-item
           v-if="form.type === 'work_station' && !editingNode"
           label="所属生产线"
           prop="parent_resource_id"
+          :rules="[
+            {
+              required: true,
+              message: '请选择所属生产线',
+              trigger: 'change',
+            },
+          ]"
         >
           <el-select
             v-model="form.parent_resource_id"
@@ -574,7 +751,8 @@ onMounted(loadFactories);
       </el-form>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
+
         <el-button type="primary" :loading="saving" @click="submitNode">
           保存
         </el-button>
