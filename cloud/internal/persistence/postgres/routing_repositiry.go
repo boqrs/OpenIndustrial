@@ -269,3 +269,33 @@ func (r *routingRepository) GetByID(
 	}
 	return &entity, nil
 }
+
+func (r *routingRepository) HasUnfinishedWorkOrders(
+	ctx context.Context,
+	tenantID, routingID uint,
+) (bool, error) {
+	var count int64
+	err := r.db.Get().
+		WithContext(ctx).
+		Model(&model.WorkOrder{}).
+		Where(
+			"tenant_id = ? AND routing_id = ?",
+			tenantID,
+			routingID,
+		).
+		Where(
+			"status IN ?",
+			[]model.WorkOrderStatus{
+				model.WorkOrderStatusDraft,
+				model.WorkOrderStatusReleased,
+				model.WorkOrderStatusInProgress,
+			},
+		).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+
+}

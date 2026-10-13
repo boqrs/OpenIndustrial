@@ -226,7 +226,10 @@ func (s *serviceImpl) ActivateRouting(ctx context.Context, id uint) error {
 	return s.repository.UpdateRouting(ctx, entity)
 }
 
-func (s *serviceImpl) DeactivateRouting(ctx context.Context, id uint) error {
+func (s *serviceImpl) DeactivateRouting(
+	ctx context.Context,
+	id uint,
+) error {
 	tenantID, ok := pkg.TenantIDFromContext(ctx)
 	if !ok {
 		return errors.New("tenant id not found")
@@ -236,13 +239,34 @@ func (s *serviceImpl) DeactivateRouting(ctx context.Context, id uint) error {
 	if err != nil {
 		return err
 	}
+
 	if entity.Status == model.RoutingStatusInactive {
 		return nil
 	}
 
-	// TODO: Before deactivation, check whether unfinished work orders use this routing.
+	if entity.Status == model.RoutingStatusArchived {
+		return ErrInvalidRoutingState
+	}
+
+	inUse, err := s.repository.HasUnfinishedWorkOrders(
+		ctx,
+		tenantID,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"check unfinished work orders: %w",
+			err,
+		)
+	}
+
+	if inUse {
+		return ErrRoutingInUse
+	}
+
 	entity.Status = model.RoutingStatusInactive
 	return s.repository.UpdateRouting(ctx, entity)
+
 }
 
 func (s *serviceImpl) AddOperation(
