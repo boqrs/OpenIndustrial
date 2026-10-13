@@ -42,4 +42,5 @@ type Service interface {
 	FailOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
 	ListOperations(ctx context.Context, executionID uint) ([]*OperationResponse, error)
 	ExecuteOperation(ctx context.Context, executionID uint, operationID uint) error
+	GetExecutionForUpdateTx(ctx context.Context, id uint) (*ExecutionResponse, error)
 }

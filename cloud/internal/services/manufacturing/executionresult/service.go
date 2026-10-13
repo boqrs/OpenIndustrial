@@ -61,37 +61,35 @@ func (s *service) CreateResult(
 		return nil, errors.New("tenant id not found")
 	}
 
-	// Execution 是 WorkOrderID 的权威来源。
-	exec, err := s.executions.GetExecution(ctx, req.ExecutionID)
-	if err != nil {
-		return nil, fmt.Errorf("get execution: %w", err)
-	}
-	if exec == nil {
-		return nil, errors.New("execution not found")
-	}
-	if exec.TenantID != tenantID {
-		return nil, errors.New("execution not found")
-	}
-	if exec.Status != model.ProductionExecutionStatusCompleted {
-		return nil, fmt.Errorf(
-			"%w: execution status=%s",
-			ErrInvalidResultState,
-			exec.Status,
+	var result *Response
+
+	err := s.uow.Execute(ctx, func(txCtx context.Context) error {
+		// 1. 锁定执行记录。
+		// 同一 Execution 的并发结果创建请求会在这里串行化。
+		exec, err := s.executions.GetExecutionForUpdateTx(
+			txCtx,
+			req.ExecutionID,
 		)
-	}
+		if err != nil {
+			if errors.Is(err, execution.ErrExecutionNotFound) {
+				return execution.ErrExecutionNotFound
+			}
+			return fmt.Errorf("get execution for update: %w", err)
+		}
+		if exec == nil || exec.TenantID != tenantID {
+			return execution.ErrExecutionNotFound
+		}
 
-	entity := &model.ExecutionResult{
-		TenantID:          tenantID,
-		WorkOrderID:       exec.WorkOrderID,
-		ExecutionID:       exec.ID,
-		ProducedQuantity:  req.ProducedQuantity,
-		QualifiedQuantity: req.QualifiedQuantity,
-		RejectedQuantity:  req.RejectedQuantity,
-		Status:            model.ExecutionResultStatusDraft,
-	}
+		// 2. 执行必须已经完成。
+		if exec.Status != model.ProductionExecutionStatusCompleted {
+			return fmt.Errorf(
+				"%w: execution status=%s",
+				ErrInvalidResultState,
+				exec.Status,
+			)
+		}
 
-	err = s.uow.Execute(ctx, func(txCtx context.Context) error {
-		// 事务内再次检查，避免普通的事务外预检查。
+		// 3. 在持有 Execution 行锁的情况下检查重复结果。
 		existing, err := s.repository.GetByExecutionID(
 			txCtx,
 			tenantID,
@@ -107,16 +105,29 @@ func (s *service) CreateResult(
 			)
 		}
 
+		// 4. 从已校验的 Execution 派生关联字段。
+		entity := &model.ExecutionResult{
+			TenantID:          tenantID,
+			WorkOrderID:       exec.WorkOrderID,
+			ExecutionID:       exec.ID,
+			ProducedQuantity:  req.ProducedQuantity,
+			QualifiedQuantity: req.QualifiedQuantity,
+			RejectedQuantity:  req.RejectedQuantity,
+			Status:            model.ExecutionResultStatusDraft,
+		}
+
 		if err := s.repository.CreateTx(txCtx, entity); err != nil {
 			return fmt.Errorf("create execution result: %w", err)
 		}
+
+		result = toResponse(entity)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return toResponse(entity), nil
+	return result, nil
 }
 
 func (s *service) GetResult(

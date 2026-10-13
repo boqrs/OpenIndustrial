@@ -14,6 +14,7 @@ import (
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/execution/executors"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/routing"
 	"github.com/boqrs/OpenIndustrial/cloud/internal/services/manufacturing/workorder"
+	"gorm.io/gorm"
 )
 
 // -----------------------------------------------------------------------------
@@ -1110,4 +1111,28 @@ func (s *serviceImpl) ExecuteOperation(
 		operationID,
 		result,
 	)
+}
+
+func (s *serviceImpl) GetExecutionForUpdateTx(
+	ctx context.Context,
+	id uint,
+) (*ExecutionResponse, error) {
+	tenantID, has := pkg.TenantIDFromContext(ctx)
+	if !has {
+		return nil, errors.New("tenant id not found")
+	}
+
+	entity, err := s.repository.GetExecutionByIDForUpdateTx(
+		ctx,
+		tenantID,
+		id,
+	)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrExecutionNotFound
+		}
+		return nil, fmt.Errorf("get execution for update: %w", err)
+	}
+
+	return toExecutionResponse(entity), nil
 }
