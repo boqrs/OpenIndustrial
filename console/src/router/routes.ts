@@ -176,6 +176,27 @@ export const routes: RouteRecordRaw[] = [
           permission: Permissions.MES_VIEW,
         },
       },
+
+      // --------------------------------------------------------
+      // MES - 工艺路线
+      // --------------------------------------------------------
+      {
+        path: "mes/routings",
+        name: "RoutingList",
+        component: () => import("../mes/routing/views/RoutingList.vue"),
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
+      {
+        path: "mes/routings/:id",
+        name: "RoutingDetail",
+        component: () => import("../mes/routing/views/RoutingDetail.vue"),
+        props: true,
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
     ],
   },
   // ============================================================

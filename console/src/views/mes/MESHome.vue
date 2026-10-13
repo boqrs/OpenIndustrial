@@ -40,6 +40,10 @@ const canAccessBOMs = computed(() =>
   hasPermission(authStore.user, Permissions.MES_VIEW),
 );
 
+const canAccessRouting = computed(() =>
+  hasPermission(authStore.user, Permissions.MES_VIEW),
+);
+
 interface ResourceModule {
   id: string;
   title: string;
@@ -52,6 +56,16 @@ interface ResourceModule {
 }
 
 const resourceModules = computed<ResourceModule[]>(() => [
+  {
+    id: "factory",
+    title: "工厂管理",
+    description: "维护工厂基础信息，并配置生产线、工作站等生产组织结构。",
+    icon: OfficeBuilding,
+    path: "/mes/factories",
+    status: "工厂与生产组织",
+    permission: canAccessMaterials.value,
+    color: "slate",
+  },
   {
     id: "products",
     title: "产品管理",
@@ -83,14 +97,14 @@ const resourceModules = computed<ResourceModule[]>(() => [
     color: "purple",
   },
   {
-    id: "factory",
-    title: "工厂管理",
-    description: "维护工厂基础信息，并配置生产线、工作站等生产组织结构。",
-    icon: OfficeBuilding,
-    path: "/mes/factories",
-    status: "工厂与生产组织",
-    permission: canAccessMaterials.value,
-    color: "slate",
+    id: "routing",
+    title: "工艺路线",
+    description: "配置产品制造工序、执行顺序、工作站及标准工时。",
+    icon: Operation,
+    path: "/mes/routings",
+    status: "制造工艺",
+    permission: canAccessRouting.value,
+    color: "cyan",
   },
   {
     id: "planning",
