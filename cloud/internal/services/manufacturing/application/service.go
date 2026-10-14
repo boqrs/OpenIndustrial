@@ -698,3 +698,28 @@ func (s *service) CancelProductionExecution(
 		},
 	)
 }
+
+// ListProductionExecutions returns executions filtered by work order and status.
+func (s *service) ListProductionExecutions(
+	ctx context.Context,
+	workOrderID *uint,
+	status *model.ProductionExecutionStatus,
+) ([]*execution.ExecutionResponse, error) {
+	return s.executions.ListExecutions(ctx, workOrderID, status)
+}
+
+// GetProductionExecution returns one execution.
+func (s *service) GetProductionExecution(
+	ctx context.Context,
+	executionID uint,
+) (*execution.ExecutionResponse, error) {
+	return s.executions.GetExecution(ctx, executionID)
+}
+
+// ListProductionOperations returns the operations of an execution.
+func (s *service) ListProductionOperations(
+	ctx context.Context,
+	executionID uint,
+) ([]*execution.OperationResponse, error) {
+	return s.executions.ListOperations(ctx, executionID)
+}

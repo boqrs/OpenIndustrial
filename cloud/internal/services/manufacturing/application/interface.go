@@ -25,4 +25,7 @@ type Service interface {
 	FailProductionOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
 	CompleteProductionOperation(ctx context.Context, executionID uint, operationID uint, result map[string]any) error
 	CancelProductionExecution(ctx context.Context, executionID uint) error
+	ListProductionExecutions(ctx context.Context, workOrderID *uint, status *model.ProductionExecutionStatus) ([]*execution.ExecutionResponse, error)
+	GetProductionExecution(ctx context.Context, executionID uint) (*execution.ExecutionResponse, error)
+	ListProductionOperations(ctx context.Context, executionID uint) ([]*execution.OperationResponse, error)
 }

@@ -33,29 +33,11 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 	group := router.Group("/api/v1/external")
 	group.Use(h.auth.Authenticate())
 
-	group.Handle(
-		http.MethodPost,
-		"/execution-results",
-		h.CreateResult,
-	)
+	group.Handle(http.MethodPost,"/execution-results",h.CreateResult)
+	group.Handle(http.MethodGet,"/execution-results/:id",h.GetResult)
+	group.Handle(http.MethodGet,"/executions/:execution_id/result",h.GetResultByExecutionID)
 
-	group.Handle(
-		http.MethodGet,
-		"/execution-results/:id",
-		h.GetResult,
-	)
-
-	group.Handle(
-		http.MethodGet,
-		"/executions/:execution_id/result",
-		h.GetResultByExecutionID,
-	)
-
-	group.Handle(
-		http.MethodPost,
-		"/execution-results/:id/cancel",
-		h.CancelResult,
-	)
+	group.Handle(http.MethodPost,"/execution-results/:id/cancel",h.CancelResult)
 }
 
 // CreateResult creates a production execution result.
