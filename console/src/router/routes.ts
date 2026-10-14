@@ -197,6 +197,48 @@ export const routes: RouteRecordRaw[] = [
           permission: Permissions.MES_VIEW,
         },
       },
+
+      // --------------------------------------------------------
+      // MES - 工单管理
+      // --------------------------------------------------------
+      {
+        path: "mes/work-orders",
+        name: "WorkOrderList",
+        component: () => import("../mes/production/views/WorkOrderList.vue"),
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
+      {
+        path: "mes/work-orders/:id",
+        name: "WorkOrderDetail",
+        component: () => import("../mes/production/views/WorkOrderDetail.vue"),
+        props: true,
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
+
+      // --------------------------------------------------------
+      // MES - 生产执行
+      // --------------------------------------------------------
+      {
+        path: "mes/executions",
+        name: "ExecutionList",
+        component: () => import("../mes/execution/views/ExecutionList.vue"),
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
+      {
+        path: "mes/executions/:id",
+        name: "ExecutionDetail",
+        component: () => import("../mes/execution/views/ExecutionDetail.vue"),
+        props: true,
+        meta: {
+          permission: Permissions.MES_VIEW,
+        },
+      },
     ],
   },
   // ============================================================

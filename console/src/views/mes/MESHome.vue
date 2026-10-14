@@ -124,6 +124,27 @@ const resourceModules = computed<ResourceModule[]>(() => [
     status: "过程执行",
     color: "cyan",
   },
+  {
+    id: "work-orders",
+    title: "生产工单",
+    description:
+      "将已发布的生产计划转化为具体制造任务，管理工单、生产线、BOM 与工艺路线。",
+    icon: Document,
+    path: "/mes/work-orders",
+    status: "工单管理",
+    permission: canAccessMaterials.value,
+    color: "orange",
+  },
+  {
+    id: "execution",
+    title: "生产执行",
+    description: "跟踪生产执行、工序作业及生产过程记录。",
+    icon: Setting,
+    path: "/mes/executions",
+    status: "过程执行",
+    permission: canAccessMaterials.value,
+    color: "cyan",
+  },
 ]);
 
 function openModule(module: ResourceModule) {
@@ -335,8 +356,8 @@ function canOpenModule(module: ResourceModule) {
         <div class="workspace-main">
           <strong>制造业务工作区</strong>
           <span>
-            产品管理、原料管理和 BOM 管理已提供页面入口；
-            生产计划、生产执行及工厂管理可在后续开发中逐步接入。
+            产品、物料、BOM、工艺路线、生产计划、工单与生产执行模块
+            已逐步接入；后续继续完善生产结果、仓储管理及设备数字身份。
           </span>
         </div>
 
