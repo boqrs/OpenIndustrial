@@ -135,16 +135,6 @@ const resourceModules = computed<ResourceModule[]>(() => [
     permission: canAccessMaterials.value,
     color: "orange",
   },
-  {
-    id: "execution",
-    title: "生产执行",
-    description: "跟踪生产执行、工序作业及生产过程记录。",
-    icon: Setting,
-    path: "/mes/executions",
-    status: "过程执行",
-    permission: canAccessMaterials.value,
-    color: "cyan",
-  },
 ]);
 
 function openModule(module: ResourceModule) {

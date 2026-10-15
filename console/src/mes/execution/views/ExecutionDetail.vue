@@ -79,12 +79,18 @@
           :execution-status="execution.status"
           @changed="loadExecution"
         />
+        <ExecutionResultPanel
+          :execution-id="execution.id"
+          :execution-status="execution.status"
+          @changed="loadExecution"
+        />
       </template>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
+import ExecutionResultPanel from "./ExecutionResultPanel.vue";
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";

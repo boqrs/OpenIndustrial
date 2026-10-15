@@ -121,7 +121,7 @@ func (h *Handler) FailProductionOperation(ctx *gin.Context) ginx.Render {
 }
 
 func (h *Handler) ConfirmExecutionResult(ctx *gin.Context) ginx.Render {
-	executionResultID, err := parseUintParam(ctx, "execution_id")
+	executionResultID, err := parseUintParam(ctx, "id")
 	if err != nil {
 		return ginx.Error(err)
 	}
