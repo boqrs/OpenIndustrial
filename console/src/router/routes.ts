@@ -3,24 +3,18 @@ import type { RouteRecordRaw } from "vue-router";
 import { Permissions } from "../authz/permissions";
 
 export const routes: RouteRecordRaw[] = [
-  // ============================================================
   // 公开路由：未登录用户可以访问
-  // ============================================================
   {
     path: "/login",
     name: "Login",
     component: () => import("../views/login/Login.vue"),
-    meta: {
-      guestOnly: true,
-    },
+    meta: { guestOnly: true },
   },
   {
     path: "/access-request",
     name: "AccessRequest",
     component: () => import("../views/login/AccessRequest.vue"),
-    meta: {
-      guestOnly: true,
-    },
+    meta: { guestOnly: true },
   },
   {
     path: "/invitation/accept",
@@ -28,35 +22,25 @@ export const routes: RouteRecordRaw[] = [
     component: () => import("../views/login/AcceptInvitation.vue"),
   },
 
-  // ============================================================
   // 登录后的主布局
-  // 所有内部业务路由都必须放在 children 中
-  // ============================================================
   {
     path: "/",
     component: () => import("../layouts/AuthenticatedLayout.vue"),
-    meta: {
-      requiresAuth: true,
-    },
+    meta: { requiresAuth: true },
     children: [
-      // 默认进入 Dashboard
       {
         path: "",
         redirect: "/dashboard",
       },
 
-      // --------------------------------------------------------
       // Dashboard
-      // --------------------------------------------------------
       {
         path: "dashboard",
         name: "Dashboard",
         component: () => import("../views/dashboard/Dashboard.vue"),
       },
 
-      // --------------------------------------------------------
       // 用户管理
-      // --------------------------------------------------------
       {
         path: "users",
         name: "Users",
@@ -66,9 +50,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES 首页
-      // --------------------------------------------------------
       {
         path: "mes",
         name: "MESHome",
@@ -78,9 +60,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 产品管理
-      // --------------------------------------------------------
       {
         path: "mes/products",
         name: "ProductList",
@@ -99,10 +79,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - BOM 管理
-      // 保留现有 BOM 路由，避免重复注册
-      // --------------------------------------------------------
       {
         path: "mes/boms",
         name: "BOMList",
@@ -121,10 +98,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 物料管理
-      // 必须放在 children 内，因此这里使用相对路径
-      // --------------------------------------------------------
       {
         path: "mes/materials",
         name: "MaterialList",
@@ -134,9 +108,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 生产计划
-      // --------------------------------------------------------
       {
         path: "mes/production-plans",
         name: "ProductionPlanList",
@@ -157,9 +129,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 工厂管理
-      // --------------------------------------------------------
       {
         path: "mes/factories",
         name: "FactoryList",
@@ -177,9 +147,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 工艺路线
-      // --------------------------------------------------------
       {
         path: "mes/routings",
         name: "RoutingList",
@@ -198,9 +166,7 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 工单管理
-      // --------------------------------------------------------
       {
         path: "mes/work-orders",
         name: "WorkOrderList",
@@ -219,15 +185,13 @@ export const routes: RouteRecordRaw[] = [
         },
       },
 
-      // --------------------------------------------------------
       // MES - 生产执行
-      // --------------------------------------------------------
       {
         path: "mes/executions",
         name: "ExecutionList",
         component: () => import("../mes/execution/views/ExecutionList.vue"),
         meta: {
-          permission: Permissions.MES_VIEW,
+          permission: Permissions.EXECUTION_VIEW,
         },
       },
       {
@@ -236,14 +200,13 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("../mes/execution/views/ExecutionDetail.vue"),
         props: true,
         meta: {
-          permission: Permissions.MES_VIEW,
+          permission: Permissions.EXECUTION_VIEW,
         },
       },
     ],
   },
-  // ============================================================
+
   // 兜底路由
-  // ============================================================
   {
     path: "/:pathMatch(.*)*",
     redirect: "/dashboard",

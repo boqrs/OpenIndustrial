@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="execution-detail-page">
     <el-card shadow="never">
@@ -59,7 +58,7 @@
 
         <div class="action-bar">
           <el-button
-            v-if="execution.status === 'pending'"
+            v-if="canStartExecution && execution.status === 'pending'"
             type="primary"
             :loading="starting"
             @click="handleStart"
@@ -79,6 +78,7 @@
           :execution-status="execution.status"
           @changed="loadExecution"
         />
+
         <ExecutionResultPanel
           :execution-id="execution.id"
           :execution-status="execution.status"
@@ -90,16 +90,24 @@
 </template>
 
 <script setup lang="ts">
-import ExecutionResultPanel from "./ExecutionResultPanel.vue";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { getExecution, startExecution } from "../api";
 import type { ProductionExecution } from "../types";
 import ExecutionOperation from "./ExecutionOperation.vue";
+import ExecutionResultPanel from "./ExecutionResultPanel.vue";
+import { hasPermission } from "../../../authz/access";
+import { Permissions } from "../../../authz/permissions";
+import { useAuthStore } from "../../../store/auth";
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
+
+const canStartExecution = computed(() =>
+  hasPermission(authStore.user, Permissions.EXECUTION_START),
+);
 
 const execution = ref<ProductionExecution | null>(null);
 const loading = ref(false);
@@ -132,7 +140,9 @@ async function loadExecution(): Promise<void> {
     execution.value = await getExecution(id);
   } catch (error) {
     console.error("加载生产执行详情失败：", error);
-    ElMessage.error("加载生产执行详情失败");
+    ElMessage.error(
+      error instanceof Error ? error.message : "加载生产执行详情失败",
+    );
     execution.value = null;
   } finally {
     loading.value = false;
@@ -141,7 +151,13 @@ async function loadExecution(): Promise<void> {
 }
 
 async function handleStart(): Promise<void> {
-  if (!execution.value) {
+  if (!hasPermission(authStore.user, Permissions.EXECUTION_START)) {
+    ElMessage.warning("当前账号没有启动生产执行的权限");
+    return;
+  }
+
+  if (!execution.value || execution.value.status !== "pending") {
+    ElMessage.warning("当前生产执行状态不允许启动");
     return;
   }
 
@@ -163,7 +179,9 @@ async function handleStart(): Promise<void> {
     await loadExecution();
   } catch (error) {
     console.error("启动生产执行失败：", error);
-    ElMessage.error("启动生产执行失败");
+    ElMessage.error(
+      error instanceof Error ? error.message : "启动生产执行失败",
+    );
   } finally {
     starting.value = false;
   }
@@ -249,4 +267,3 @@ onMounted(loadExecution);
   margin-top: 20px;
 }
 </style>
-```

@@ -71,6 +71,7 @@
 
         <div v-if="result.status === 'draft'" class="result-actions">
           <el-button
+            v-if="canCancelResult"
             type="danger"
             plain
             :loading="submitting"
@@ -79,6 +80,7 @@
             取消草稿
           </el-button>
           <el-button
+            v-if="canConfirmResult"
             type="primary"
             :loading="submitting"
             @click="handleConfirm"
@@ -88,9 +90,29 @@
         </div>
 
         <el-alert
+          v-if="
+            result.status === 'draft' && !canConfirmResult && !canCancelResult
+          "
+          title="当前账号没有确认或取消生产结果草稿的权限。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="result-alert"
+        />
+
+        <el-alert
           v-else-if="result.status === 'confirmed'"
           title="生产结果已确认。后端已负责完成相应的工单数量更新及设备创建逻辑。"
           type="success"
+          :closable="false"
+          show-icon
+          class="result-alert"
+        />
+
+        <el-alert
+          v-else-if="result.status === 'cancelled'"
+          title="该生产结果草稿已取消，不能继续确认。"
+          type="info"
           :closable="false"
           show-icon
           class="result-alert"
@@ -101,7 +123,7 @@
         <el-empty description="该执行单尚无生产结果" :image-size="80" />
 
         <el-form
-          ref="formRef"
+          v-if="canCreateResult"
           :model="form"
           label-width="110px"
           class="result-form"
@@ -135,6 +157,15 @@
             </el-button>
           </el-form-item>
         </el-form>
+
+        <el-alert
+          v-else
+          title="当前账号没有上传生产结果的权限。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="result-alert"
+        />
       </template>
     </template>
   </section>
@@ -150,6 +181,9 @@ import {
   getExecutionResultByExecutionId,
 } from "../../executionresult/api";
 import type { ExecutionResult } from "../../executionresult/api";
+import { hasPermission } from "../../../authz/access";
+import { Permissions } from "../../../authz/permissions";
+import { useAuthStore } from "../../../store/auth";
 
 const props = defineProps<{
   executionId: number;
@@ -159,6 +193,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   changed: [];
 }>();
+
+const authStore = useAuthStore();
+
+const canCreateResult = computed(() =>
+  hasPermission(authStore.user, Permissions.EXECUTION_RESULT_CREATE),
+);
+const canConfirmResult = computed(() =>
+  hasPermission(authStore.user, Permissions.EXECUTION_RESULT_CONFIRM),
+);
+const canCancelResult = computed(() =>
+  hasPermission(authStore.user, Permissions.EXECUTION_RESULT_CANCEL),
+);
 
 const loading = ref(false);
 const submitting = ref(false);
@@ -186,8 +232,7 @@ async function loadResult(): Promise<void> {
   try {
     result.value = await getExecutionResultByExecutionId(props.executionId);
   } catch (error) {
-    // 当前接口没有专门的“结果不存在”响应约定。
-    // 先将查询失败视为异常，不允许直接创建，以避免重复结果。
+    // 查询失败不能当作“没有结果”，否则可能重复创建。
     console.error("查询生产结果失败：", error);
     result.value = null;
     loadError.value = true;
@@ -197,6 +242,11 @@ async function loadResult(): Promise<void> {
 }
 
 async function handleCreate(): Promise<void> {
+  if (!hasPermission(authStore.user, Permissions.EXECUTION_RESULT_CREATE)) {
+    ElMessage.warning("当前账号没有上传生产结果的权限");
+    return;
+  }
+
   if (!executionCompleted.value || loadError.value || result.value) {
     return;
   }
@@ -241,6 +291,11 @@ async function handleCreate(): Promise<void> {
 }
 
 async function handleConfirm(): Promise<void> {
+  if (!hasPermission(authStore.user, Permissions.EXECUTION_RESULT_CONFIRM)) {
+    ElMessage.warning("当前账号没有确认生产结果的权限");
+    return;
+  }
+
   if (!result.value || result.value.status !== "draft") {
     return;
   }
@@ -278,6 +333,11 @@ async function handleConfirm(): Promise<void> {
 }
 
 async function handleCancel(): Promise<void> {
+  if (!hasPermission(authStore.user, Permissions.EXECUTION_RESULT_CANCEL)) {
+    ElMessage.warning("当前账号没有取消生产结果的权限");
+    return;
+  }
+
   if (!result.value || result.value.status !== "draft") {
     return;
   }

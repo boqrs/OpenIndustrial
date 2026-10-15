@@ -1,10 +1,12 @@
+```vue
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { createExecution, listExecutions } from "../api";
 import type { ProductionExecution } from "../types";
 
+const route = useRoute();
 const router = useRouter();
 
 const loading = ref(false);
@@ -52,6 +54,16 @@ function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function readWorkOrderId(value: unknown): number | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== "string" && typeof raw !== "number") {
+    return undefined;
+  }
+
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
 async function loadExecutions() {
   loading.value = true;
   try {
@@ -69,16 +81,20 @@ async function loadExecutions() {
 }
 
 function openDetail(row: ProductionExecution) {
-  router.push(`/mes/executions/${row.id}`);
+  void router.push(`/mes/executions/${row.id}`);
 }
 
 function openCreateDialog() {
-  newWorkOrderId.value = undefined;
+  newWorkOrderId.value = workOrderFilter.value;
   createDialogVisible.value = true;
 }
 
 async function submitCreate() {
-  if (!newWorkOrderId.value || newWorkOrderId.value <= 0) {
+  if (
+    !newWorkOrderId.value ||
+    !Number.isSafeInteger(newWorkOrderId.value) ||
+    newWorkOrderId.value <= 0
+  ) {
     ElMessage.warning("请输入有效的工单 ID");
     return;
   }
@@ -88,11 +104,13 @@ async function submitCreate() {
     const created = await createExecution(newWorkOrderId.value);
     ElMessage.success("生产执行创建成功");
     createDialogVisible.value = false;
-    await loadExecutions();
 
     if (created?.id) {
-      router.push(`/mes/executions/${created.id}`);
+      await router.push(`/mes/executions/${created.id}`);
+      return;
     }
+
+    await loadExecutions();
   } catch (error) {
     ElMessage.error(
       error instanceof Error ? error.message : "创建生产执行失败",
@@ -107,7 +125,11 @@ async function confirmCreate() {
     await ElMessageBox.confirm(
       `确认根据工单 ${newWorkOrderId.value ?? ""} 创建生产执行吗？`,
       "创建生产执行",
-      { type: "warning" },
+      {
+        type: "warning",
+        confirmButtonText: "确认创建",
+        cancelButtonText: "取消",
+      },
     );
     await submitCreate();
   } catch {
@@ -115,7 +137,27 @@ async function confirmCreate() {
   }
 }
 
-onMounted(loadExecutions);
+async function initializePage() {
+  const queryWorkOrderId = readWorkOrderId(
+    route.query.work_order_id ?? route.query.workOrderId,
+  );
+
+  if (queryWorkOrderId) {
+    workOrderFilter.value = queryWorkOrderId;
+    newWorkOrderId.value = queryWorkOrderId;
+  }
+
+  await loadExecutions();
+
+  // 只有从工单详情明确发起创建时，才自动打开创建对话框。
+  if (queryWorkOrderId && route.query.create === "1") {
+    createDialogVisible.value = true;
+  }
+}
+
+onMounted(() => {
+  void initializePage();
+});
 </script>
 
 <template>
@@ -123,7 +165,7 @@ onMounted(loadExecutions);
     <div class="page-header">
       <div>
         <h2>生产执行</h2>
-        <p>查看生产执行记录，跟踪工单进入实际生产后的执行状态。</p>
+        <p>从生产工单创建执行记录，并跟踪工序操作和生产结果。</p>
       </div>
       <el-button type="primary" @click="openCreateDialog">
         创建生产执行
@@ -159,7 +201,7 @@ onMounted(loadExecutions);
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" @click="loadExecutions">查询</el-button>
+          <el-button type="primary" @click="loadExecutions"> 查询 </el-button>
           <el-button
             @click="
               statusFilter = '';
@@ -186,6 +228,7 @@ onMounted(loadExecutions);
         <el-table-column prop="productId" label="产品 ID" width="110" />
         <el-table-column prop="routingId" label="工艺路线 ID" width="130" />
         <el-table-column prop="routingVersion" label="工艺版本" width="100" />
+
         <el-table-column label="执行状态" width="130">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)">
@@ -193,16 +236,19 @@ onMounted(loadExecutions);
             </el-tag>
           </template>
         </el-table-column>
+
         <el-table-column label="开始时间" min-width="175">
           <template #default="{ row }">
             {{ formatDate(row.startedAt) }}
           </template>
         </el-table-column>
+
         <el-table-column label="创建时间" min-width="175">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
+
         <el-table-column label="操作" fixed="right" width="110">
           <template #default="{ row }">
             <el-button link type="primary" @click.stop="openDetail(row)">
@@ -226,15 +272,17 @@ onMounted(loadExecutions);
             :min="1"
             :precision="0"
             :step="1"
-            placeholder="输入已下达工单的 ID"
+            placeholder="输入已发布工单的 ID"
             style="width: 100%"
           />
-          <div class="field-hint">只能选择后端允许进入执行阶段的工单。</div>
+          <div class="field-hint">
+            只能为已发布或执行中的工单创建执行记录，最终以服务端校验为准。
+          </div>
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button @click="createDialogVisible = false"> 取消 </el-button>
         <el-button type="primary" :loading="creating" @click="confirmCreate">
           确认创建
         </el-button>
@@ -276,5 +324,7 @@ onMounted(loadExecutions);
   margin-top: 6px;
   color: #909399;
   font-size: 12px;
+  line-height: 1.6;
 }
 </style>
+```

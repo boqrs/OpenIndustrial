@@ -8,6 +8,9 @@ import {
   startOperation,
 } from "../api";
 import type { ExecutionOperation } from "../types";
+import { hasPermission } from "../../../authz/access";
+import { Permissions } from "../../../authz/permissions";
+import { useAuthStore } from "../../../store/auth";
 
 const props = defineProps<{
   executionId: number;
@@ -17,6 +20,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   changed: [];
 }>();
+
+const authStore = useAuthStore();
+
+const canStartOperation = computed(() =>
+  hasPermission(authStore.user, Permissions.OPERATION_START),
+);
+const canCompleteOperation = computed(() =>
+  hasPermission(authStore.user, Permissions.OPERATION_COMPLETE),
+);
+const canFailOperation = computed(() =>
+  hasPermission(authStore.user, Permissions.OPERATION_FAIL),
+);
 
 const loading = ref(false);
 const submittingId = ref<number | null>(null);
@@ -62,9 +77,7 @@ function formatDate(value?: string | null): string {
 
 /**
  * 找到第一道尚未完成的工序。
- *
- * 前端这里只负责限制操作入口。
- * 工序顺序和状态转换仍必须由后端最终校验。
+ * 前端只负责限制操作入口，工序顺序及状态转换由后端最终校验。
  */
 const currentOperationId = computed<number | null>(() => {
   const sorted = [...operations.value].sort((a, b) => a.sequence - b.sequence);
@@ -89,14 +102,27 @@ function canOperate(operation: ExecutionOperation): boolean {
 
 function canStart(operation: ExecutionOperation): boolean {
   return (
+    canStartOperation.value &&
     canOperate(operation) &&
     operation.status === "pending" &&
     operation.id === currentOperationId.value
   );
 }
 
-function canSubmitResult(operation: ExecutionOperation): boolean {
-  return canOperate(operation) && operation.status === "in_progress";
+function canComplete(operation: ExecutionOperation): boolean {
+  return (
+    canCompleteOperation.value &&
+    canOperate(operation) &&
+    operation.status === "in_progress"
+  );
+}
+
+function canFail(operation: ExecutionOperation): boolean {
+  return (
+    canFailOperation.value &&
+    canOperate(operation) &&
+    operation.status === "in_progress"
+  );
 }
 
 function formatResult(result?: Record<string, unknown>): string {
@@ -126,8 +152,13 @@ async function loadOperations(): Promise<void> {
 }
 
 async function handleStart(operation: ExecutionOperation): Promise<void> {
+  if (!hasPermission(authStore.user, Permissions.OPERATION_START)) {
+    ElMessage.warning("当前账号没有开始工序的权限");
+    return;
+  }
+
   if (!canStart(operation)) {
-    ElMessage.warning("请按工序顺序操作");
+    ElMessage.warning("当前工序不可开始，请检查执行状态及工序顺序");
     return;
   }
 
@@ -164,14 +195,27 @@ async function submitOperationResult(
   operation: ExecutionOperation,
   action: "complete" | "fail",
 ): Promise<void> {
-  if (!canSubmitResult(operation)) {
-    ElMessage.warning("当前工序状态不允许提交结果");
+  const requiredPermission =
+    action === "complete"
+      ? Permissions.OPERATION_COMPLETE
+      : Permissions.OPERATION_FAIL;
+
+  if (!hasPermission(authStore.user, requiredPermission)) {
+    ElMessage.warning(
+      action === "complete"
+        ? "当前账号没有完成工序的权限"
+        : "当前账号没有标记工序失败的权限",
+    );
+    return;
+  }
+
+  if (action === "complete" ? !canComplete(operation) : !canFail(operation)) {
+    ElMessage.warning("当前工序状态不允许提交该操作");
     return;
   }
 
   const isFail = action === "fail";
   const title = isFail ? "标记工序失败" : "完成工序";
-
   const initialValue = isFail
     ? JSON.stringify({ reason: "工序执行失败" }, null, 2)
     : "{}";
@@ -248,11 +292,9 @@ async function submitOperationResult(
 
     if (isFail) {
       await failOperation(props.executionId, operation.id, payload);
-
       ElMessage.warning("工序已标记为失败");
     } else {
       await completeOperation(props.executionId, operation.id, payload);
-
       ElMessage.success("工序已完成");
     }
 
@@ -317,9 +359,7 @@ watch(
       border
     >
       <el-table-column prop="sequence" label="顺序" width="75" />
-
       <el-table-column prop="code" label="工序编码" min-width="125" />
-
       <el-table-column prop="name" label="工序名称" min-width="150" />
 
       <el-table-column prop="workstationId" label="工作站 ID" width="105">
@@ -348,7 +388,7 @@ watch(
         </template>
       </el-table-column>
 
-      <el-table-column label="操作" fixed="right" width="205">
+      <el-table-column label="操作" fixed="right" width="225">
         <template #default="{ row }">
           <template v-if="canOperate(row)">
             <el-button
@@ -362,7 +402,7 @@ watch(
             </el-button>
 
             <el-button
-              v-if="canSubmitResult(row)"
+              v-if="canComplete(row)"
               link
               type="success"
               :loading="submittingId === row.id"
@@ -372,7 +412,7 @@ watch(
             </el-button>
 
             <el-button
-              v-if="canSubmitResult(row)"
+              v-if="canFail(row)"
               link
               type="danger"
               :loading="submittingId === row.id"
@@ -382,14 +422,14 @@ watch(
             </el-button>
 
             <span
-              v-if="!canStart(row) && !canSubmitResult(row)"
+              v-if="!canStart(row) && !canComplete(row) && !canFail(row)"
               class="muted-text"
             >
-              等待前序工序
+              无可用操作
             </span>
           </template>
 
-          <span v-else class="muted-text"> 暂无可用操作 </span>
+          <span v-else class="muted-text">暂无可用操作</span>
         </template>
       </el-table-column>
 
@@ -403,13 +443,13 @@ watch(
             trigger="click"
           >
             <template #reference>
-              <el-button link type="primary"> 查看结果 </el-button>
+              <el-button link type="primary">查看结果</el-button>
             </template>
 
             <pre class="result-json">{{ formatResult(row.result) }}</pre>
           </el-popover>
 
-          <span v-else class="muted-text"> 暂无结果 </span>
+          <span v-else class="muted-text">暂无结果</span>
         </template>
       </el-table-column>
     </el-table>
