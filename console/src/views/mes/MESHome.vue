@@ -25,8 +25,7 @@ const authStore = useAuthStore();
  *
  * 产品管理：需要 PRODUCT_LIST 权限
  * 原料管理、BOM 管理：需要 MES_VIEW 权限
- *
- * 其他模块暂时保留入口展示，后续接入对应页面权限时再细化。
+ * 生产执行：需要 EXECUTION_VIEW 权限
  */
 const canAccessProducts = computed(() =>
   hasPermission(authStore.user, Permissions.PRODUCT_LIST),
@@ -42,6 +41,10 @@ const canAccessBOMs = computed(() =>
 
 const canAccessRouting = computed(() =>
   hasPermission(authStore.user, Permissions.MES_VIEW),
+);
+
+const canAccessExecution = computed(() =>
+  hasPermission(authStore.user, Permissions.EXECUTION_VIEW),
 );
 
 interface ResourceModule {
@@ -121,7 +124,9 @@ const resourceModules = computed<ResourceModule[]>(() => [
     title: "生产执行",
     description: "跟踪工单执行、工序操作和生产过程记录。",
     icon: Setting,
+    path: "/mes/executions",
     status: "过程执行",
+    permission: canAccessExecution.value,
     color: "cyan",
   },
   {

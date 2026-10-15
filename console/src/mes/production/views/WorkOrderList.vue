@@ -1,8 +1,7 @@
-
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh, Search, View } from "@element-plus/icons-vue";
 
 import { listProductionPlans } from "../api";
@@ -15,8 +14,8 @@ import type {
   CreateWorkOrderRequest,
   WorkOrder,
   WorkOrderStatus,
+  ProductionPlan,
 } from "../types";
-import type { ProductionPlan } from "../types";
 import { listBOMsByProduct } from "../../bom/api";
 import type { BOM } from "../../bom/types";
 import { listRoutings } from "../../routing/api";
@@ -97,11 +96,10 @@ function statusType(
 ): "info" | "success" | "warning" | "danger" | "primary" {
   switch (status) {
     case "released":
+    case "completed":
       return "success";
     case "in_progress":
       return "primary";
-    case "completed":
-      return "success";
     case "cancelled":
       return "danger";
     default:
@@ -111,6 +109,7 @@ function statusType(
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
 
@@ -125,12 +124,14 @@ function formatDate(value?: string | null): string {
 
 function toRFC3339(value: string): string | undefined {
   if (!value) return undefined;
+
   const date = new Date(value.replace(" ", "T"));
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
 async function loadWorkOrders() {
   loading.value = true;
+
   try {
     const result = await listWorkOrders({
       current_page: 1,
@@ -149,6 +150,7 @@ async function loadWorkOrders() {
 
 async function loadPlans() {
   plansLoading.value = true;
+
   try {
     const [released, inProgress] = await Promise.all([
       listProductionPlans("released"),
@@ -156,7 +158,10 @@ async function loadPlans() {
     ]);
 
     const unique = new Map<number, ProductionPlan>();
-    [...released, ...inProgress].forEach((plan) => unique.set(plan.id, plan));
+    [...released, ...inProgress].forEach((plan) => {
+      unique.set(plan.id, plan);
+    });
+
     plans.value = [...unique.values()];
   } catch (error: unknown) {
     ElMessage.error(
@@ -179,6 +184,7 @@ watch(
     if (!plan) return;
 
     referencesLoading.value = true;
+
     try {
       const [bomList, routingList] = await Promise.all([
         listBOMsByProduct(plan.productId, 1, 100),
@@ -213,6 +219,7 @@ function openCreate() {
     priority: 0,
     dueDate: "",
   });
+
   formError.value = "";
   dialogVisible.value = true;
 }
@@ -221,26 +228,32 @@ async function submitCreate() {
   if (submitting.value) return;
 
   const plan = selectedPlan.value;
+
   if (!plan) {
     formError.value = "请选择有效的生产计划";
     return;
   }
+
   if (!form.productionLineId || !Number.isInteger(form.productionLineId)) {
     formError.value = "请输入有效的生产线 ID";
     return;
   }
+
   if (!form.bomId) {
     formError.value = "请选择已发布的 BOM";
     return;
   }
+
   if (!form.routingId) {
     formError.value = "请选择有效的工艺路线";
     return;
   }
+
   if (!form.code.trim()) {
     formError.value = "请输入工单编号";
     return;
   }
+
   if (!Number.isInteger(form.plannedQuantity) || form.plannedQuantity <= 0) {
     formError.value = "工单数量必须是大于 0 的整数";
     return;
@@ -263,15 +276,16 @@ async function submitCreate() {
 
   try {
     const created = await createWorkOrder(payload);
+
     ElMessage.success("工单草稿创建成功");
     dialogVisible.value = false;
     await loadWorkOrders();
+
     if (created?.id) {
       await router.push(`/mes/work-orders/${created.id}`);
     }
   } catch (error: unknown) {
-    formError.value =
-      error instanceof Error ? error.message : "创建工单失败";
+    formError.value = error instanceof Error ? error.message : "创建工单失败";
   } finally {
     submitting.value = false;
   }
@@ -279,22 +293,24 @@ async function submitCreate() {
 
 async function cancel(row: WorkOrder) {
   try {
-    await ElMessageBox.confirm(
-      `确定取消工单「${row.code}」吗？`,
-      "取消工单",
-      { type: "warning", confirmButtonText: "确认取消", cancelButtonText: "返回" },
-    );
+    await ElMessageBox.confirm(`确定取消工单「${row.code}」吗？`, "取消工单", {
+      type: "warning",
+      confirmButtonText: "确认取消",
+      cancelButtonText: "返回",
+    });
+
     await cancelWorkOrder(row.id);
     ElMessage.success("工单已取消");
     await loadWorkOrders();
   } catch (error: unknown) {
+    // 用户取消确认框时不显示错误提示。
+    if (error === "cancel" || error === "close") return;
+
     if (error instanceof Error) {
       ElMessage.error(error.message);
     }
   }
 }
-
-import { ElMessageBox } from "element-plus";
 
 onMounted(() => {
   void loadWorkOrders();
@@ -312,6 +328,7 @@ onMounted(() => {
           将已发布的生产计划拆分为具体制造任务，并指定 BOM、工艺路线及生产线。
         </p>
       </div>
+
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadWorkOrders">
           刷新
@@ -324,19 +341,24 @@ onMounted(() => {
 
     <section class="summary-grid">
       <article class="summary-card">
-        <span>工单总数</span><strong>{{ summary.total }}</strong>
+        <span>工单总数</span>
+        <strong>{{ summary.total }}</strong>
       </article>
       <article class="summary-card">
-        <span>草稿</span><strong>{{ summary.draft }}</strong>
+        <span>草稿</span>
+        <strong>{{ summary.draft }}</strong>
       </article>
       <article class="summary-card">
-        <span>已发布</span><strong>{{ summary.released }}</strong>
+        <span>已发布</span>
+        <strong>{{ summary.released }}</strong>
       </article>
       <article class="summary-card">
-        <span>执行中</span><strong>{{ summary.inProgress }}</strong>
+        <span>执行中</span>
+        <strong>{{ summary.inProgress }}</strong>
       </article>
       <article class="summary-card">
-        <span>已完成</span><strong>{{ summary.completed }}</strong>
+        <span>已完成</span>
+        <strong>{{ summary.completed }}</strong>
       </article>
     </section>
 
@@ -349,6 +371,7 @@ onMounted(() => {
           placeholder="搜索工单编号、工单 ID、计划 ID 或产品 ID"
           style="width: 330px"
         />
+
         <el-select
           v-model="statusFilter"
           clearable
@@ -361,7 +384,10 @@ onMounted(() => {
           <el-option label="已完成" value="completed" />
           <el-option label="已取消" value="cancelled" />
         </el-select>
-        <span class="result-count">共 {{ filteredWorkOrders.length }} 条记录</span>
+
+        <span class="result-count">
+          共 {{ filteredWorkOrders.length }} 条记录
+        </span>
       </div>
 
       <el-table
@@ -383,14 +409,37 @@ onMounted(() => {
             <div class="secondary-text">ID {{ row.id }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="生产计划" prop="production_plan_id" width="110" />
+
+        <el-table-column
+          label="生产计划"
+          prop="production_plan_id"
+          width="110"
+        />
         <el-table-column label="产品 ID" prop="product_id" width="100" />
-        <el-table-column label="生产线 ID" prop="production_line_id" width="110" />
-        <el-table-column label="计划数量" prop="planned_quantity" width="100" align="right" />
-        <el-table-column label="优先级" prop="priority" width="90" align="right" />
+        <el-table-column
+          label="生产线 ID"
+          prop="production_line_id"
+          width="110"
+        />
+        <el-table-column
+          label="计划数量"
+          prop="planned_quantity"
+          width="100"
+          align="right"
+        />
+        <el-table-column
+          label="优先级"
+          prop="priority"
+          width="90"
+          align="right"
+        />
+
         <el-table-column label="交期" min-width="160">
-          <template #default="{ row }">{{ formatDate(row.due_date) }}</template>
+          <template #default="{ row }">
+            {{ formatDate(row.due_date) }}
+          </template>
         </el-table-column>
+
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)" effect="light">
@@ -398,6 +447,7 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
+
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -405,19 +455,29 @@ onMounted(() => {
               type="primary"
               :icon="View"
               @click="router.push(`/mes/work-orders/${row.id}`)"
-            >详情</el-button>
+            >
+              详情
+            </el-button>
+
             <el-button
               v-if="row.status === 'draft' || row.status === 'released'"
               link
               type="danger"
               @click="cancel(row)"
-            >取消</el-button>
+            >
+              取消
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
     </section>
 
-    <el-dialog v-model="dialogVisible" title="新建生产工单" width="680px" destroy-on-close>
+    <el-dialog
+      v-model="dialogVisible"
+      title="新建生产工单"
+      width="680px"
+      destroy-on-close
+    >
       <el-alert
         title="工单必须关联已发布或执行中的生产计划。BOM 与工艺路线必须属于计划对应的产品。"
         type="info"
@@ -446,8 +506,12 @@ onMounted(() => {
 
         <div class="form-grid">
           <el-form-item label="产品 ID">
-            <el-input :model-value="selectedPlan ? String(selectedPlan.productId) : ''" disabled />
+            <el-input
+              :model-value="selectedPlan ? String(selectedPlan.productId) : ''"
+              disabled
+            />
           </el-form-item>
+
           <el-form-item label="生产线 ID" required>
             <el-input-number
               v-model="form.productionLineId"
@@ -477,6 +541,7 @@ onMounted(() => {
               />
             </el-select>
           </el-form-item>
+
           <el-form-item label="工艺路线（有效）" required>
             <el-select
               v-model="form.routingId"
@@ -496,7 +561,11 @@ onMounted(() => {
         </div>
 
         <el-form-item label="工单编号" required>
-          <el-input v-model="form.code" maxlength="100" placeholder="例如：WO-2026-001" />
+          <el-input
+            v-model="form.code"
+            maxlength="100"
+            placeholder="例如：WO-2026-001"
+          />
         </el-form-item>
 
         <div class="form-grid">
@@ -509,6 +578,7 @@ onMounted(() => {
               style="width: 100%"
             />
           </el-form-item>
+
           <el-form-item label="优先级">
             <el-input-number
               v-model="form.priority"
@@ -556,6 +626,7 @@ onMounted(() => {
   padding: 34px 0 56px;
   color: #17283b;
 }
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -563,6 +634,7 @@ onMounted(() => {
   gap: 24px;
   margin-bottom: 26px;
 }
+
 .eyebrow {
   margin-bottom: 10px;
   color: #a16a19;
@@ -570,54 +642,132 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 1.5px;
 }
+
 h1 {
   margin: 0;
   color: #0e1f33;
   font-size: 28px;
 }
+
 .description {
   margin-top: 12px;
   color: #718096;
   font-size: 13px;
   line-height: 1.8;
 }
-.header-actions { display: flex; gap: 10px; padding-top: 24px; }
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 24px;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 22px;
 }
-.summary-card, .panel {
+
+.summary-card,
+.panel {
   border: 1px solid #e6ebf1;
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 3px 12px rgb(14 31 51 / 3%);
 }
-.summary-card { display: flex; flex-direction: column; padding: 20px; }
-.summary-card span { color: #718096; font-size: 12px; }
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.summary-card span {
+  color: #718096;
+  font-size: 12px;
+}
+
 .summary-card strong {
   margin-top: 12px;
   color: #0e1f33;
   font-size: 27px;
   font-variant-numeric: tabular-nums;
 }
-.panel { padding: 22px; }
-.filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-.result-count { margin-left: auto; color: #8a97a8; font-size: 12px; }
-.record-link { padding: 0; border: 0; color: #245b91; background: transparent; font: inherit; font-weight: 650; cursor: pointer; }
-.record-link:hover { color: #d28b25; }
-.secondary-text { margin-top: 5px; color: #9aa6b5; font-size: 11px; }
-.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
-@media (max-width: 1000px) {
-  .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .work-order-page { width: calc(100% - 32px); }
+
+.panel {
+  padding: 22px;
 }
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.result-count {
+  margin-left: auto;
+  color: #8a97a8;
+  font-size: 12px;
+}
+
+.record-link {
+  padding: 0;
+  border: 0;
+  color: #245b91;
+  background: transparent;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.record-link:hover {
+  color: #d28b25;
+}
+
+.secondary-text {
+  margin-top: 5px;
+  color: #9aa6b5;
+  font-size: 11px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+@media (max-width: 1000px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .work-order-page {
+    width: calc(100% - 32px);
+  }
+}
+
 @media (max-width: 640px) {
-  .page-header { flex-direction: column; }
-  .header-actions { padding-top: 0; }
-  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .form-grid { grid-template-columns: 1fr; }
-  .panel { padding: 14px; }
+  .page-header {
+    flex-direction: column;
+  }
+
+  .header-actions {
+    padding-top: 0;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 14px;
+  }
 }
 </style>

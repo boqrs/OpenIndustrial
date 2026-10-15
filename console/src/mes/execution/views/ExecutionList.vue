@@ -1,4 +1,3 @@
-```vue
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -327,4 +326,3 @@ onMounted(() => {
   line-height: 1.6;
 }
 </style>
-```

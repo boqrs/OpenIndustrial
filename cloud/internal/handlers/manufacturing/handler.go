@@ -27,7 +27,7 @@ func (h *Handler) RouterRegister(router ginx.ZeroGinRouter) {
 
 	// --------------------------------------------------------------------- // Production Execution // ---------------------------------------------------------------------
 	group.Handle(http.MethodPost, "/executions/execution/:work_order_id", h.CreateProductionExecution)
-	group.Handle(http.MethodPost, "/executions/start/:id", h.StartProductionExecution)
+	group.Handle(http.MethodPost, "/executions/start/:execution_id", h.StartProductionExecution)
 	// --------------------------------------------------------------------- // Production Operation // ---------------------------------------------------------------------
 	group.Handle(http.MethodPost, "/executions/:execution_id/operations/start/:op_id", h.StartProductionOperation)
 	group.Handle(http.MethodPost, "/executions/:execution_id/operations/complete/:op_id", h.CompleteProductionOperation)
