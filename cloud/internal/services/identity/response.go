@@ -29,6 +29,8 @@ type UserResponse struct {
 
 	RoleID uint `json:"role_id"`
 
+	RoleName string `json:"role_name"`
+
 	Email string `json:"email"`
 
 	Name string `json:"name"`

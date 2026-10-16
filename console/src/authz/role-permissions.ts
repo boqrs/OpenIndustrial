@@ -1,56 +1,194 @@
 import { Permissions, type Permission } from "./permissions";
-import { Roles } from "./roles";
+import { Roles, BusinessRoleNames } from "./roles";
 
+const P = Permissions;
+
+const adminPermissions: Permission[] = [
+  P.DASHBOARD_VIEW,
+
+  P.USER_LIST,
+  P.USER_INVITE,
+  P.USER_UPDATE,
+  P.USER_DISABLE,
+
+  P.MES_VIEW,
+
+  P.PRODUCT_LIST,
+  P.PRODUCT_CREATE,
+  P.PRODUCT_UPDATE,
+  P.PRODUCT_STATUS_UPDATE,
+
+  P.MATERIAL_VIEW,
+  P.MATERIAL_CREATE,
+  P.MATERIAL_UPDATE,
+
+  P.BOM_VIEW,
+  P.BOM_CREATE,
+  P.BOM_UPDATE,
+  P.BOM_RELEASE,
+  P.BOM_OBSOLETE,
+
+  P.ROUTING_VIEW,
+  P.ROUTING_CREATE,
+  P.ROUTING_UPDATE,
+  P.ROUTING_RELEASE,
+
+  P.FACTORY_VIEW,
+  P.FACTORY_CONFIGURE,
+
+  P.PRODUCTION_PLAN_VIEW,
+  P.PRODUCTION_PLAN_CREATE,
+  P.PRODUCTION_PLAN_UPDATE,
+
+  P.WORK_ORDER_VIEW,
+  P.WORK_ORDER_CREATE,
+  P.WORK_ORDER_UPDATE,
+
+  P.EXECUTION_VIEW,
+  P.EXECUTION_CREATE,
+  P.EXECUTION_START,
+  P.OPERATION_START,
+  P.OPERATION_COMPLETE,
+  P.OPERATION_FAIL,
+
+  P.EXECUTION_RESULT_CREATE,
+  P.EXECUTION_RESULT_CONFIRM,
+  P.EXECUTION_RESULT_CANCEL,
+
+  P.QUALITY_VIEW,
+  P.QUALITY_INSPECT,
+  P.QUALITY_CONFIRM,
+
+  P.DEVICE_LIST,
+  P.DEVICE_VIEW,
+  P.WMS_VIEW,
+  P.IOT_VIEW,
+];
+
+const processEngineerPermissions: Permission[] = [
+  P.DASHBOARD_VIEW,
+  P.MES_VIEW,
+
+  P.PRODUCT_LIST,
+  P.PRODUCT_CREATE,
+  P.PRODUCT_UPDATE,
+  P.PRODUCT_STATUS_UPDATE,
+
+  P.MATERIAL_VIEW,
+  P.MATERIAL_CREATE,
+  P.MATERIAL_UPDATE,
+
+  P.BOM_VIEW,
+  P.BOM_CREATE,
+  P.BOM_UPDATE,
+  P.BOM_RELEASE,
+  P.BOM_OBSOLETE,
+
+  P.ROUTING_VIEW,
+  P.ROUTING_CREATE,
+  P.ROUTING_UPDATE,
+  P.ROUTING_RELEASE,
+
+  P.FACTORY_VIEW,
+  P.FACTORY_CONFIGURE,
+
+  P.PRODUCTION_PLAN_VIEW,
+  P.WORK_ORDER_VIEW,
+  P.EXECUTION_VIEW,
+];
+
+const productionPlannerPermissions: Permission[] = [
+  P.DASHBOARD_VIEW,
+  P.MES_VIEW,
+
+  P.PRODUCT_LIST,
+  P.MATERIAL_VIEW,
+  P.BOM_VIEW,
+  P.ROUTING_VIEW,
+  P.FACTORY_VIEW,
+
+  P.PRODUCTION_PLAN_VIEW,
+  P.PRODUCTION_PLAN_CREATE,
+  P.PRODUCTION_PLAN_UPDATE,
+
+  P.WORK_ORDER_VIEW,
+  P.WORK_ORDER_CREATE,
+  P.WORK_ORDER_UPDATE,
+
+  P.EXECUTION_VIEW,
+];
+
+const operatorPermissions: Permission[] = [
+  P.DASHBOARD_VIEW,
+  P.MES_VIEW,
+
+  P.PRODUCT_LIST,
+  P.BOM_VIEW,
+  P.ROUTING_VIEW,
+  P.FACTORY_VIEW,
+
+  P.PRODUCTION_PLAN_VIEW,
+  P.WORK_ORDER_VIEW,
+
+  P.EXECUTION_VIEW,
+  P.EXECUTION_START,
+  P.OPERATION_START,
+  P.OPERATION_COMPLETE,
+  P.OPERATION_FAIL,
+  P.EXECUTION_RESULT_CREATE,
+];
+
+const qualityInspectorPermissions: Permission[] = [
+  P.DASHBOARD_VIEW,
+  P.MES_VIEW,
+
+  P.PRODUCT_LIST,
+  P.BOM_VIEW,
+  P.ROUTING_VIEW,
+  P.WORK_ORDER_VIEW,
+  P.EXECUTION_VIEW,
+
+  P.QUALITY_VIEW,
+  P.QUALITY_INSPECT,
+  P.QUALITY_CONFIRM,
+];
+
+const employeePermissions: Permission[] = [P.DASHBOARD_VIEW];
+
+const viewerPermissions: Permission[] = [
+  P.DASHBOARD_VIEW,
+  P.MES_VIEW,
+  P.PRODUCT_LIST,
+  P.MATERIAL_VIEW,
+  P.BOM_VIEW,
+  P.ROUTING_VIEW,
+  P.FACTORY_VIEW,
+  P.PRODUCTION_PLAN_VIEW,
+  P.WORK_ORDER_VIEW,
+  P.EXECUTION_VIEW,
+  P.QUALITY_VIEW,
+];
+
+function normalizeBusinessRole(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/**
+ * 内置账户类型权限。
+ * 业务岗位权限单独维护，不能将 employee 自动提升为 MES 配置人员。
+ */
 export const rolePermissions: Record<string, readonly Permission[]> = {
-  [Roles.ADMIN]: [
-    Permissions.DASHBOARD_VIEW,
+  [Roles.ADMIN]: adminPermissions,
+  [Roles.EMPLOYEE]: employeePermissions,
+  [Roles.OPERATOR]: operatorPermissions,
+  [Roles.VIEWER]: viewerPermissions,
 
-    // 用户管理
-    Permissions.USER_LIST,
-    Permissions.USER_INVITE,
-    Permissions.USER_UPDATE,
-    Permissions.USER_DISABLE,
-
-    // 产品管理
-    Permissions.PRODUCT_LIST,
-    Permissions.PRODUCT_CREATE,
-    Permissions.PRODUCT_UPDATE,
-    Permissions.PRODUCT_STATUS_UPDATE,
-
-    // MES 通用访问
-    Permissions.MES_VIEW,
-
-    // 生产执行管理
-    Permissions.EXECUTION_VIEW,
-    Permissions.EXECUTION_CREATE,
-    Permissions.EXECUTION_START,
-
-    // 工序作业
-    Permissions.OPERATION_START,
-    Permissions.OPERATION_COMPLETE,
-    Permissions.OPERATION_FAIL,
-
-    // 生产结果
-    Permissions.EXECUTION_RESULT_CREATE,
-    Permissions.EXECUTION_RESULT_CONFIRM,
-    Permissions.EXECUTION_RESULT_CANCEL,
-  ],
-
-  // 普通员工默认没有生产执行操作权限。
-  [Roles.EMPLOYEE]: [Permissions.DASHBOARD_VIEW],
-
-  // 操作员可以查看执行记录并进行现场生产操作，
-  // 不允许创建生产执行，也不允许确认或取消生产结果。
-  [Roles.OPERATOR]: [
-    Permissions.DASHBOARD_VIEW,
-    Permissions.EXECUTION_VIEW,
-    Permissions.EXECUTION_START,
-    Permissions.OPERATION_START,
-    Permissions.OPERATION_COMPLETE,
-    Permissions.OPERATION_FAIL,
-    Permissions.EXECUTION_RESULT_CREATE,
-  ],
-
-  // 只读用户只能查看生产执行及其详情。
-  [Roles.VIEWER]: [Permissions.DASHBOARD_VIEW, Permissions.EXECUTION_VIEW],
+  [normalizeBusinessRole(BusinessRoleNames.EMPLOYEE)]: employeePermissions,
+  [normalizeBusinessRole(BusinessRoleNames.PROCESS_ENGINEER)]:
+    processEngineerPermissions,
+  [normalizeBusinessRole(BusinessRoleNames.PRODUCTION_PLANNER)]:
+    productionPlannerPermissions,
+  [normalizeBusinessRole(BusinessRoleNames.OPERATOR)]: operatorPermissions,
+  [normalizeBusinessRole(BusinessRoleNames.QUALITY_INSPECTOR)]:
+    qualityInspectorPermissions,
 };

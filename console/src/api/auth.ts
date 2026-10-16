@@ -4,6 +4,8 @@ export interface User {
   id: string;
   tenant_id: string;
   uuid?: string;
+  role_id?: number | string;
+  role_name?: string;
   email: string;
   name?: string;
   user_type?: string;
@@ -35,6 +37,7 @@ export interface RefreshTokenRequest {
 export interface RefreshTokenResponse {
   access_token: string;
   refresh_token: string;
+  user?: User;
 }
 
 export interface AcceptInvitationRequest {
