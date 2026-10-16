@@ -132,6 +132,14 @@ func (r *userRepository) GetUserByEmail(
 		return nil, err
 	}
 
+	fmt.Printf(
+    "[DEBUG] login user_id=%d tenant_id=%d role_id=%d role_name=%q\n",
+    user.ID,
+    user.TenantID,
+    user.RoleID,
+    user.Role.Name,
+)
+
 	return &user, nil
 }
 
@@ -149,6 +157,7 @@ func (r *userRepository) ListUsers(
 
 	query := r.db.Get().
 		WithContext(ctx).
+		Preload("Role").
 		Where("tenant_id = ?", tenantID)
 
 	if status != "" {

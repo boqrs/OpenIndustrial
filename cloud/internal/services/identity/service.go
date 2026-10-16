@@ -345,6 +345,7 @@ func (s *service) InviteUser(
 
 	user.Name = req.Name
 	user.RoleID = role.ID
+	user.Role = *role
 	user.Status = model.UserStatusInvited
 
 	if err := s.repo.UpdateUser(ctx, user); err != nil {

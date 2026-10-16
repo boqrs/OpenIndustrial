@@ -85,7 +85,7 @@ export const routes: RouteRecordRaw[] = [
         name: "BOMList",
         component: () => import("../mes/bom/views/BOMList.vue"),
         meta: {
-          permission: Permissions.MES_VIEW,
+          permission: Permissions.BOM_VIEW,
         },
       },
       {
@@ -94,7 +94,7 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("../mes/bom/views/BOMDetail.vue"),
         props: true,
         meta: {
-          permission: Permissions.MES_VIEW,
+          permission: Permissions.BOM_VIEW,
         },
       },
 
@@ -153,7 +153,7 @@ export const routes: RouteRecordRaw[] = [
         name: "RoutingList",
         component: () => import("../mes/routing/views/RoutingList.vue"),
         meta: {
-          permission: Permissions.MES_VIEW,
+          permission: Permissions.ROUTING_VIEW,
         },
       },
       {
@@ -162,7 +162,7 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("../mes/routing/views/RoutingDetail.vue"),
         props: true,
         meta: {
-          permission: Permissions.MES_VIEW,
+          permission: Permissions.ROUTING_VIEW,
         },
       },
 

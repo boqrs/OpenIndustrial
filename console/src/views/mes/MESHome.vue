@@ -32,15 +32,27 @@ const canAccessProducts = computed(() =>
 );
 
 const canAccessMaterials = computed(() =>
-  hasPermission(authStore.user, Permissions.MES_VIEW),
+  hasPermission(authStore.user, Permissions.MATERIAL_VIEW),
 );
 
 const canAccessBOMs = computed(() =>
-  hasPermission(authStore.user, Permissions.MES_VIEW),
+  hasPermission(authStore.user, Permissions.BOM_VIEW),
 );
 
 const canAccessRouting = computed(() =>
-  hasPermission(authStore.user, Permissions.MES_VIEW),
+  hasPermission(authStore.user, Permissions.ROUTING_VIEW),
+);
+
+const canAccessFactory = computed(() =>
+  hasPermission(authStore.user, Permissions.FACTORY_VIEW),
+);
+
+const canAccessProductionPlans = computed(() =>
+  hasPermission(authStore.user, Permissions.PRODUCTION_PLAN_VIEW),
+);
+
+const canAccessWorkOrders = computed(() =>
+  hasPermission(authStore.user, Permissions.WORK_ORDER_VIEW),
 );
 
 const canAccessExecution = computed(() =>
@@ -66,7 +78,7 @@ const resourceModules = computed<ResourceModule[]>(() => [
     icon: OfficeBuilding,
     path: "/mes/factories",
     status: "工厂与生产组织",
-    permission: canAccessMaterials.value,
+    permission: canAccessFactory.value,
     color: "slate",
   },
   {
@@ -116,7 +128,7 @@ const resourceModules = computed<ResourceModule[]>(() => [
     icon: Calendar,
     path: "/mes/production-plans",
     status: "计划管理",
-    permission: canAccessMaterials.value,
+    permission: canAccessProductionPlans.value,
     color: "green",
   },
   {
@@ -137,7 +149,7 @@ const resourceModules = computed<ResourceModule[]>(() => [
     icon: Document,
     path: "/mes/work-orders",
     status: "工单管理",
-    permission: canAccessMaterials.value,
+    permission: canAccessWorkOrders.value,
     color: "orange",
   },
 ]);
