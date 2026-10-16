@@ -97,6 +97,7 @@ func (r *userRepository) GetUserByID(
 
 	err := r.db.Get().
 		WithContext(ctx).
+		Preload("Role").
 		Where(
 			"tenant_id = ? AND uuid = ?",
 			tenantID,
@@ -120,6 +121,7 @@ func (r *userRepository) GetUserByEmail(
 
 	err := r.db.Get().
 		WithContext(ctx).
+		Preload("Role").
 		Where(
 			"tenant_id = ? AND email = ?",
 			tenantID,

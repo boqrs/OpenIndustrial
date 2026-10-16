@@ -42,6 +42,7 @@ type UserResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+
 func NewUserResponse(user *model.User) *UserResponse {
 	if user == nil {
 		return nil
@@ -52,6 +53,7 @@ func NewUserResponse(user *model.User) *UserResponse {
 		UUID:      user.UUID,
 		TenantID:  user.TenantID,
 		RoleID:    user.RoleID,
+		RoleName:  user.Role.Name,
 		Email:     user.Email,
 		Name:      user.Name,
 		UserType:  user.UserType,

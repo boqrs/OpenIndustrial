@@ -387,7 +387,7 @@
 
           <!-- MES 制造执行 -->
           <button
-            v-if="canAccessProducts"
+            v-if="canAccessMES"
             type="button"
             class="module-card module-card--mes"
             @click="openProducts"
@@ -718,7 +718,7 @@ import type { UserStats } from "../../api/dashboard";
 import { useAuthStore } from "../../store/auth";
 import { hasPermission, isKnownRole } from "../../authz/access";
 import { Permissions } from "../../authz/permissions";
-import { getRoleLabel } from "../../authz/roles";
+import { getBusinessRoleLabel } from "../../authz/roles";
 
 type StatKey = "total" | "init" | "invited" | "active" | "disabled";
 
@@ -740,8 +740,8 @@ const isAdmin = computed(() =>
   hasPermission(authStore.user, Permissions.USER_LIST),
 );
 
-const canAccessProducts = computed(() =>
-  hasPermission(authStore.user, Permissions.PRODUCT_LIST),
+const canAccessMES = computed(() =>
+  hasPermission(authStore.user, Permissions.MES_VIEW),
 );
 
 const displayName = computed(() => {
@@ -775,7 +775,7 @@ const avatarText = computed(() => {
 });
 
 const roleLabel = computed(() =>
-  getRoleLabel(authStore.user?.user_type ?? null),
+  getBusinessRoleLabel(authStore.user?.role_name),
 );
 
 const statCards = computed<StatCard[]>(() => [
